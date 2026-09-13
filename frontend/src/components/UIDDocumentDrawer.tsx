@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { X, FileText, Image as ImageIcon, History, Download, Eye, Folder, ShieldCheck } from 'lucide-react'
-import { request } from '../lib/api'
+import { API_ORIGIN, request } from '../lib/api'
 
 interface UIDDocumentDrawerProps {
   uidNo: string
@@ -249,7 +249,7 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
 
                   <div className="uid-document-actions">
                     <a
-                      href={`http://localhost:8000/storage/${doc.file_path}`}
+                      href={`${API_ORIGIN}/storage/${doc.file_path}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn btn-outline btn-sm"
@@ -257,7 +257,7 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
                       <Eye size={14} /> View
                     </a>
                     <a
-                      href={`http://localhost:8000/storage/${doc.file_path}`}
+                      href={`${API_ORIGIN}/storage/${doc.file_path}`}
                       download={doc.file_name}
                       className="btn btn-outline btn-sm"
                     >

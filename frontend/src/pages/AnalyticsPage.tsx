@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BarChart3, TrendingUp, Clock, Users, Building2, Download, FlaskConical, Loader } from 'lucide-react'
-import { request } from '../lib/api'
+import { API_ORIGIN, request } from '../lib/api'
 
 interface AnalyticsData {
   overview: {
@@ -52,7 +52,7 @@ export function AnalyticsPage() {
 
   const exportCsv = async (type: string) => {
     const token = window.localStorage.getItem('legacy_erp_token')
-    window.open(`http://localhost:8000/api/analytics/export/${type}${token ? `?token=${token}` : ''}`, '_blank')
+    window.open(`${API_ORIGIN}/api/analytics/export/${type}${token ? `?token=${token}` : ''}`, '_blank')
   }
 
   if (loading) {

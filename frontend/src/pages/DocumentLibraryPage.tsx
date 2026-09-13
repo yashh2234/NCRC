@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent, type ReactNode } from 'react'
 import { Folder, File, Upload, Search, Trash2, Download, Eye, X, ChevronRight, ChevronDown } from 'lucide-react'
-import { request } from '../lib/api'
+import { API_ORIGIN, request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 
 interface CategoryNode {
@@ -137,7 +137,7 @@ export function DocumentLibraryPage() {
       if (uploadCategory) formData.append('category_id', String(uploadCategory))
 
       const token = window.localStorage.getItem('legacy_erp_token')
-      const res = await fetch('http://localhost:8000/api/documents', {
+      const res = await fetch(`${API_ORIGIN}/api/documents`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
@@ -167,13 +167,13 @@ export function DocumentLibraryPage() {
 
   const handlePreview = async (doc: DocumentRecord) => {
     setPreviewDoc(doc)
-    setPreviewUrl(`http://localhost:8000/api/documents/${doc.id}/preview?t=${Date.now()}`)
+    setPreviewUrl(`${API_ORIGIN}/api/documents/${doc.id}/preview?t=${Date.now()}`)
   }
 
   const handleDownload = async (id: number) => {
     const token = window.localStorage.getItem('legacy_erp_token')
     const a = document.createElement('a')
-    a.href = `http://localhost:8000/api/documents/${id}/download`
+    a.href = `${API_ORIGIN}/api/documents/${id}/download`
     a.target = '_blank'
     if (token) a.href += `?token=${token}`
     a.click()

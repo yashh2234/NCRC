@@ -6,7 +6,7 @@ import {
   ShieldCheck, User, Eye, Trash2, Upload, ExternalLink
 } from 'lucide-react'
 import type { RegistrationFormData } from '../lib/types'
-import { api, request } from '../lib/api'
+import { API_ORIGIN, api, request } from '../lib/api'
 import { FormField, DatePicker } from './ui'
 import { RATE_LIST } from '../data/rateList'
 
@@ -919,7 +919,7 @@ export function RegistrationWizard({
                 const pendingFile = pendingFiles[field as string]
                 const hasFile = Boolean(filePath || pendingFile)
                 const fileName = pendingFile ? pendingFile.name : (filePath ? filePath.split('/').pop() : '')
-                const fileUrl = filePath ? (filePath.startsWith('http') ? filePath : `http://127.0.0.1:8000/storage/${filePath}`) : ''
+                const fileUrl = filePath ? (filePath.startsWith('http') ? filePath : `${API_ORIGIN}/storage/${filePath}`) : ''
 
                 return (
                   <div

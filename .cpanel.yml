@@ -1,0 +1,23 @@
+---
+deployment:
+  tasks:
+
+    # Paths
+    - export DEPLOY_PATH=/home2/namoteuj/ncrc.namotech.in
+    - export API_URL=https://ncrc.namotech.in/api
+
+    # Build React
+    - cd frontend && npm ci
+    - cd frontend && VITE_API_BASE_URL=$API_URL npm run build
+
+    # Publish React
+    - /bin/cp -R frontend/dist/. $DEPLOY_PATH/
+
+    # Install Laravel
+    - cd backend && composer install --no-dev --optimize-autoloader
+
+    # Laravel
+    - cd backend && php artisan storage:link
+    - cd backend && php artisan config:cache
+    - cd backend && php artisan route:cache
+    - cd backend && php artisan view:cache
