@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+
+@import "./css/base.css";
+@import "./css/layout.css";
+@import "./css/components.css";
+@import "./css/pages.css";
+@import "./css/responsive.css";
+
+/* Global smooth scroll & selection */
+html {
+  scroll-behavior: smooth;
+}

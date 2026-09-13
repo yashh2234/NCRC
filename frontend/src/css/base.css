@@ -1,0 +1,213 @@
+/*
+  Design system — "Apple Lab"
+  Premium, spacious, subtly animated UI with frosted-glass depth.
+*/
+
+:root {
+  /* ---- Neutrals (Apple warm grays) ---- */
+  --gray-50:  #fafafa;
+  --gray-100: #f5f5f5;
+  --gray-200: #e5e5e5;
+  --gray-300: #d4d4d4;
+  --gray-400: #a3a3a3;
+  --gray-500: #737373;
+  --gray-600: #525252;
+  --gray-700: #404040;
+  --gray-800: #262626;
+  --gray-900: #171717;
+  --gray-950: #0a0a0a;
+
+  --paper:            #fafafa;
+  --color-bg:         #fafafa;
+  --color-surface:    #ffffff;
+  --surface-raised:   #ffffff;
+  --surface-sunken:   var(--gray-100);
+
+  --color-text:        var(--gray-900);
+  --color-text-muted:  var(--gray-500);
+  --color-text-subtle: var(--gray-400);
+
+  --color-border:       rgba(0, 0, 0, 0.08);
+  --color-border-light: rgba(0, 0, 0, 0.04);
+  --color-input-bg:     var(--gray-50);
+  --color-input-border: rgba(0, 0, 0, 0.12);
+
+  /* ---- Primary: Apple indigo/blue ---- */
+  --color-primary:       #0071e3;
+  --color-primary-dark:  #0058b0;
+  --color-primary-tint:  rgba(0, 113, 227, 0.08);
+  --color-primary-hover: #0058b0;
+  --color-primary-ring:  rgba(0, 113, 227, 0.25);
+
+  /* ---- Accent: warm amber ---- */
+  --color-accent:      #f59e0b;
+  --color-accent-dark: #d97706;
+  --accent-tint:        #fef3c7;
+  --accent-tint-border: #fde68a;
+
+  /* ---- Status ---- */
+  --color-green:         #34c759;
+  --color-green-text:    #1a8f3c;
+  --color-green-bg:      rgba(52, 199, 89, 0.08);
+  --color-green-border:  rgba(52, 199, 89, 0.2);
+  --color-green-pill-bg: rgba(52, 199, 89, 0.12);
+
+  --color-red:         #ff3b30;
+  --color-red-text:    #d32f2f;
+  --color-red-bg:      rgba(255, 59, 48, 0.06);
+  --color-red-pill-bg: rgba(255, 59, 48, 0.10);
+
+  --color-orange-text: #e67700;
+  --color-orange-bg:   rgba(245, 158, 11, 0.08);
+
+  /* ---- Sidebar (Dark Apple Pro Drawer) ---- */
+  --color-sidebar-bg:        #0f172a;
+  --color-sidebar-bg-raised: rgba(255, 255, 255, 0.06);
+  --color-sidebar-text:      #94a3b8;
+  --color-sidebar-border:    rgba(255, 255, 255, 0.08);
+
+  --sidebar-width: 268px;
+
+  /* ---- Shape & elevation ---- */
+  --radius:    14px;
+  --radius-sm: 10px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 1px rgba(0, 0, 0, 0.02);
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow:     0 2px 8px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.03);
+  --shadow-lg:  0 4px 12px rgba(0, 0, 0, 0.05), 0 8px 32px rgba(0, 0, 0, 0.04);
+  --shadow-xl:  0 8px 24px rgba(0, 0, 0, 0.06), 0 16px 48px rgba(0, 0, 0, 0.05);
+
+  /* Frosted glass */
+  --glass-bg:     rgba(255, 255, 255, 0.72);
+  --glass-blur:   blur(24px) saturate(180%);
+  --glass-border: rgba(255, 255, 255, 0.5);
+
+  /* ---- Motion ---- */
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration: 0.3s;
+  --duration-fast: 0.15s;
+
+  /* ---- Type ---- */
+  --font-ui:   -apple-system, 'SF Pro Display', 'Inter', system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-data: 'SF Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-ui);
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--color-text);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+#root { min-height: 100vh; }
+
+/* Custom selection */
+::selection {
+  background: var(--color-primary-tint);
+  color: var(--color-primary-dark);
+}
+
+button, input, select, textarea { font: inherit; }
+
+h1, h2, h3 {
+  margin: 0;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 1.875rem;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+h2 {
+  font-size: 1.3rem;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+}
+
+h3 {
+  font-size: 1.1rem;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: opacity var(--duration-fast) var(--ease-apple);
+}
+a:hover { opacity: 0.8; text-decoration: none; }
+
+.mono {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--color-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section-label::before {
+  content: '';
+  width: 8px;
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 2px;
+}
+
+.text-muted  { color: var(--color-text-muted); }
+.text-subtle { color: var(--color-text-subtle); }
+.text-success { color: var(--color-green); }
+.text-danger  { color: var(--color-red); }
+
+.uid-cell {
+  font-weight: 700;
+  color: var(--color-primary);
+  font-family: var(--font-data);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
