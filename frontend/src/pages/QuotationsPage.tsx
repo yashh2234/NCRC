@@ -47,8 +47,6 @@ export default function QuotationsPage() {
   const [items, setItems] = useState<QuotationItem[]>([
     { description: '', quantity: 1, unit: 'nos', rate: 0, amount: 0 },
   ]);
-  const [converting, setConverting] = useState<number | null>(null);
-  const [registering, setRegistering] = useState<number | null>(null);
 
   const fetchQuotations = async () => {
     setLoading(true);
@@ -129,25 +127,6 @@ export default function QuotationsPage() {
       });
       fetchQuotations();
     } catch { /* ignore */ }
-  };
-
-  const handleConvertToWorkOrder = async (id: number) => {
-    setConverting(id);
-    try {
-      await request(`/quotations/${id}/convert-to-work-order`, { method: 'POST' });
-      fetchQuotations();
-    } catch (e: any) { alert(e.message || 'Conversion failed'); }
-    setConverting(null);
-  };
-
-  const handleConvertToRegistration = async (id: number) => {
-    setRegistering(id);
-    try {
-      const data = await request<any>(`/quotations/${id}/convert-to-registration`, { method: 'POST' });
-      alert(`Client registered! UID: ${data.uid_no}`);
-      fetchQuotations();
-    } catch (e: any) { alert(e.message || 'Registration failed'); }
-    setRegistering(null);
   };
 
   return (

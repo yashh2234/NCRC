@@ -11,6 +11,12 @@ export default defineConfig({
   ],
   server: {
     host: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
     allowedHosts: [
       "conductor-baked-produce.ngrok-free.dev",
     ],

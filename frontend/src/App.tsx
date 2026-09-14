@@ -29,7 +29,7 @@ import { AppShell } from './components/AppShell'
 import { useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
 import { isModuleAllowed } from './lib/roleConfig'
-import { Briefcase, ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, Settings, ClipboardCheck, BookOpen, Tag, type LucideIcon } from 'lucide-react'
+import { Briefcase, ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, Settings, ClipboardCheck, BookOpen, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   key: string

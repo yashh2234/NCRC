@@ -48,6 +48,7 @@ export function FormField({ label, error, children, required, style, description
         {label} {required ? <span style={{ color: '#ef4444', marginLeft: 2, fontWeight: 700 }}>*</span> : null}
       </span>
       {children}
+      {description ? <span style={{ fontSize: '0.72rem', color: 'var(--gray-500)', marginTop: 4, display: 'block' }}>{description}</span> : null}
       {error ? <span style={{ fontSize: '0.72rem', color: '#ef4444', marginTop: 4, display: 'block', fontWeight: 500 }}>{error}</span> : null}
     </label>
   )

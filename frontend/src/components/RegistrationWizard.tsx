@@ -2,8 +2,7 @@ import { useEffect, useState, useRef, type FormEvent } from 'react'
 import {
   ClipboardList, ArrowLeft, ArrowRight, Save, Plus, X, Building2,
   FlaskConical, Paperclip, IndianRupee, Briefcase, Calculator,
-  Sparkles, CheckCircle2, AlertCircle, Clock, FileText, UserCheck,
-  ShieldCheck, User, Eye, Trash2, Upload, ExternalLink
+  Sparkles, CheckCircle2, Clock, FileText, UserCheck, Eye, Trash2, Upload
 } from 'lucide-react'
 import type { RegistrationFormData } from '../lib/types'
 import { API_ORIGIN, api, request } from '../lib/api'
@@ -266,7 +265,7 @@ export function RegistrationWizard({
       if (i !== index) return r
       const catObj = RATE_LIST.find((c) => c.category === r.category)
       const item = catObj?.items.find((it) => it.name === subOption)
-      const formattedDetail = r.category && subOption ? `${r.category} - ${subOption}` : subOption || r.sampleType
+      const formattedDetail = (r.category && subOption ? `${r.category} - ${subOption}` : subOption || r.sampleType) || ''
       return {
         ...r,
         subOption,
@@ -661,7 +660,7 @@ export function RegistrationWizard({
                             const customSub = e.target.value
                             const next = sampleRows.map((r, idx) => {
                               if (idx !== i) return r
-                              const formatted = r.category && customSub ? `${r.category} - ${customSub}` : customSub || r.category
+                              const formatted = (r.category && customSub ? `${r.category} - ${customSub}` : customSub || r.category) || ''
                               return { ...r, subOption: customSub, sampleType: formatted }
                             })
                             setSampleRows(next)

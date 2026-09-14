@@ -80,7 +80,6 @@ function printBill(rec: BillingRecord) {
   const discount = rec.discount || 0;
   const cgst = billAmount * 9 / 100;
   const sgst = billAmount * 9 / 100;
-  const igst = billAmount * 18 / 100;
   const totalWithGst = billAmount + cgst + sgst;
   const netDue = totalWithGst - advanceAmount - discount;
   const amountWords = numberToWords(Math.round(netDue > 0 ? netDue : totalWithGst));

@@ -229,6 +229,12 @@ export interface RegistrationFormData {
   target_date?: string
   payment_status?: string
   handover_note?: string
+  scan_copy?: string
+  scan_copy_1?: string
+  scan_copy_2?: string
+  scan_copy_3?: string
+  scan_copy_4?: string
+  stage_logs?: StageLog[]
 }
 
 export interface CubeReport {

@@ -101,7 +101,12 @@ interface ExpenseChartProps {
 }
 
 export function ExpenseCategoryChart({ data }: ExpenseChartProps) {
-  const chartData = data.map((d) => ({ category: d.category.length > 18 ? d.category.slice(0, 18) + '...' : d.category, amount: Number(d.total) }))
+  const chartData = data
+    .filter((d) => d && d.category != null)
+    .map((d) => {
+      const category = String(d.category)
+      return { category: category.length > 18 ? category.slice(0, 18) + '...' : category, amount: Number(d.total) }
+    })
   return (
     <div className="chart-container">
       <p className="section-label">Expenses</p>

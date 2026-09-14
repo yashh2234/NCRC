@@ -1,4 +1,4 @@
-import { FileText, User, Play, Check, X, Clock, History, ArrowRight, ShieldCheck, Tag } from 'lucide-react'
+import { FileText, User, Play, Check, X, Clock, History } from 'lucide-react'
 
 export interface TimelineEntry {
   event: string
