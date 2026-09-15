@@ -1,27 +1,13 @@
 ---
 deployment:
   tasks:
-
-    # Paths
-    - export DEPLOY_PATH=/home2/namoteuj/ncrc.namotech.in
-    - export REPO_PATH=$(pwd)
-
-    # Ensure deployment directory exists
-    - /bin/mkdir -p $DEPLOY_PATH
-
-    # Publish pre-built React frontend
-    - /bin/cp -R frontend/dist/. $DEPLOY_PATH/
-
-    # Symlink Laravel public directory to /api inside DEPLOY_PATH
-    - /bin/ln -sfn $REPO_PATH/backend/public $DEPLOY_PATH/api
-
-    # Fix permissions for web server
-    - /bin/find $DEPLOY_PATH -type d -exec /bin/chmod 755 {} \;
-    - /bin/find $DEPLOY_PATH -type f -exec /bin/chmod 644 {} \;
-
-    # Backend tasks (safe execution so warnings do not abort deployment)
-    - cd backend && (composer install --no-dev --optimize-autoloader || true)
-    - cd backend && (php artisan storage:link || true)
-    - cd backend && (php artisan config:cache || true)
-    - cd backend && (php artisan route:cache || true)
-    - cd backend && (php artisan view:cache || true)
+    - export DEPLOYPATH=/home2/namoteuj/ncrc.namotech.in/
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R frontend/dist/. $DEPLOYPATH
+    - /bin/ln -sfn /home2/namoteuj/ncrcsoftware.namotech.in/backend/public $DEPLOYPATH/api
+    - /bin/chmod 755 $DEPLOYPATH
+    - cd backend && composer install --no-dev --optimize-autoloader
+    - cd backend && php artisan storage:link
+    - cd backend && php artisan config:cache
+    - cd backend && php artisan route:cache
+    - cd backend && php artisan view:cache
