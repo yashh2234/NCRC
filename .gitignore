@@ -1,0 +1,8 @@
+# Deployed static frontend files in repository root
+/index.html
+/assets/
+/.htaccess
+/favicon.svg
+/icons.svg
+/api
+/OfficeDOCS/
