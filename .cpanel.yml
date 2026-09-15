@@ -4,7 +4,7 @@ deployment:
     - export DEPLOYPATH=/home2/namoteuj/ncrc.namotech.in/
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R frontend/dist/. $DEPLOYPATH
-    - /bin/ln -sfn /home2/namoteuj/ncrcsoftware.namotech.in/backend/public $DEPLOYPATH/api
+    - /bin/ln -sfn /home2/namoteuj/ncrc.namotech.in/backend/public $DEPLOYPATH/api
     - /bin/chmod 755 $DEPLOYPATH
     - cd backend && composer install --no-dev --optimize-autoloader
     - cd backend && php artisan storage:link
