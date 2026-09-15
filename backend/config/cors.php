@@ -23,6 +23,7 @@ return [
         'http://localhost:5173',
         'https://conductor-baked-produce.ngrok-free.dev',
         'https://ncrc.namotech.in',
+        'http://ncrc.namotech.in',
     ],
 
     'allowed_origins_patterns' => [],

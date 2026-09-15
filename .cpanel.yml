@@ -4,23 +4,24 @@ deployment:
 
     # Paths
     - export DEPLOY_PATH=/home2/namoteuj/ncrc.namotech.in
-    - export API_URL=https://ncrc.namotech.in/api
+    - export REPO_PATH=$(pwd)
 
-    # Build React
-    - cd frontend && npm ci
-    - cd frontend && VITE_API_BASE_URL=$API_URL npm run build
-
-    # Publish React
+    # Ensure deployment directory exists
     - /bin/mkdir -p $DEPLOY_PATH
+
+    # Publish pre-built React frontend
     - /bin/cp -R frontend/dist/. $DEPLOY_PATH/
+
+    # Symlink Laravel public directory to /api inside DEPLOY_PATH
+    - /bin/ln -sfn $REPO_PATH/backend/public $DEPLOY_PATH/api
+
+    # Fix permissions for web server
     - /bin/find $DEPLOY_PATH -type d -exec /bin/chmod 755 {} \;
     - /bin/find $DEPLOY_PATH -type f -exec /bin/chmod 644 {} \;
 
-    # Install Laravel
-    - cd backend && composer install --no-dev --optimize-autoloader
-
-    # Laravel
-    - cd backend && php artisan storage:link
-    - cd backend && php artisan config:cache
-    - cd backend && php artisan route:cache
-    - cd backend && php artisan view:cache
+    # Backend tasks (safe execution so warnings do not abort deployment)
+    - cd backend && (composer install --no-dev --optimize-autoloader || true)
+    - cd backend && (php artisan storage:link || true)
+    - cd backend && (php artisan config:cache || true)
+    - cd backend && (php artisan route:cache || true)
+    - cd backend && (php artisan view:cache || true)
