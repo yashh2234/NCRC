@@ -395,8 +395,18 @@ export const api = {
     return request(`/ulr-links/${id}`, { method: 'DELETE' })
   },
 
-  ulrClientDetails(uid_no: string): Promise<{ data: { uid_no: string; agency_name: string; name_of_work: string; sample_details: string } | null }> {
+  ulrClientDetails(uid_no: string): Promise<{ data: { uid_no: string; agency_name: string; reporting_address?: string; name_of_work: string; sample_details: string } | null }> {
     return request('/ulr-links/client-details', { method: 'POST', body: JSON.stringify({ uid_no }) })
+  },
+
+  ulrDropdown(date?: string): Promise<{ data: Array<{ id: number; ulr_no: string; uid_no: string | null; is_assigned: boolean; label: string }> }> {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : ''
+    return request(`/ulr-links/dropdown${qs}`)
+  },
+
+  ulrRegister(params?: Record<string, string>): Promise<{ data: any[] }> {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+    return request(`/ulr-links/register${qs}`)
   },
 
   stores(): Promise<{ data: Array<{ id: number; name: string; active: number }> }> {

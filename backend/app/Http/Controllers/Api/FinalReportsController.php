@@ -40,18 +40,25 @@ class FinalReportsController extends Controller
             ->when($typeFilter, fn ($q, $t) => $q->where('report_type', $t))
             ->orderByDesc('create_date')
             ->orderByDesc('iReportId')
-            ->limit(200)
+            ->limit(500)
             ->get()
             ->map(fn (Report $report): array => [
                 'iReportId' => $report->iReportId,
                 'uid_no' => $report->uid_no,
+                'ulr_no' => $report->ulr_no,
+                'customer_details' => $report->customer_details,
                 'create_date' => optional($report->create_date)->format('d M Y'),
+                'raw_date' => optional($report->create_date)->format('Y-m-d'),
                 'agency_name' => $report->agency_name,
+                'reference_no' => $report->reference_no,
+                'material_details' => $report->material_details,
+                'source_location' => $report->source_location,
+                'work_order_no' => $report->work_order_no,
+                'sample_date' => $report->sample_date ? (is_string($report->sample_date) ? $report->sample_date : optional($report->sample_date)->format('d M Y')) : null,
+                'sample_tested_date' => $report->sample_tested_date ? (is_string($report->sample_tested_date) ? $report->sample_tested_date : optional($report->sample_tested_date)->format('d M Y')) : null,
                 'report_type' => $report->report_type,
                 'report_type_label' => self::REPORT_TYPE_LABELS[$report->report_type] ?? $report->report_type,
                 'status' => $report->status,
-                'material_details' => $report->material_details,
-                'reference_no' => $report->reference_no,
             ]);
 
         return response()->json(['data' => $reports]);
@@ -92,15 +99,19 @@ class FinalReportsController extends Controller
             ->map(fn (Report $report): array => [
                 'iReportId' => $report->iReportId,
                 'uid_no' => $report->uid_no,
+                'ulr_no' => $report->ulr_no,
                 'create_date' => optional($report->create_date)->format('d M Y'),
+                'customer_details' => $report->customer_details,
                 'agency_name' => $report->agency_name,
+                'reference_no' => $report->reference_no,
+                'material_details' => $report->material_details,
+                'source_location' => $report->source_location,
+                'work_order_no' => $report->work_order_no,
+                'sample_date' => $report->sample_date ? (is_string($report->sample_date) ? $report->sample_date : optional($report->sample_date)->format('d M Y')) : null,
+                'sample_tested_date' => $report->sample_tested_date ? (is_string($report->sample_tested_date) ? $report->sample_tested_date : optional($report->sample_tested_date)->format('d M Y')) : null,
                 'report_type' => $report->report_type,
                 'report_type_label' => self::REPORT_TYPE_LABELS[$report->report_type] ?? $report->report_type,
                 'status' => $report->status,
-                'material_details' => $report->material_details,
-                'reference_no' => $report->reference_no,
-                'customer_details' => $report->customer_details,
-                'source_location' => $report->source_location,
             ]);
 
         return response()->json(['data' => $reports]);

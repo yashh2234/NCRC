@@ -1,150 +1,624 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Download } from 'lucide-react'
+import { Pencil, Trash2, Download, Link2, Calendar, Search, CheckCircle2, AlertCircle, X, FileSpreadsheet } from 'lucide-react'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 
 interface UlrLink {
-    id: number; uid_no: string; ulr_no: string; date: string
-    name_of_department: string; name_of_agency: string; name_of_project: string
-    sample_details: string; qty: string; parameters: string; testing_period: string
-    sample_received_date: string | null; report_dispatch_date: string | null; bill_details: string; signature_remark: string
+  id: number
+  uid_no: string
+  ulr_no: string
+  date: string
+  name_of_department: string
+  name_of_agency: string
+  name_of_project: string
+  sample_details: string
+  qty?: string
+  parameters?: string
+  testing_period?: string
+  sample_received_date?: string | null
+  report_dispatch_date?: string | null
+  bill_details?: string
+  signature_remark?: string
 }
 
-const emptyForm = { uid_no: '', date: new Date().toISOString().slice(0, 10), name_of_department: '', name_of_agency: '', name_of_project: '', sample_details: '', qty: '', parameters: '', testing_period: '', sample_received_date: '', report_dispatch_date: '', bill_details: '', signature_remark: '' }
+interface DropdownItem {
+  id?: number
+  ulr_no: string
+  uid_no?: string | null
+  is_assigned: boolean
+  label: string
+}
 
 export function UlrLinkPage() {
-    useTracking('ulr_links')
-    const [links, setLinks] = useState<UlrLink[]>([])
-    const [loading, setLoading] = useState(true)
-    const [view, setView] = useState<'list' | 'form'>('list')
-    const [editingId, setEditingId] = useState<number | null>(null)
-    const [form, setForm] = useState(emptyForm)
-    const [error, setError] = useState('')
-    const [startDate, setStartDate] = useState('')
-    const [endDate, setEndDate] = useState('')
+  useTracking('ulr_links')
 
-    const load = useCallback(async () => {
-        setLoading(true)
-        try {
-            const params: Record<string, string> = {}
-            if (startDate && endDate) { params.start_date = startDate; params.end_date = endDate }
-            const d = Object.keys(params).length > 0 ? await api.ulrLinksFiltered(params) : await api.ulrLinks()
-            setLinks(d.data)
-        } catch { setError('Failed to load') }
-        finally { setLoading(false) }
-    }, [startDate, endDate])
+  const [activeTab, setActiveTab] = useState<'link' | 'register'>('link')
+  const [links, setLinks] = useState<UlrLink[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
 
-    useEffect(() => { void load() }, [load])
+  // Date filters for register table
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
-    const handleFilter = () => { void load() }
-    const handleClearFilter = () => { setStartDate(''); setEndDate('') }
+  // Quick link table form states (exact flow as Old software Ulrlink/index.php)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const [quickDate, setQuickDate] = useState(todayStr)
+  const [quickUid, setQuickUid] = useState('')
+  const [quickUlr, setQuickUlr] = useState('')
+  const [newUlrInput, setNewUlrInput] = useState('')
+  const [quickDept, setQuickDept] = useState('')
+  const [quickAgency, setQuickAgency] = useState('')
+  const [quickWork, setQuickWork] = useState('')
+  const [quickSample, setQuickSample] = useState('')
+  const [dropdownUlrList, setDropdownUlrList] = useState<DropdownItem[]>([])
+  const [isLinking, setIsLinking] = useState(false)
+  const [lookupStatus, setLookupStatus] = useState<string>('')
 
-    const handleExport = async () => {
-        try {
-            const params: Record<string, string> = {}
-            if (startDate && endDate) { params.start_date = startDate; params.end_date = endDate }
-            const d = await api.ulrLinksExport(params)
-            const rows = d.data
-            const header = 'Date,ULR No,UID No,Agency,Project,Sample Details\n'
-            const csv = header + rows.map(r => `"${r.date}","${r.ulr_no}","${r.uid_no}","${r.name_of_agency}","${r.name_of_project}","${r.sample_details}"`).join('\n')
-            const blob = new Blob([csv], { type: 'text/csv' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a'); a.href = url; a.download = `ulr_links_${new Date().toISOString().slice(0, 10)}.csv`; a.click()
-            URL.revokeObjectURL(url)
-        } catch { setError('Failed to export') }
+  // Full edit modal/view
+  const [editingItem, setEditingItem] = useState<UlrLink | null>(null)
+  const [editForm, setEditForm] = useState<Partial<UlrLink>>({})
+
+  // Load ULR list for active date
+  const loadDateDropdown = useCallback(async (date: string) => {
+    try {
+      const res = await api.ulrDropdown(date)
+      setDropdownUlrList(res.data)
+    } catch {
+      // fallback
+    }
+  }, [])
+
+  // Load register table
+  const loadLinks = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const params: Record<string, string> = {}
+      if (startDate && endDate) {
+        params.start_date = startDate
+        params.end_date = endDate
+      }
+      const res = Object.keys(params).length > 0
+        ? await api.ulrLinksFiltered(params)
+        : await api.ulrLinks()
+      setLinks(res.data as UlrLink[])
+    } catch {
+      setError('Failed to load ULR links')
+    } finally {
+      setLoading(false)
+    }
+  }, [startDate, endDate])
+
+  useEffect(() => {
+    void loadDateDropdown(quickDate)
+  }, [quickDate, loadDateDropdown])
+
+  useEffect(() => {
+    void loadLinks()
+  }, [loadLinks])
+
+  // Lookup UID automatically or on blur (like Old getuiddetails)
+  const handleUidLookup = async (uidToLookup?: string) => {
+    const uid = (uidToLookup ?? quickUid).trim()
+    if (!uid) {
+      setLookupStatus('')
+      return
+    }
+    setLookupStatus('Searching...')
+    try {
+      const res = await api.ulrClientDetails(uid)
+      if (res.data) {
+        setQuickAgency(res.data.agency_name || '')
+        setQuickDept(res.data.reporting_address || '')
+        setQuickWork(res.data.name_of_work || '')
+        setQuickSample(res.data.sample_details || '')
+        setLookupStatus('Found!')
+        setSuccessMsg(`Details loaded for ${uid}`)
+        setTimeout(() => setSuccessMsg(''), 4000)
+      } else {
+        setLookupStatus('UID not found in registrations')
+      }
+    } catch {
+      setLookupStatus('Lookup error')
+    }
+  }
+
+  // Submit linking (Old formsubmit flow)
+  const handleQuickLinkSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!quickUid.trim()) {
+      setError('Please enter UID No.')
+      return
+    }
+    if (!quickAgency.trim()) {
+      setError('Please enter Agency Name')
+      return
+    }
+    if (!quickUlr) {
+      setError('Please select or create ULR No.')
+      return
+    }
+    if (quickUlr === 'new' && !newUlrInput.trim()) {
+      setError('Please enter the New ULR No.')
+      return
     }
 
-    const handleCreate = () => { setEditingId(null); setForm(emptyForm); setView('form') }
-    const handleEdit = (link: UlrLink) => { setEditingId(link.id); setForm({ uid_no: link.uid_no, date: link.date?.slice(0, 10) ?? '', name_of_department: link.name_of_department ?? '', name_of_agency: link.name_of_agency ?? '', name_of_project: link.name_of_project ?? '', sample_details: link.sample_details ?? '', qty: link.qty ?? '', parameters: link.parameters ?? '', testing_period: link.testing_period ?? '', sample_received_date: link.sample_received_date?.slice(0, 10) ?? '', report_dispatch_date: link.report_dispatch_date?.slice(0, 10) ?? '', bill_details: link.bill_details ?? '', signature_remark: link.signature_remark ?? '' }); setView('form') }
-    const handleDelete = async (id: number) => { if (!confirm('Delete?')) return; try { await api.deleteUlrLink(id); void load() } catch { setError('Failed') } }
-    const handleSave = async () => {
-        try {
-            if (editingId) { await api.updateUlrLink(editingId, form) }
-            else { await api.createUlrLink(form) }
-            setView('list'); void load()
-        } catch { setError('Failed to save') }
+    setIsLinking(true)
+    setError('')
+    try {
+      await api.createUlrLink({
+        date: quickDate,
+        uid_no: quickUid,
+        ulr_no: quickUlr,
+        new_ulr_no: quickUlr === 'new' ? newUlrInput : undefined,
+        name_of_department: quickDept,
+        name_of_agency: quickAgency,
+        name_of_project: quickWork,
+        sample_details: quickSample,
+      })
+      setSuccessMsg('ULR Linked and assigned successfully!')
+      setQuickUid('')
+      setQuickAgency('')
+      setQuickDept('')
+      setQuickWork('')
+      setQuickSample('')
+      setQuickUlr('')
+      setNewUlrInput('')
+      setLookupStatus('')
+      void loadDateDropdown(quickDate)
+      void loadLinks()
+      setTimeout(() => setSuccessMsg(''), 5000)
+    } catch {
+      setError('Failed to link ULR. Please check inputs.')
+    } finally {
+      setIsLinking(false)
     }
-    const handleClientLookup = async () => {
-        if (!form.uid_no.trim()) return
-        try {
-            const d = await api.ulrClientDetails(form.uid_no)
-            if (d.data) setForm(f => ({ ...f, name_of_agency: d.data!.agency_name ?? f.name_of_agency, name_of_project: d.data!.name_of_work ?? f.name_of_project, sample_details: d.data!.sample_details ?? f.sample_details }))
-        } catch { /* ignore */ }
-    }
-    const update = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  }
 
-    if (view === 'form') return (
-        <div className="surface" style={{ padding: 24 }}>
-            <h2 style={{ marginBottom: 16 }}>{editingId ? 'Edit' : 'Create'} ULR Link</h2>
-            {error ? <p style={{ color: '#c44a5a' }}>{error}</p> : null}
-            <div className="form-grid-2">
-                <label className="form-field"><span>UID No *</span>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <input value={form.uid_no} onChange={e => update('uid_no', e.target.value)} />
-                        <button className="ghost-button" onClick={() => void handleClientLookup()} type="button">Lookup</button>
-                    </div>
-                </label>
-                <label className="form-field"><span>Date *</span><input type="date" value={form.date} onChange={e => update('date', e.target.value)} /></label>
-                <label className="form-field"><span>Department</span><input value={form.name_of_department} onChange={e => update('name_of_department', e.target.value)} /></label>
-                <label className="form-field"><span>Agency *</span><input value={form.name_of_agency} onChange={e => update('name_of_agency', e.target.value)} /></label>
-                <label className="form-field"><span>Project</span><input value={form.name_of_project} onChange={e => update('name_of_project', e.target.value)} /></label>
-                <label className="form-field"><span>Sample Details</span><input value={form.sample_details} onChange={e => update('sample_details', e.target.value)} /></label>
-                <label className="form-field"><span>Qty</span><input value={form.qty} onChange={e => update('qty', e.target.value)} /></label>
-                <label className="form-field"><span>Parameters</span><input value={form.parameters} onChange={e => update('parameters', e.target.value)} /></label>
-                <label className="form-field"><span>Testing Period</span><input value={form.testing_period} onChange={e => update('testing_period', e.target.value)} /></label>
-                <label className="form-field"><span>Sample Received Date</span><input type="date" value={form.sample_received_date} onChange={e => update('sample_received_date', e.target.value)} /></label>
-                <label className="form-field"><span>Report Dispatch Date</span><input type="date" value={form.report_dispatch_date} onChange={e => update('report_dispatch_date', e.target.value)} /></label>
-                <label className="form-field"><span>Bill Details</span><input value={form.bill_details} onChange={e => update('bill_details', e.target.value)} /></label>
-                <label className="form-field" style={{ gridColumn: '1 / -1' }}><span>Signature Remark</span><input value={form.signature_remark} onChange={e => update('signature_remark', e.target.value)} /></label>
-            </div>
-            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                <button className="primary-button" onClick={() => void handleSave()}>{editingId ? 'Update' : 'Create'}</button>
-                <button className="ghost-button" onClick={() => setView('list')}>Cancel</button>
-            </div>
+  const handleDelete = async (id: number) => {
+    if (!confirm('Do you really want to remove this ULR record?')) return
+    try {
+      await api.deleteUlrLink(id)
+      setSuccessMsg('Record removed successfully')
+      void loadLinks()
+      void loadDateDropdown(quickDate)
+      setTimeout(() => setSuccessMsg(''), 4000)
+    } catch {
+      setError('Failed to delete')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const params: Record<string, string> = {}
+      if (startDate && endDate) { params.start_date = startDate; params.end_date = endDate }
+      const d = await api.ulrLinksExport(params)
+      const rows = d.data
+      const header = 'Date,ULR Number,UID Number,Name of Agency,Name of Work,Sample Details\n'
+      const csv = header + rows.map(r => `"${r.date}","${r.ulr_no}","${r.uid_no}","${r.name_of_agency || ''}","${r.name_of_project || ''}","${r.sample_details || ''}"`).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ulr_register_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Failed to export CSV')
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return
+    try {
+      await api.updateUlrLink(editingItem.id, editForm)
+      setEditingItem(null)
+      setSuccessMsg('ULR details updated')
+      void loadLinks()
+      setTimeout(() => setSuccessMsg(''), 4000)
+    } catch {
+      setError('Failed to update ULR')
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Link2 size={24} color="#2563eb" />
+            Manage ULR
+          </h2>
+          <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: '#64748b' }}>
+            Link ULR numbers to sample UID registrations & view historical ULR register
+          </p>
         </div>
-    )
 
-    return (
-        <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h2>ULR Link Register</h2>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.85rem' }} />
-                        <span style={{ color: '#65737d' }}>to</span>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.85rem' }} />
-                        <button className="ghost-button" onClick={handleFilter}>Go</button>
-                        {(startDate || endDate) && <button className="ghost-button" onClick={handleClearFilter}>Clear</button>}
+        {/* Tab switchers */}
+        <div style={{ display: 'flex', gap: 8, background: '#f1f5f9', padding: 4, borderRadius: 8 }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('link')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 6,
+              border: 'none',
+              background: activeTab === 'link' ? '#ffffff' : 'transparent',
+              color: activeTab === 'link' ? '#0f172a' : '#64748b',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: activeTab === 'link' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+            }}
+          >
+            + Link / Add ULR
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('register')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 6,
+              border: 'none',
+              background: activeTab === 'register' ? '#ffffff' : 'transparent',
+              color: activeTab === 'register' ? '#0f172a' : '#64748b',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              boxShadow: activeTab === 'register' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+            }}
+          >
+            ULR Register ({links.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '10px 16px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
+          <AlertCircle size={16} />
+          {error}
+          <button type="button" onClick={() => setError('')} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: '#b91c1c' }}><X size={14} /></button>
+        </div>
+      )}
+      {successMsg && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', padding: '10px 16px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
+          <CheckCircle2 size={16} />
+          {successMsg}
+        </div>
+      )}
+
+      {/* SECTION 1: INLINE ADD / LINK ULR TABLE (Old software flow) */}
+      <section className="surface" style={{ padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#1e293b' }}>
+            Add / Link ULR No.
+          </h3>
+          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+            Type UID number and press tab or Lookup to auto-fill details
+          </span>
+        </div>
+
+        <form onSubmit={handleQuickLinkSubmit}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 900 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  <th style={{ width: '12%', minWidth: 120 }}>Date</th>
+                  <th style={{ width: '16%', minWidth: 150 }}>UID NO *</th>
+                  <th style={{ width: '18%', minWidth: 170 }}>ULR NO *</th>
+                  <th style={{ width: '14%' }}>Name of Dept</th>
+                  <th style={{ width: '15%' }}>Name of Agency *</th>
+                  <th style={{ width: '15%' }}>Name of Work</th>
+                  <th style={{ width: '15%' }}>Sample Details</th>
+                  <th style={{ width: '8%', textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {/* Date */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <input
+                      type="date"
+                      value={quickDate}
+                      onChange={e => {
+                        setQuickDate(e.target.value)
+                        void loadDateDropdown(e.target.value)
+                      }}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    />
+                  </td>
+
+                  {/* UID NO with Auto-Lookup */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <input
+                        type="text"
+                        placeholder="e.g. Namo/MC/2026/00001"
+                        value={quickUid}
+                        onChange={e => setQuickUid(e.target.value)}
+                        onBlur={() => void handleUidLookup()}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleUidLookup()}
+                        className="ghost-button"
+                        style={{ padding: '6px 8px' }}
+                        title="Lookup UID registration details"
+                      >
+                        <Search size={14} />
+                      </button>
                     </div>
-                    <button className="ghost-button" onClick={() => void handleExport()}><Download size={14} /> Export CSV</button>
-                    <button className="primary-button" onClick={handleCreate}><Plus size={16} /> Create ULR</button>
-                </div>
+                    {lookupStatus && (
+                      <span style={{ fontSize: '0.72rem', color: lookupStatus.includes('Found') ? '#16a34a' : '#d97706', display: 'block', marginTop: 3 }}>
+                        {lookupStatus}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* ULR Dropdown + New Create (Old software style) */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <select
+                      value={quickUlr}
+                      onChange={e => setQuickUlr(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
+                    >
+                      <option value="">Select ULR No.</option>
+                      {dropdownUlrList.map(item => (
+                        <option key={item.ulr_no} value={item.ulr_no}>
+                          {item.label}
+                        </option>
+                      ))}
+                      <option value="new">+ New Create</option>
+                    </select>
+
+                    {quickUlr === 'new' && (
+                      <input
+                        type="text"
+                        placeholder="Enter New ULR No. (Optional)"
+                        value={newUlrInput}
+                        onChange={e => setNewUlrInput(e.target.value)}
+                        style={{ width: '100%', marginTop: 6, padding: '5px 8px', borderRadius: 6, border: '1px solid #93c5fd', fontSize: '0.8rem', background: '#eff6ff' }}
+                      />
+                    )}
+                  </td>
+
+                  {/* Department */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Department"
+                      value={quickDept}
+                      onChange={e => setQuickDept(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    />
+                  </td>
+
+                  {/* Agency */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Agency Name *"
+                      value={quickAgency}
+                      onChange={e => setQuickAgency(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    />
+                  </td>
+
+                  {/* Work Name */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Name of Work"
+                      value={quickWork}
+                      onChange={e => setQuickWork(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    />
+                  </td>
+
+                  {/* Sample Details */}
+                  <td style={{ verticalAlign: 'top', padding: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Sample Details"
+                      value={quickSample}
+                      onChange={e => setQuickSample(e.target.value)}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    />
+                  </td>
+
+                  {/* Link Action */}
+                  <td style={{ verticalAlign: 'top', padding: 8, textAlign: 'center' }}>
+                    <button
+                      type="submit"
+                      disabled={isLinking}
+                      className="primary-button"
+                      style={{ width: '100%', padding: '6px 12px', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                    >
+                      <Link2 size={14} /> {isLinking ? 'Linking...' : 'Link'}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </form>
+      </section>
+
+      {/* SECTION 2: ULR REGISTER TABLE (Old software ulr_register.php) */}
+      <section className="surface" style={{ padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#1e293b' }}>
+            Manage ULR Register
+          </h3>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <Calendar size={14} color="#64748b" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                style={{ padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: '0.82rem' }}
+              />
+              <span style={{ color: '#64748b', fontSize: '0.82rem' }}>to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                style={{ padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: '0.82rem' }}
+              />
+              <button className="primary-button" onClick={() => void loadLinks()} style={{ padding: '5px 12px', fontSize: '0.82rem' }}>
+                GO
+              </button>
+              {(startDate || endDate) && (
+                <button
+                  className="ghost-button"
+                  onClick={() => { setStartDate(''); setEndDate(''); void loadLinks() }}
+                  style={{ padding: '5px 10px', fontSize: '0.82rem' }}
+                >
+                  Clear
+                </button>
+              )}
             </div>
-            <section className="surface">
-                {loading ? <p className="empty-state">Loading...</p>
-                    : links.length === 0 ? <p className="empty-state">No ULR links found.</p>
-                        : (
-                            <table className="data-table">
-                                <thead><tr><th>ULR No</th><th>UID No</th><th>Date</th><th>Agency</th><th>Project</th><th>Sample</th><th>Actions</th></tr></thead>
-                                <tbody>
-                                    {links.map(l => (
-                                        <tr key={l.id}>
-                                            <td><strong>{l.ulr_no}</strong></td>
-                                            <td>{l.uid_no}</td>
-                                            <td>{l.date}</td>
-                                            <td>{l.name_of_agency}</td>
-                                            <td>{l.name_of_project}</td>
-                                            <td>{l.sample_details}</td>
-                                            <td style={{ display: 'flex', gap: 4 }}>
-                                                <button className="icon-button" onClick={() => handleEdit(l)}><Pencil size={14} /></button>
-                                                <button className="icon-button" onClick={() => void handleDelete(l.id)}><Trash2 size={14} /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-            </section>
-        </>
-    )
+
+            <button
+              className="ghost-button"
+              onClick={() => void handleExport()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', padding: '6px 12px' }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="empty-state">Loading ULR register...</p>
+        ) : links.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 16px', color: '#64748b' }}>
+            <FileSpreadsheet size={36} color="#cbd5e1" style={{ margin: '0 auto 10px', display: 'block' }} />
+            <p style={{ fontWeight: 600, margin: '0 0 4px' }}>No ULR records found</p>
+            <p style={{ fontSize: '0.82rem', margin: 0 }}>Use the form above to link a ULR number to a UID registration.</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ width: '100%' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  <th>Date</th>
+                  <th>ULR NO</th>
+                  <th>UID NO</th>
+                  <th>Name of Department</th>
+                  <th>Name of Agency</th>
+                  <th>Name of Work</th>
+                  <th>Sample Details</th>
+                  <th style={{ textAlign: 'center', width: 90 }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {links.map(l => (
+                  <tr key={l.id}>
+                    <td style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', color: '#334155' }}>{l.date}</td>
+                    <td style={{ fontSize: '0.84rem', fontFamily: 'monospace', fontWeight: 700, color: '#0f766e' }}>
+                      {l.ulr_no}
+                    </td>
+                    <td style={{ fontSize: '0.84rem', fontWeight: 600, color: '#2563eb' }}>
+                      {l.uid_no}
+                    </td>
+                    <td style={{ fontSize: '0.82rem', color: '#475569' }}>{l.name_of_department || '-'}</td>
+                    <td style={{ fontSize: '0.82rem', fontWeight: 500, color: '#1e293b' }}>{l.name_of_agency}</td>
+                    <td style={{ fontSize: '0.82rem', color: '#475569' }}>{l.name_of_project || '-'}</td>
+                    <td style={{ fontSize: '0.82rem', color: '#475569' }}>{l.sample_details || '-'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                        <button
+                          className="icon-button"
+                          onClick={() => { setEditingItem(l); setEditForm(l) }}
+                          title="Edit details"
+                          style={{ border: '1px solid #cbd5e1', borderRadius: 4, padding: '4px 6px' }}
+                        >
+                          <Pencil size={14} color="#2563eb" />
+                        </button>
+                        <button
+                          className="icon-button"
+                          onClick={() => void handleDelete(l.id)}
+                          title="Delete record"
+                          style={{ border: '1px solid #fee2e2', borderRadius: 4, padding: '4px 6px', background: '#fef2f2' }}
+                        >
+                          <Trash2 size={14} color="#ef4444" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Edit Modal */}
+      {editingItem && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: 16
+        }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>
+                Edit ULR: {editingItem.ulr_no}
+              </h3>
+              <button type="button" onClick={() => setEditingItem(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+
+            <div className="form-grid-2">
+              <label className="form-field">
+                <span>UID No</span>
+                <input value={editForm.uid_no || ''} onChange={e => setEditForm(f => ({ ...f, uid_no: e.target.value }))} />
+              </label>
+              <label className="form-field">
+                <span>Date</span>
+                <input type="date" value={editForm.date || ''} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} />
+              </label>
+              <label className="form-field">
+                <span>Department</span>
+                <input value={editForm.name_of_department || ''} onChange={e => setEditForm(f => ({ ...f, name_of_department: e.target.value }))} />
+              </label>
+              <label className="form-field">
+                <span>Agency Name</span>
+                <input value={editForm.name_of_agency || ''} onChange={e => setEditForm(f => ({ ...f, name_of_agency: e.target.value }))} />
+              </label>
+              <label className="form-field">
+                <span>Project / Work Name</span>
+                <input value={editForm.name_of_project || ''} onChange={e => setEditForm(f => ({ ...f, name_of_project: e.target.value }))} />
+              </label>
+              <label className="form-field">
+                <span>Sample Details</span>
+                <input value={editForm.sample_details || ''} onChange={e => setEditForm(f => ({ ...f, sample_details: e.target.value }))} />
+              </label>
+            </div>
+
+            <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="ghost-button" onClick={() => setEditingItem(null)}>Cancel</button>
+              <button className="primary-button" onClick={() => void handleSaveEdit()}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
+

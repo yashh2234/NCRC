@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\UlrLink;
 use App\Models\UlrCopy;
 use App\Models\Registration;
+use App\Models\Report;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -48,9 +49,11 @@ class UlrLinkController extends Controller
             ->get()
             ->map(function ($ulr) {
                 return [
+                    'id' => $ulr->id,
                     'ulr_no' => $ulr->ulr_no,
+                    'uid_no' => $ulr->uid_no,
                     'is_assigned' => !empty($ulr->uid_no),
-                    'label' => $ulr->ulr_no . (!empty($ulr->uid_no) ? ' (Assign)' : ''),
+                    'label' => $ulr->ulr_no . (!empty($ulr->uid_no) ? ' (Assign: ' . $ulr->uid_no . ')' : ''),
                 ];
             });
 
@@ -62,6 +65,8 @@ class UlrLinkController extends Controller
         $validated = $request->validate([
             'uid_no' => 'required|string',
             'date' => 'required|string',
+            'ulr_no' => 'nullable|string',
+            'new_ulr_no' => 'nullable|string',
             'name_of_department' => 'nullable|string',
             'name_of_agency' => 'required|string',
             'name_of_project' => 'nullable|string',
@@ -75,18 +80,71 @@ class UlrLinkController extends Controller
             'signature_remark' => 'nullable|string',
         ]);
 
-        $year = date('Y');
-        $lastUlr = UlrLink::where('ulr_no', 'like', "NCS/LAB/{$year}/%")->orderByDesc('ulr_no')->first();
-        $seq = 1;
-        if ($lastUlr && preg_match('/(\d{5})$/', $lastUlr->ulr_no, $m)) {
-            $seq = (int) $m[1] + 1;
+        $selectedUlr = $request->input('ulr_no');
+        $newUlr = trim((string) $request->input('new_ulr_no'));
+
+        if ($selectedUlr === 'new' || (!empty($newUlr) && empty($selectedUlr))) {
+            // New ULR creation
+            if (!empty($newUlr)) {
+                $ulrNo = $newUlr;
+            } else {
+                $year = date('Y');
+                $lastUlr = UlrLink::where('ulr_no', 'like', "NCS/LAB/{$year}/%")->orderByDesc('ulr_no')->first();
+                $seq = 1;
+                if ($lastUlr && preg_match('/(\d{5})$/', $lastUlr->ulr_no, $m)) {
+                    $seq = (int) $m[1] + 1;
+                }
+                $ulrNo = "NCS/LAB/{$year}/" . str_pad($seq, 5, '0', STR_PAD_LEFT);
+            }
+
+            // Check if this ULR existed previously, if so archive old mapping
+            $existing = UlrLink::where('ulr_no', $ulrNo)->first();
+            if ($existing) {
+                UlrCopy::create([
+                    'uid_no' => $existing->uid_no,
+                    'ulr_no' => $existing->ulr_no,
+                    'name_of_department' => $existing->name_of_department,
+                    'name_of_agency' => $existing->name_of_agency,
+                    'name_of_project' => $existing->name_of_project,
+                    'sample_details' => $existing->sample_details,
+                ]);
+                $existing->update(array_merge($validated, ['ulr_no' => $ulrNo]));
+            } else {
+                $validated['ulr_no'] = $ulrNo;
+                UlrLink::create($validated);
+            }
+
+            // Also update any matching reports for this UID
+            Report::where('uid_no', $validated['uid_no'])->update(['ulr_no' => $ulrNo]);
+
+            return response()->json(['message' => 'ULR Created and Linked successfully', 'ulr_no' => $ulrNo], 201);
         }
-        $ulrNo = "NCS/LAB/{$year}/" . str_pad($seq, 5, '0', STR_PAD_LEFT);
 
-        $validated['ulr_no'] = $ulrNo;
-        UlrLink::create($validated);
+        // Linking existing ULR
+        $existing = UlrLink::where('ulr_no', $selectedUlr)->first();
+        if ($existing) {
+            if (!empty($existing->uid_no) && $existing->uid_no !== $validated['uid_no']) {
+                UlrCopy::create([
+                    'uid_no' => $existing->uid_no,
+                    'ulr_no' => $existing->ulr_no,
+                    'name_of_department' => $existing->name_of_department,
+                    'name_of_agency' => $existing->name_of_agency,
+                    'name_of_project' => $existing->name_of_project,
+                    'sample_details' => $existing->sample_details,
+                ]);
+            }
+            $existing->update(array_merge($validated, ['ulr_no' => $selectedUlr]));
+            $ulrNo = $selectedUlr;
+        } else {
+            $validated['ulr_no'] = $selectedUlr ?: "NCS/LAB/" . date('Y') . "/00001";
+            $ulrNo = $validated['ulr_no'];
+            UlrLink::create($validated);
+        }
 
-        return response()->json(['message' => 'ULR created', 'ulr_no' => $ulrNo], 201);
+        // Sync to reports
+        Report::where('uid_no', $validated['uid_no'])->update(['ulr_no' => $ulrNo]);
+
+        return response()->json(['message' => 'ULR Linked successfully', 'ulr_no' => $ulrNo], 200);
     }
 
     public function update(Request $request, int $id): JsonResponse
