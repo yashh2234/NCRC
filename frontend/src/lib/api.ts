@@ -15,7 +15,23 @@ import type {
 } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
-export const API_ORIGIN = BASE_URL.replace(/\/api\/?$/, '')
+const configuredOrigin = BASE_URL.replace(/\/api\/?$/, '')
+const developmentOrigin = import.meta.env.DEV
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : ''
+export const API_ORIGIN = configuredOrigin || developmentOrigin
+
+export function resolveFileUrl(filePath: string): string {
+  const value = filePath.trim()
+  if (/^(https?:)?\/\//i.test(value)) return value
+
+  const normalized = value.replace(/^\/+/, '')
+  if (normalized.startsWith('assets/')) {
+    return `${API_ORIGIN}/${normalized}`
+  }
+
+  return `${API_ORIGIN}/${normalized.startsWith('storage/') ? normalized : `storage/${normalized}`}`
+}
 
 function getToken(): string | null {
   return window.localStorage.getItem('legacy_erp_token')

@@ -270,9 +270,6 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
             >
               <PanelLeft size={16} />
             </button>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: 'var(--gray-900)' }}>
-              {activeModule === 'dashboard' ? 'Dashboard' : groups.flatMap((g) => g.items).find((i) => i.key === activeModule)?.label ?? 'Dashboard'}
-            </h1>
           </div>
           <div className="topbar-actions">
             {/*

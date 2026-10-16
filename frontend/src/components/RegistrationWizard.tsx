@@ -5,7 +5,7 @@ import {
   Sparkles, CheckCircle2, Clock, FileText, UserCheck, Eye, Trash2, Upload
 } from 'lucide-react'
 import type { RegistrationFormData } from '../lib/types'
-import { API_ORIGIN, api, request } from '../lib/api'
+import { api, request, resolveFileUrl } from '../lib/api'
 import { FormField, DatePicker } from './ui'
 import { RATE_LIST } from '../data/rateList'
 
@@ -918,7 +918,7 @@ export function RegistrationWizard({
                 const pendingFile = pendingFiles[field as string]
                 const hasFile = Boolean(filePath || pendingFile)
                 const fileName = pendingFile ? pendingFile.name : (filePath ? filePath.split('/').pop() : '')
-                const fileUrl = filePath ? (filePath.startsWith('http') ? filePath : `${API_ORIGIN}/storage/${filePath}`) : ''
+                const fileUrl = filePath ? resolveFileUrl(filePath) : ''
 
                 return (
                   <div
@@ -1150,6 +1150,16 @@ export function RegistrationWizard({
             </button>
           ) : null}
 
+          {editingId && tab < TABS.length - 1 ? (
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={saving}
+            >
+              <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          ) : null}
+
           {tab < TABS.length - 1 ? (
             <button
               type="button"
@@ -1164,7 +1174,7 @@ export function RegistrationWizard({
               className="btn btn-primary btn-sm"
               disabled={saving}
             >
-              <Save size={14} /> {saving ? 'Saving...' : editingId ? 'Update Registration' : 'Complete Registration'}
+              <Save size={14} /> {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Complete Registration'}
             </button>
           )}
         </div>

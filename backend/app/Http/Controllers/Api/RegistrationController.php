@@ -707,7 +707,17 @@ class RegistrationController extends Controller
         $field = $request->input('field');
         $regId = (int) $request->input('registration_id');
 
-        $path = $file->store('scans', 'public');
+        // Keep registration attachments in the same public location used by
+        // the legacy application, so existing and newly uploaded files share
+        // one URL format.
+        $directory = public_path('assets/images/scan_copy');
+        if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
+            throw new \RuntimeException('Unable to create the registration attachment directory.');
+        }
+
+        $fileName = $file->hashName();
+        $file->move($directory, $fileName);
+        $path = 'assets/images/scan_copy/' . $fileName;
 
         DB::table('client_registration')
             ->where('iClientId', $regId)
@@ -761,7 +771,7 @@ class RegistrationController extends Controller
             'field' => $field,
             'path' => $path,
             'file_name' => $file->getClientOriginalName(),
-            'url' => asset("storage/$path"),
+            'url' => asset($path),
             'document_id' => $doc->id,
         ]);
     }

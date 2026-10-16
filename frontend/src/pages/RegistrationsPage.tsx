@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, Plus, UserCog, History, Download, Calendar, X, Folder, Paperclip } from 'lucide-react'
+import { Search, Plus, UserCog, History, Download, Calendar, X, Folder } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api, request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
@@ -278,108 +278,38 @@ export function RegistrationsPage() {
         </div>
       </div>
 
-      {/* Role / Stage Filter Tabs */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        {filterTabs.map((t) => {
-          const isActive = roleFilter === t.key
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setRoleFilter(t.key)}
-              style={{
-                border: 'none',
-                background: isActive ? '#2563eb' : '#fff',
-                color: isActive ? '#fff' : '#64748b',
-                padding: '6px 14px',
-                borderRadius: 20,
-                fontSize: '0.82rem',
-                fontWeight: isActive ? 600 : 500,
-                cursor: 'pointer',
-                borderWidth: 1,
-                borderStyle: 'solid',
-                borderColor: isActive ? '#2563eb' : '#e2e8f0',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {t.label}
-              {typeof t.count === 'number' && (
-                <span style={{ marginLeft: 6, opacity: 0.85, fontSize: '0.75rem' }}>({t.count})</span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Date Filter Bar Matching Old Software start_date - end_date - GO */}
+      {/* Compact filters */}
       <div style={{
         display: 'flex',
-        gap: 12,
+        gap: 8,
         alignItems: 'center',
         flexWrap: 'wrap',
-        padding: '12px 16px',
+        padding: '10px 12px',
         background: '#f8fafc',
         borderRadius: 10,
         border: '1px solid #e2e8f0'
       }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Calendar size={15} color="#64748b" />
-          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>Start Date:</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>End Date:</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
-          />
-        </div>
-
-        <button
-          className="primary-button"
-          onClick={applyDateFilter}
-          type="button"
-          style={{ padding: '6px 16px', fontSize: '0.82rem', fontWeight: 600 }}
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          aria-label="Filter registrations by stage"
+          style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff', minWidth: 165 }}
         >
-          GO
-        </button>
-
-        {activeFilter && (
-          <button
-            className="ghost-button"
-            onClick={clearDateFilter}
-            type="button"
-            style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            <X size={14} /> Clear
-          </button>
-        )}
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 260, maxWidth: 360, flex: 1 }}>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search UID, agency, work, mobile..."
-              style={{
-                width: '100%',
-                padding: '6px 10px 6px 32px',
-                borderRadius: 6,
-                border: '1px solid #cbd5e1',
-                fontSize: '0.82rem',
-                background: '#fff'
-              }}
-            />
-          </div>
+          {filterTabs.map((t) => (
+            <option key={t.key} value={t.key}>
+              {t.label}{typeof t.count === 'number' ? ` (${t.count})` : ''}
+            </option>
+          ))}
+        </select>
+        <Calendar size={15} color="#64748b" />
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} aria-label="Start date" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
+        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>to</span>
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-label="End date" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
+        <button className="primary-button" onClick={applyDateFilter} type="button" style={{ padding: '7px 12px', fontSize: '0.82rem', fontWeight: 600 }}>Apply</button>
+        {activeFilter ? <button className="ghost-button" onClick={clearDateFilter} type="button" style={{ fontSize: '0.82rem', padding: '7px 10px' }}><X size={14} /> Clear</button> : null}
+        <div style={{ position: 'relative', minWidth: 220, flex: 1 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search UID, agency, work..." aria-label="Search registrations" style={{ width: '100%', padding: '7px 10px 7px 32px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
         </div>
       </div>
 
@@ -398,19 +328,10 @@ export function RegistrationsPage() {
             { key: 'total_payment', label: 'Total Payment' },
             { key: 'advance_payment', label: 'Advance Payment' },
             { key: 'balance_dues', label: 'Payment Dues' },
-            { key: 'scan_copy', label: 'Scan Copy' },
-            { key: 'report_copy', label: 'Report Copy' },
             { key: 'actions', label: 'Action', sortable: false },
           ]}
           rows={filtered.map((registration) => {
             const isPaid = (registration.balance_dues ?? 0) <= 0
-            const attachedDocs = [
-              registration.scan_copy,
-              registration.scan_copy_1,
-              registration.scan_copy_2,
-              registration.scan_copy_3,
-              registration.scan_copy_4,
-            ].filter(Boolean)
 
             return {
               uid_no: (
@@ -464,19 +385,18 @@ export function RegistrationsPage() {
                 </div>
               ),
               total_payment: (
-                <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.82rem', color: '#0f172a' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#0f172a' }}>
                   ₹{money(registration.total_payment)}
                 </span>
               ),
               advance_payment: (
-                <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#16a34a', fontWeight: 600 }}>
+                <span style={{ fontSize: '0.82rem', color: '#16a34a', fontWeight: 600 }}>
                   ₹{money(registration.advance_payment)}
                 </span>
               ),
               balance_dues: (
                 <span
                   style={{
-                    fontFamily: 'monospace',
                     fontSize: '0.82rem',
                     fontWeight: 700,
                     color: isPaid ? '#16a34a' : '#dc2626'
@@ -484,62 +404,6 @@ export function RegistrationsPage() {
                 >
                   ₹{money(registration.balance_dues)}
                 </span>
-              ),
-              scan_copy: (
-                <div>
-                  {attachedDocs.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setDrawerUid(registration.uid_no)}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: '#0284c7',
-                        background: '#e0f2fe',
-                        border: '1px solid #bae6fd',
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        cursor: 'pointer'
-                      }}
-                      title="View uploaded scan documents"
-                    >
-                      <Paperclip size={11} /> View ({attachedDocs.length})
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>None</span>
-                  )}
-                </div>
-              ),
-              report_copy: (
-                <div>
-                  {registration.report_copy ? (
-                    <a
-                      href={registration.report_copy.startsWith('http') ? registration.report_copy : `/uploads/${registration.report_copy}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: '#16a34a',
-                        background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        textDecoration: 'none'
-                      }}
-                    >
-                      Report Copy
-                    </a>
-                  ) : (
-                    <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>-</span>
-                  )}
-                </div>
               ),
               actions: (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

@@ -167,9 +167,9 @@ class DocumentController extends Controller
     public function destroy(Document $document)
     {
         // Delete file from storage
-        Storage::disk('public')->delete($document->file_path);
+        $this->deleteFile($document->file_path);
         foreach ($document->versions as $version) {
-            Storage::disk('public')->delete($version->file_path);
+            $this->deleteFile($version->file_path);
         }
         $document->delete();
 
@@ -234,7 +234,7 @@ class DocumentController extends Controller
             $displayName = $document->file_name;
         }
 
-        if (!Storage::disk('public')->exists($filePath)) {
+        if (! $this->fileExists($filePath)) {
             return response()->json(['message' => 'File not found on storage.'], 404);
         }
 
@@ -246,6 +246,10 @@ class DocumentController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
 
+        if ($this->isPublicAssetPath($filePath)) {
+            return response()->download(public_path($filePath), $displayName);
+        }
+
         return Storage::disk('public')->download($filePath, $displayName);
     }
 
@@ -254,12 +258,14 @@ class DocumentController extends Controller
      */
     public function preview(Document $document)
     {
-        if (!Storage::disk('public')->exists($document->file_path)) {
+        if (! $this->fileExists($document->file_path)) {
             return response()->json(['message' => 'File not found.'], 404);
         }
 
         $mime = $document->file_type;
-        $content = Storage::disk('public')->get($document->file_path);
+        $content = $this->isPublicAssetPath($document->file_path)
+            ? file_get_contents(public_path($document->file_path))
+            : Storage::disk('public')->get($document->file_path);
 
         return response($content, 200, [
             'Content-Type' => $mime,
@@ -299,5 +305,30 @@ class DocumentController extends Controller
         return response()->json(
             $document->downloads()->with('user')->latest()->limit(50)->get()
         );
+    }
+
+    private function isPublicAssetPath(string $path): bool
+    {
+        return str_starts_with(ltrim($path, '/'), 'assets/');
+    }
+
+    private function fileExists(string $path): bool
+    {
+        return $this->isPublicAssetPath($path)
+            ? is_file(public_path(ltrim($path, '/')))
+            : Storage::disk('public')->exists($path);
+    }
+
+    private function deleteFile(string $path): void
+    {
+        if ($this->isPublicAssetPath($path)) {
+            $publicPath = public_path(ltrim($path, '/'));
+            if (is_file($publicPath)) {
+                unlink($publicPath);
+            }
+            return;
+        }
+
+        Storage::disk('public')->delete($path);
     }
 }
