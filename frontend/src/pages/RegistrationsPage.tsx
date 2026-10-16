@@ -229,142 +229,180 @@ export function RegistrationsPage() {
   ]
 
   return (
-    <div className="reg-page-container">
-      {/* Top Action Bar */}
-      <div className="reg-page-actions">
-        <button className="btn btn-outline btn-sm" onClick={handleExport} type="button">
-          <Download size={14} /> Export CSV
-        </button>
-        <button className="btn btn-primary btn-sm" onClick={beginCreate} type="button">
-          <Plus size={15} /> New Registration
-        </button>
-      </div>
-
-      {/*
-      <div className="reg-metrics-grid">
-        <div className="reg-metric-card">
-          <div className="reg-metric-icon" style={{ background: 'rgba(0, 113, 227, 0.08)', color: 'var(--color-primary)' }}>
-            <ClipboardList size={20} />
-          </div>
-          <div className="reg-metric-content">
-            <span className="reg-metric-label">Total Jobs</span>
-            <strong className="reg-metric-val">{metrics.total}</strong>
-            <span className="reg-metric-sub">{metrics.active} in active workflow</span>
-          </div>
+    <div className="space-y-4">
+      {/* Clean Professional Top Toolbar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12,
+        padding: '16px 20px',
+        background: '#fff',
+        borderRadius: 12,
+        border: '1px solid #e2e8f0'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+            Manage Client Registration
+          </h2>
+          <span style={{
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            background: '#eff6ff',
+            color: '#2563eb',
+            padding: '2px 10px',
+            borderRadius: 999
+          }}>
+            {filtered.length} Records
+          </span>
         </div>
 
-        <div className="reg-metric-card">
-          <div className="reg-metric-icon" style={{ background: 'rgba(52, 199, 89, 0.08)', color: 'var(--color-green-text)' }}>
-            <IndianRupee size={20} />
-          </div>
-          <div className="reg-metric-content">
-            <span className="reg-metric-label">Total Billed</span>
-            <strong className="reg-metric-val">₹{money(metrics.totalValue)}</strong>
-            <span className="reg-metric-sub">Across all registrations</span>
-          </div>
-        </div>
-
-        <div className="reg-metric-card">
-          <div className="reg-metric-icon" style={{ background: metrics.balanceDues > 0 ? 'rgba(255, 59, 48, 0.08)' : 'rgba(52, 199, 89, 0.08)', color: metrics.balanceDues > 0 ? 'var(--color-red-text)' : 'var(--color-green-text)' }}>
-            <Clock size={20} />
-          </div>
-          <div className="reg-metric-content">
-            <span className="reg-metric-label">Pending Dues</span>
-            <strong className="reg-metric-val" style={{ color: metrics.balanceDues > 0 ? 'var(--color-red-text)' : 'var(--color-green-text)' }}>
-              ₹{money(metrics.balanceDues)}
-            </strong>
-            <span className="reg-metric-sub">Outstanding balance</span>
-          </div>
-        </div>
-
-        <div className="reg-metric-card">
-          <div className="reg-metric-icon" style={{ background: metrics.stuck > 0 ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0, 0, 0, 0.04)', color: metrics.stuck > 0 ? 'var(--color-accent-dark)' : 'var(--gray-400)' }}>
-            <AlertTriangle size={20} />
-          </div>
-          <div className="reg-metric-content">
-            <span className="reg-metric-label">Stuck Jobs (&gt;2d)</span>
-            <strong className="reg-metric-val" style={{ color: metrics.stuck > 0 ? 'var(--color-accent-dark)' : 'var(--gray-900)' }}>
-              {metrics.stuck}
-            </strong>
-            <span className="reg-metric-sub">{metrics.stuck > 0 ? 'Action needed' : 'All jobs on track'}</span>
-          </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="ghost-button"
+            onClick={handleExport}
+            type="button"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', padding: '7px 14px' }}
+          >
+            <Download size={15} /> Export CSV
+          </button>
+          <button
+            className="primary-button"
+            onClick={beginCreate}
+            type="button"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', padding: '7px 16px', fontWeight: 600 }}
+          >
+            <Plus size={16} /> Create Registration
+          </button>
         </div>
       </div>
 
-      */}
-      {/* Segmented Queue Filter Strip */}
-      <div className="apple-filter-strip">
-        {filterTabs.map((tab) => {
-          const isActive = roleFilter === tab.key
+      {/* Role / Stage Filter Tabs */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {filterTabs.map((t) => {
+          const isActive = roleFilter === t.key
           return (
             <button
-              key={tab.key}
+              key={t.key}
               type="button"
-              className={`apple-filter-pill${isActive ? ' active' : ''}`}
-              onClick={() => setRoleFilter(tab.key)}
+              onClick={() => setRoleFilter(t.key)}
+              style={{
+                border: 'none',
+                background: isActive ? '#2563eb' : '#fff',
+                color: isActive ? '#fff' : '#64748b',
+                padding: '6px 14px',
+                borderRadius: 20,
+                fontSize: '0.82rem',
+                fontWeight: isActive ? 600 : 500,
+                cursor: 'pointer',
+                borderWidth: 1,
+                borderStyle: 'solid',
+                borderColor: isActive ? '#2563eb' : '#e2e8f0',
+                transition: 'all 0.15s ease'
+              }}
             >
-              <span>{tab.label}</span>
-              {tab.count !== undefined ? <span className="apple-filter-pill__count">{tab.count}</span> : null}
+              {t.label}
+              {typeof t.count === 'number' && (
+                <span style={{ marginLeft: 6, opacity: 0.85, fontSize: '0.75rem' }}>({t.count})</span>
+              )}
             </button>
           )
         })}
       </div>
 
-      {/* Action Toolbar */}
-      <div className="filter-bar reg-toolbar">
-        <div className="search-field" style={{ flex: 1, minWidth: 260 }}>
-          <Search size={15} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search UID, client agency, work name, or assignee..."
-          />
-        </div>
-
-        <div className="date-filter">
-          <Calendar size={14} />
+      {/* Date Filter Bar Matching Old Software start_date - end_date - GO */}
+      <div style={{
+        display: 'flex',
+        gap: 12,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        padding: '12px 16px',
+        background: '#f8fafc',
+        borderRadius: 10,
+        border: '1px solid #e2e8f0'
+      }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Calendar size={15} color="#64748b" />
+          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>Start Date:</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            title="Start date"
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
           />
-          <span>to</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>End Date:</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            title="End date"
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
           />
-          <button className="btn btn-sm btn-outline" onClick={applyDateFilter} type="button">
-            Apply
-          </button>
-          {activeFilter && (
-            <button className="btn btn-sm btn-danger" onClick={clearDateFilter} type="button">
-              Reset
-            </button>
-          )}
         </div>
 
+        <button
+          className="primary-button"
+          onClick={applyDateFilter}
+          type="button"
+          style={{ padding: '6px 16px', fontSize: '0.82rem', fontWeight: 600 }}
+        >
+          GO
+        </button>
+
+        {activeFilter && (
+          <button
+            className="ghost-button"
+            onClick={clearDateFilter}
+            type="button"
+            style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            <X size={14} /> Clear
+          </button>
+        )}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 260, maxWidth: 360, flex: 1 }}>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search UID, agency, work, mobile..."
+              style={{
+                width: '100%',
+                padding: '6px 10px 6px 32px',
+                borderRadius: 6,
+                border: '1px solid #cbd5e1',
+                fontSize: '0.82rem',
+                background: '#fff'
+              }}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Main Data Table */}
-      <div className="table-card">
+      {/* Main Data Table matching Old software Manage Registration table */}
+      <div className="table-card" style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px' }}>
         <DataTable
           showHeader={false}
           columns={[
-            { key: 'uid', label: 'UID / Date' },
-            { key: 'agency', label: 'Client & Work' },
-            { key: 'stage', label: 'Stage' },
-            { key: 'assignee', label: 'Assignee' },
-            { key: 'days', label: 'Time' },
-            { key: 'amount', label: 'Value' },
-            { key: 'balance', label: 'Balance' },
-            { key: 'payment_status', label: 'Payment' },
-            { key: 'actions', label: 'Actions', sortable: false },
+            { key: 'uid_no', label: 'UID NO.' },
+            { key: 'received_date', label: 'Date' },
+            { key: 'agency_name', label: 'Agency Name' },
+            { key: 'reporting_address', label: 'Reporting Address' },
+            { key: 'mobile_no', label: 'Mobile No.' },
+            { key: 'name_of_work', label: 'Name Of Work' },
+            { key: 'sample_details', label: 'Sample Details' },
+            { key: 'total_payment', label: 'Total Payment' },
+            { key: 'advance_payment', label: 'Advance Payment' },
+            { key: 'balance_dues', label: 'Payment Dues' },
+            { key: 'scan_copy', label: 'Scan Copy' },
+            { key: 'report_copy', label: 'Report Copy' },
+            { key: 'actions', label: 'Action', sortable: false },
           ]}
           rows={filtered.map((registration) => {
-            const isStuck = (registration.days_at_stage ?? 0) >= 2 && registration.current_stage !== '8. Closed'
             const isPaid = (registration.balance_dues ?? 0) <= 0
             const attachedDocs = [
               registration.scan_copy,
@@ -372,16 +410,83 @@ export function RegistrationsPage() {
               registration.scan_copy_2,
               registration.scan_copy_3,
               registration.scan_copy_4,
-              registration.report_copy,
             ].filter(Boolean)
 
             return {
-              uid: (
+              uid_no: (
+                <button
+                  type="button"
+                  onClick={() => beginEdit(registration)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    color: '#2563eb',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.84rem'
+                  }}
+                  title="Click to edit registration"
+                >
+                  {registration.uid_no}
+                </button>
+              ),
+              received_date: (
+                <span style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', color: '#334155' }}>
+                  {normalizeDate(registration.received_date) || '-'}
+                </span>
+              ),
+              agency_name: (
+                <div style={{ maxWidth: 180, fontSize: '0.82rem', fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>
+                  {registration.agency_name}
+                </div>
+              ),
+              reporting_address: (
+                <div style={{ maxWidth: 180, fontSize: '0.8rem', color: '#475569', lineHeight: 1.3 }}>
+                  {registration.reporting_address || '-'}
+                </div>
+              ),
+              mobile_no: (
+                <span style={{ fontSize: '0.82rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                  {registration.mobile_no || '-'}
+                </span>
+              ),
+              name_of_work: (
+                <div style={{ maxWidth: 200, fontSize: '0.8rem', color: '#475569', lineHeight: 1.3 }}>
+                  {registration.name_of_work || '-'}
+                </div>
+              ),
+              sample_details: (
+                <div style={{ maxWidth: 180, fontSize: '0.8rem', color: '#334155' }}>
+                  <span style={{ fontWeight: 600 }}>{registration.sample_details || '-'}</span>
+                  {registration.qty ? <span style={{ color: '#64748b' }}> (Qty: {registration.qty})</span> : null}
+                </div>
+              ),
+              total_payment: (
+                <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.82rem', color: '#0f172a' }}>
+                  ₹{money(registration.total_payment)}
+                </span>
+              ),
+              advance_payment: (
+                <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#16a34a', fontWeight: 600 }}>
+                  ₹{money(registration.advance_payment)}
+                </span>
+              ),
+              balance_dues: (
+                <span
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: isPaid ? '#16a34a' : '#dc2626'
+                  }}
+                >
+                  ₹{money(registration.balance_dues)}
+                </span>
+              ),
+              scan_copy: (
                 <div>
-                  <span className="uid-cell">{registration.uid_no}</span>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--gray-400)', marginTop: 2 }}>
-                    {normalizeDate(registration.received_date)}
-                  </div>
                   {attachedDocs.length > 0 ? (
                     <button
                       type="button"
@@ -389,92 +494,105 @@ export function RegistrationsPage() {
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 3,
-                        fontSize: '0.68rem',
+                        gap: 4,
+                        fontSize: '0.72rem',
                         fontWeight: 600,
-                        color: 'var(--color-primary)',
-                        background: 'var(--color-primary-tint)',
-                        padding: '1px 6px',
-                        borderRadius: 4,
-                        marginTop: 4,
-                        border: 0,
-                        cursor: 'pointer',
+                        color: '#0284c7',
+                        background: '#e0f2fe',
+                        border: '1px solid #bae6fd',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        cursor: 'pointer'
                       }}
-                      title="View attached documents"
+                      title="View uploaded scan documents"
                     >
-                      <Paperclip size={10} /> {attachedDocs.length} {attachedDocs.length === 1 ? 'doc' : 'docs'}
+                      <Paperclip size={11} /> View ({attachedDocs.length})
                     </button>
-                  ) : null}
+                  ) : (
+                    <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>None</span>
+                  )}
                 </div>
               ),
-              agency: (
-                <div style={{ maxWidth: 220 }}>
-                  <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--gray-900)' }}>
-                    {registration.agency_name}
-                  </strong>
-                  <span style={{ fontSize: '0.76rem', color: 'var(--gray-500)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                    {registration.name_of_work}
-                  </span>
+              report_copy: (
+                <div>
+                  {registration.report_copy ? (
+                    <a
+                      href={registration.report_copy.startsWith('http') ? registration.report_copy : `/uploads/${registration.report_copy}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        color: '#16a34a',
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        textDecoration: 'none'
+                      }}
+                    >
+                      Report Copy
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>-</span>
+                  )}
                 </div>
-              ),
-              stage: (
-                <span className="stage-pill stage-pill--default">
-                  {registration.current_stage ?? '1. Registered'}
-                </span>
-              ),
-              assignee: (
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: registration.currently_with ? 'var(--gray-800)' : 'var(--gray-400)' }}>
-                  {registration.currently_with || 'Unassigned'}
-                </span>
-              ),
-              days: (
-                <span className={`turnaround ${isStuck ? 'turnaround--danger' : 'turnaround--ok'}`}>
-                  {isStuck ? '⚠️ ' : ''}{registration.days_at_stage ?? 0}d
-                </span>
-              ),
-              amount: (
-                <span className="mono" style={{ fontWeight: 600, color: 'var(--gray-900)' }}>
-                  ₹{money(registration.total_payment)}
-                </span>
-              ),
-              balance: (
-                <span className={`mono ${isPaid ? 'text-success' : 'text-danger'}`} style={{ fontWeight: 700 }}>
-                  ₹{money(registration.balance_dues)}
-                </span>
-              ),
-              payment_status: (
-                <span className="badge reg-payment-status" style={{
-                  background: isPaid ? 'rgba(52, 199, 89, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                  color: isPaid ? 'var(--color-green-text)' : 'var(--color-orange-text)',
-                }}>
-                  {registration.payment_status || (isPaid ? 'Fully Received' : 'Not Invoiced')}
-                </span>
               ),
               actions: (
-                <div className="reg-row-actions">
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <button
                     className="manage-btn"
                     onClick={() => beginEdit(registration)}
-                    title="Manage registration"
+                    title="Edit Registration"
                     type="button"
+                    style={{
+                      border: '1px solid #cbd5e1',
+                      background: '#fff',
+                      padding: '5px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: '#2563eb',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      cursor: 'pointer'
+                    }}
                   >
-                    <UserCog size={13} style={{ marginRight: 4 }} /> Edit
+                    <UserCog size={13} /> Edit
                   </button>
                   <button
                     className="icon-btn"
                     onClick={() => showHistory(registration)}
                     title="Audit trail"
                     type="button"
+                    style={{
+                      border: '1px solid #cbd5e1',
+                      background: '#fff',
+                      padding: '5px 8px',
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}
                   >
-                    <History size={15} />
+                    <History size={14} color="#64748b" />
                   </button>
                   <button
                     className="icon-btn"
                     onClick={() => setDrawerUid(registration.uid_no)}
                     title="Documents"
                     type="button"
+                    style={{
+                      border: '1px solid #cbd5e1',
+                      background: '#fff',
+                      padding: '5px 8px',
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}
                   >
-                    <Folder size={15} />
+                    <Folder size={14} color="#64748b" />
                   </button>
                 </div>
               ),

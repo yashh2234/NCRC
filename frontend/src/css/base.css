@@ -166,24 +166,14 @@ a:hover { opacity: 0.8; text-decoration: none; }
   letter-spacing: -0.01em;
 }
 
-.section-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 6px;
-  color: var(--color-primary);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.section-label, .dash-section-label, .page-header p:first-child {
+  display: none !important;
 }
 
-.section-label::before {
-  content: '';
-  width: 8px;
-  height: 2px;
-  background: var(--color-primary);
-  border-radius: 2px;
+/* Eliminate duplicate page title when topbar already displays current page title */
+.workspace > * > .page-header > div:first-child > h1:first-of-type,
+.workspace > .page-header > div:first-child > h1:first-of-type {
+  display: none;
 }
 
 .text-muted  { color: var(--color-text-muted); }
