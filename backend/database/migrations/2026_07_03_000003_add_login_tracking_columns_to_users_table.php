@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::table('users', function (Blueprint $table): void {
             if (! Schema::hasColumn('users', 'last_login_at')) {
-                $table->timestamp('last_login_at')->nullable()->after('remember_token');
+                $table->timestamp('last_login_at')->nullable();
             }
             if (! Schema::hasColumn('users', 'last_login_ip')) {
                 $table->string('last_login_ip', 45)->nullable()->after('last_login_at');
