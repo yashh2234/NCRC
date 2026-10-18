@@ -41,7 +41,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     description: 'Full access to all modules and all dashboard data',
     allowedModules: [
       'dashboard', 'jobs', 'registrations', 'quotations', 'work_orders', 'outsource',
-      'reports', 'ulr_links', 'final_reports', 'billing', 'due_reports',
+      'reports', 'ulr_add', 'ulr_register', 'ulr_links', 'final_reports', 'billing', 'due_reports',
       'users', 'user_tracking', 'expenses', 'purchase_orders',
       'lab', 'documents', 'roles', 'permissions', 'settings', 'analytics',
       'workflow_templates', 'clients', 'job_types', 'help_guide',
@@ -74,7 +74,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ecfdf5',
     description: 'Stages 2 (Field/Site Work) & 3 (Lab Testing) — Field work, sample collection, lab testing',
     allowedModules: [
-      'dashboard', 'jobs', 'lab', 'outsource', 'ulr_links', 'reports', 'help_guide',
+      'dashboard', 'jobs', 'lab', 'outsource', 'ulr_add', 'ulr_register', 'ulr_links', 'reports', 'help_guide',
     ],
     dashboardWidgets: [
       'welcome', 'my_queue', 'my_tasks', 'job_metrics',
@@ -88,7 +88,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#fffbeb',
     description: 'Stage 4 (Report Drafting) — Report drafting & finalization',
     allowedModules: [
-      'dashboard', 'jobs', 'reports', 'final_reports', 'ulr_links', 'help_guide',
+      'dashboard', 'jobs', 'reports', 'final_reports', 'ulr_add', 'ulr_register', 'ulr_links', 'help_guide',
     ],
     dashboardWidgets: [
       'welcome', 'my_queue', 'my_tasks', 'job_metrics',
@@ -102,7 +102,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#eef2ff',
     description: 'Stage 5 (Report Review) — Technical review & approval',
     allowedModules: [
-      'dashboard', 'jobs', 'reports', 'final_reports', 'work_orders', 'ulr_links',
+      'dashboard', 'jobs', 'reports', 'final_reports', 'work_orders', 'ulr_add', 'ulr_register', 'ulr_links',
       'lab', 'analytics', 'help_guide',
     ],
     dashboardWidgets: [
@@ -201,4 +201,3 @@ export function getUserDefaultRoleTab(role?: TrackerRole): string {
     default: return 'all'
   }
 }
-

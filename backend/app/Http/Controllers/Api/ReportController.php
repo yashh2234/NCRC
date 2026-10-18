@@ -157,18 +157,32 @@ class ReportController extends Controller
         $endDate = $request->query('end_date');
         $statusFilter = $request->query('status');
         $assignedToMe = $request->query('assigned_to_me');
+        $search = trim((string) $request->query('search', ''));
+        $perPage = 50;
+        $page = max(1, (int) $request->query('page', 1));
 
-        $reports = Report::query()
+        $query = Report::query()
             ->where('report_type', $type)
             ->when($startDate && $endDate, function ($query) use ($startDate, $endDate): void {
                 $query->whereDate('create_date', '>=', $startDate)
                     ->whereDate('create_date', '<=', $endDate);
             })
             ->when($statusFilter, fn ($q, $s) => $q->where('status', $s))
-            ->when($assignedToMe, fn ($q) => $q->where('assigned_to', $request->user()->id))
+            ->when($search !== '', function ($q) use ($search): void {
+                $q->where(function ($query) use ($search): void {
+                    $query->where('uid_no', 'like', '%' . $search . '%')
+                        ->orWhere('agency_name', 'like', '%' . $search . '%')
+                        ->orWhere('customer_details', 'like', '%' . $search . '%')
+                        ->orWhere('material_details', 'like', '%' . $search . '%');
+                });
+            })
+            ->when($assignedToMe, fn ($q) => $q->where('assigned_to', $request->user()->id));
+
+        $total = (clone $query)->count();
+        $reports = $query
             ->orderByDesc('create_date')
             ->orderByDesc('iReportId')
-            ->limit(50)
+            ->forPage($page, $perPage)
             ->get()
             ->map(fn (Report $report): array => [
                 'iReportId' => $report->iReportId,
@@ -184,7 +198,10 @@ class ReportController extends Controller
             ]);
 
         return response()->json([
-            'count' => $reports->count(),
+            'count' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
             'data' => $reports,
             'type' => $type,
             'config' => self::REPORT_TYPES[$type],

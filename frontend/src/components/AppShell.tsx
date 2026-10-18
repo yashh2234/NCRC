@@ -20,6 +20,8 @@ const iconMap: Record<string, LucideIcon> = {
   invoices: Receipt,
   due_reports: AlertTriangle,
   final_reports: ClipboardCheck,
+  ulr_add: FileText,
+  ulr_register: FileText,
   ulr_links: FileText,
   workflow_templates: Settings,
   jobs: Briefcase,

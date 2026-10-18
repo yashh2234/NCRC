@@ -197,7 +197,7 @@ export const api = {
     return request('/reports/types')
   },
 
-  reports(type: string): Promise<{ data: CubeReport[]; type: string }> {
+  reports(type: string): Promise<{ data: CubeReport[]; type: string; count: number; page: number; per_page: number; last_page: number }> {
     return request(`/reports/${type}`)
   },
 
@@ -413,6 +413,10 @@ export const api = {
 
   ulrClientDetails(uid_no: string): Promise<{ data: { uid_no: string; agency_name: string; reporting_address?: string; name_of_work: string; sample_details: string } | null }> {
     return request('/ulr-links/client-details', { method: 'POST', body: JSON.stringify({ uid_no }) })
+  },
+
+  searchRegistrationUids(q: string): Promise<{ data: Array<{ uid_no: string; agency_name: string; reporting_address?: string; name_of_work: string; sample_details: string }> }> {
+    return request(`/registrations/search-customers?q=${encodeURIComponent(q)}`)
   },
 
   ulrDropdown(date?: string): Promise<{ data: Array<{ id: number; ulr_no: string; uid_no: string | null; is_assigned: boolean; label: string }> }> {

@@ -63,7 +63,8 @@ function AuthenticatedApp() {
       label: 'Manage ULR',
       icon: ClipboardList,
       items: [
-        { key: 'ulr_links', label: 'Manage ULR Register' },
+        { key: 'ulr_add', label: 'ADD ULR' },
+        { key: 'ulr_register', label: 'Manage ULR Register' },
       ],
     },
     {
@@ -77,7 +78,7 @@ function AuthenticatedApp() {
       label: 'Billing',
       icon: ReceiptText,
       items: [
-        { key: 'billing', label: 'All Bills' },
+        { key: 'billing', label: 'Billing' },
       ],
     },
     {
@@ -176,8 +177,11 @@ function AuthenticatedApp() {
       <div className={`view ${activeModule === 'outsource' ? 'visible' : ''}`}>
         {activeModule === 'outsource' && <OutsourcePage />}
       </div>
-      <div className={`view ${activeModule === 'ulr_links' ? 'visible' : ''}`}>
-        {activeModule === 'ulr_links' && <UlrLinkPage />}
+      <div className={`view ${activeModule === 'ulr_add' ? 'visible' : ''}`}>
+        {activeModule === 'ulr_add' && <UlrLinkPage mode="add" />}
+      </div>
+      <div className={`view ${activeModule === 'ulr_register' ? 'visible' : ''}`}>
+        {activeModule === 'ulr_register' && <UlrLinkPage mode="register" />}
       </div>
       <div className={`view ${activeModule === 'analytics' ? 'visible' : ''}`}>
         {activeModule === 'analytics' && <AnalyticsPage />}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Check, X, FlaskConical, Play, FileText, UserCheck, History, RotateCcw, Pencil, Printer } from 'lucide-react'
+import { Check, X, Play, FileText, UserCheck, History, RotateCcw, Pencil, Printer } from 'lucide-react'
 import { api } from '../lib/api'
 import { Timeline } from '../components/Timeline'
 import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge'
@@ -36,6 +36,10 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [lastPage, setLastPage] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
   const [assigning, setAssigning] = useState<number | null>(null)
   const [timelineReportId, setTimelineReportId] = useState<number | null>(null)
   const [timelineData, setTimelineData] = useState<Array<{ event: string; timestamp: string | null; icon: string; user?: string }>>([])
@@ -76,14 +80,18 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
       if (statusFilter) params.set('status', statusFilter)
       if (startDate) params.set('start_date', startDate)
       if (endDate) params.set('end_date', endDate)
+      if (search.trim()) params.set('search', search.trim())
+      params.set('page', String(page))
       const data = await api.reports(`${activeType}?${params.toString()}` as any)
       setReports(data.data)
+      setLastPage(data.last_page)
+      setTotalRecords(data.count)
     } catch {
       setLocalError('Unable to load reports')
     } finally {
       setLoading(false)
     }
-  }, [activeType, statusFilter, startDate, endDate])
+  }, [activeType, statusFilter, startDate, endDate, search, page])
 
   const loadUsers = useCallback(async () => {
     try {
@@ -267,7 +275,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                 cursor: 'pointer',
                 fontWeight: activeType === type.key ? 700 : 500,
               }}
-              onClick={() => setActiveType(type.key)}
+              onClick={() => { setActiveType(type.key); setPage(1) }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                 <span>{type.label}</span>
@@ -286,63 +294,50 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
         </nav>
       </section>
 
-      <section className="surface">
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', padding: '0 2px 12px' }}>
+          <input
+            type="search"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Search reports"
+            aria-label="Search reports"
+            style={{ width: 220, flex: '0 0 220px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }}
+          />
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+            aria-label="Filter reports by status"
+            style={{ width: 190, flex: '0 0 190px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, background: '#fff', fontSize: '0.82rem' }}
+          >
+            <option value="">All statuses</option>
+            {statusSteps.map(step => {
+              const count = step === 'Pending'
+                ? activeTypeInfo?.pending
+                : step === 'Testing'
+                  ? activeTypeInfo?.testing
+                  : step === 'Report Generated'
+                    ? activeTypeInfo?.generated
+                    : undefined
+              return <option key={step} value={step}>{step}{count !== undefined ? ` (${count})` : ''}</option>
+            })}
+          </select>
+          <span style={{ color: '#65737d', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>From</span>
+          <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1) }} style={{ flex: '0 0 140px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }} />
+          <span style={{ color: '#65737d', fontSize: '0.82rem' }}>to</span>
+          <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1) }} style={{ flex: '0 0 140px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }} />
+          {(startDate || endDate || statusFilter || search) && (
+            <button type="button" onClick={() => { setStartDate(''); setEndDate(''); setStatusFilter(''); setSearch(''); setPage(1) }} style={{ flex: '0 0 auto', padding: '8px 10px', borderRadius: 6, border: '1px solid #d0d7de', background: 'transparent', fontSize: '0.82rem', cursor: 'pointer' }}>
+              Clear
+            </button>
+          )}
+        </div>
+
+        <section className="surface">
         <div className="surface-heading">
           <div>
             <p className="section-label">{activeTypeInfo?.label ?? 'Reports'}</p>
             <h2>Report queue</h2>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <FlaskConical size={18} />
-            <span className="sync-pill">{reports.length} reports</span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-          {statusSteps.map((step) => {
-            const count = step === 'Pending'
-              ? activeTypeInfo?.pending
-              : step === 'Testing'
-                ? activeTypeInfo?.testing
-                : step === 'Report Generated'
-                  ? activeTypeInfo?.generated
-                  : undefined
-            return (
-              <button
-                key={step}
-                type="button"
-                onClick={() => setStatusFilter(statusFilter === step ? '' : step)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 20,
-                  border: `1px solid ${statusFilter === step ? STATUS_FLOW[step]?.color ?? '#ccc' : '#d0d7de'}`,
-                  background: statusFilter === step ? `${STATUS_FLOW[step]?.color}15` : 'transparent',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  fontWeight: statusFilter === step ? 700 : 500,
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {step}
-                  {count !== undefined && count > 0 ? <span style={{ opacity: 0.6 }}>({count})</span> : null}
-                </span>
-              </button>
-            )
-          })}
-          {statusFilter ? (
-            <button type="button" onClick={() => setStatusFilter('')} style={{ padding: '6px 14px', borderRadius: 20, border: '1px solid #d0d7de', background: 'transparent', fontSize: '0.82rem', cursor: 'pointer' }}>
-              Clear Status
-            </button>
-          ) : null}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '5px 8px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }} />
-            <span style={{ color: '#65737d', fontSize: '0.82rem' }}>to</span>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '5px 8px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }} />
-            {(startDate || endDate) && (
-              <button type="button" onClick={() => { setStartDate(''); setEndDate('') }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #d0d7de', background: 'transparent', fontSize: '0.82rem', cursor: 'pointer' }}>
-                Clear Dates
-              </button>
-            )}
           </div>
         </div>
 
@@ -397,7 +392,32 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
             })}
           </div>
         )}
-      </section>
+
+        {!loading && totalRecords > 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 18 }}>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={page === 1}
+              onClick={() => setPage(current => Math.max(1, current - 1))}
+            >
+              Previous
+            </button>
+            <span style={{ fontSize: '0.82rem', color: '#65737d' }}>
+              Showing {totalRecords === 0 ? 0 : ((page - 1) * 50) + 1}-{Math.min(page * 50, totalRecords)} of {totalRecords} records
+            </span>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={page >= lastPage}
+              onClick={() => setPage(current => Math.min(lastPage, current + 1))}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
+        </section>
+      </div>
 
       {timelineReportId !== null ? (
         <Timeline entries={timelineData} onClose={() => { setTimelineReportId(null); setTimelineData([]) }} />

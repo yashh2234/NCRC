@@ -18,9 +18,10 @@ class UlrLinkController extends Controller
 
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
-        if ($startDate && $endDate) {
-            $query->whereDate('date', '>=', $startDate)->whereDate('date', '<=', $endDate);
-        }
+        $uidNo = trim((string) $request->query('uid_no', ''));
+        if ($startDate) $query->whereDate('date', '>=', $startDate);
+        if ($endDate) $query->whereDate('date', '<=', $endDate);
+        if ($uidNo !== '') $query->where('uid_no', 'like', '%' . $uidNo . '%');
 
         $links = $query->orderByDesc('id')->limit(200)->get();
         return response()->json(['data' => $links]);
@@ -32,9 +33,10 @@ class UlrLinkController extends Controller
 
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
-        if ($startDate && $endDate) {
-            $query->whereDate('date', '>=', $startDate)->whereDate('date', '<=', $endDate);
-        }
+        $uidNo = trim((string) $request->query('uid_no', ''));
+        if ($startDate) $query->whereDate('date', '>=', $startDate);
+        if ($endDate) $query->whereDate('date', '<=', $endDate);
+        if ($uidNo !== '') $query->where('uid_no', 'like', '%' . $uidNo . '%');
 
         $links = $query->orderByDesc('id')->limit(1000)->get();
         return response()->json(['data' => $links]);
@@ -53,7 +55,7 @@ class UlrLinkController extends Controller
                     'ulr_no' => $ulr->ulr_no,
                     'uid_no' => $ulr->uid_no,
                     'is_assigned' => !empty($ulr->uid_no),
-                    'label' => $ulr->ulr_no . (!empty($ulr->uid_no) ? ' (Assign: ' . $ulr->uid_no . ')' : ''),
+                    'label' => $ulr->ulr_no . (!empty($ulr->uid_no) ? ' (Assign)' : ''),
                 ];
             });
 
