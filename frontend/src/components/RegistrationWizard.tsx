@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, type FormEvent } from 'react'
 import {
   ClipboardList, ArrowLeft, ArrowRight, Save, Plus, X, Building2,
   FlaskConical, Paperclip, IndianRupee, Briefcase, Calculator,
-  Sparkles, CheckCircle2, Clock, FileText, UserCheck, Eye, Trash2, Upload
+  CheckCircle2, Clock, FileText, UserCheck, Eye, Trash2, Upload
 } from 'lucide-react'
 import type { RegistrationFormData } from '../lib/types'
 import { api, request, resolveFileUrl } from '../lib/api'
@@ -57,6 +57,7 @@ const emptyForm: RegistrationFormData = {
   target_date: '',
   payment_status: 'Not Invoiced',
   handover_note: '',
+  is_draft: false,
 }
 
 const DRAFT_KEY = 'reg_draft'
@@ -91,8 +92,7 @@ export function RegistrationWizard({
   initial,
   onSaved,
   onCancel,
-  onGenerateUid,
-  generatingUid
+  onGenerateUid
 }: Props) {
   const [tab, setTab] = useState(0)
   const [form, setForm] = useState<RegistrationFormData>(() => {
@@ -110,6 +110,8 @@ export function RegistrationWizard({
 
   // Document scan state
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [visibleScanSlots, setVisibleScanSlots] = useState(3)
   const [uploadMsg, setUploadMsg] = useState('')
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
 
@@ -119,13 +121,14 @@ export function RegistrationWizard({
 
     if (editingId) {
       setUploadingSlot(idx)
+      setUploadProgress(0)
       setUploadMsg('')
       try {
         const fd = new FormData()
         fd.append('file', file)
         fd.append('field', field)
         fd.append('registration_id', String(editingId))
-        const res = await api.uploadRegistrationScan(fd)
+        const res = await api.uploadRegistrationScan(fd, setUploadProgress)
         update({ [field]: res.path })
         setUploadMsg(`Scan Document #${idx + 1} uploaded & saved!`)
         setTimeout(() => setUploadMsg(''), 4000)
@@ -133,6 +136,7 @@ export function RegistrationWizard({
         setLocalError(err instanceof Error ? err.message : 'Failed to upload document')
       } finally {
         setUploadingSlot(null)
+        setUploadProgress(0)
       }
     } else {
       setPendingFiles((prev) => ({ ...prev, [field]: file }))
@@ -329,7 +333,7 @@ export function RegistrationWizard({
     setLocalError('')
 
     // Validate Currently With (Mandatory)
-    if (!form.currently_with || form.currently_with.trim() === '') {
+    if (!form.is_draft && (!form.currently_with || form.currently_with.trim() === '')) {
       setCurrentlyWithError('Please assign a staff member in "Currently With"')
       setLocalError('Currently With (Assigned User) is mandatory. Please select a user in the Handover tab.')
       setTab(6) // Switch to Handover tab
@@ -342,7 +346,9 @@ export function RegistrationWizard({
         ...form,
         total_payment: Number(form.total_payment || 0),
         advance_payment: Number(form.advance_payment || 0),
-        balance_dues: Number(form.balance_dues || 0)
+        balance_dues: Number(form.balance_dues || 0),
+        current_stage: form.current_stage === 'Draft' ? '1. Registered' : form.current_stage,
+        is_draft: false,
       }
       let savedId = editingId
       if (editingId) {
@@ -372,6 +378,31 @@ export function RegistrationWizard({
       onSaved()
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    setSaving(true)
+    setLocalError('')
+    try {
+      const payload = {
+        ...form,
+        total_payment: Number(form.total_payment || 0),
+        advance_payment: Number(form.advance_payment || 0),
+        balance_dues: Number(form.balance_dues || 0),
+        is_draft: true,
+      }
+      if (editingId) {
+        await request(`/registrations/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) })
+      } else {
+        await request('/registrations', { method: 'POST', body: JSON.stringify(payload) })
+      }
+      clearDraft()
+      onSaved()
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : 'Draft save failed')
     } finally {
       setSaving(false)
     }
@@ -435,23 +466,9 @@ export function RegistrationWizard({
                   <input
                     value={form.uid_no}
                     onChange={(e) => update({ uid_no: e.target.value })}
-                    readOnly={!editingId}
                     className="mono"
                     style={{ fontWeight: 700, color: 'var(--color-primary)' }}
                   />
-                  {!editingId ? (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => {
-                        onGenerateUid().then((uid) => update({ uid_no: uid })).catch(() => {})
-                      }}
-                      disabled={generatingUid}
-                      title="Generate UID"
-                    >
-                      <Sparkles size={14} /> Auto
-                    </button>
-                  ) : null}
                 </div>
               </FormField>
 
@@ -911,7 +928,7 @@ export function RegistrationWizard({
             </p>
 
             <div style={{ display: 'grid', gap: 12 }}>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => {
+              {Array.from({ length: visibleScanSlots }, (_, idx) => idx).map((idx) => {
                 const field = idx === 0 ? 'scan_copy' : (`scan_copy_${idx}` as keyof RegistrationFormData)
                 const filePath = form[field] as string | undefined
                 const isUploading = uploadingSlot === idx
@@ -976,7 +993,7 @@ export function RegistrationWizard({
                         className={`btn ${hasFile ? 'btn-outline' : 'btn-primary'} btn-xs`}
                         style={{ cursor: isUploading ? 'not-allowed' : 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                       >
-                        <Upload size={13} /> {isUploading ? 'Uploading...' : hasFile ? 'Replace' : 'Upload Document'}
+                        <Upload size={13} /> {isUploading ? `Uploading ${uploadProgress}%` : hasFile ? 'Replace' : 'Upload Document'}
                         <input
                           type="file"
                           hidden
@@ -1000,6 +1017,20 @@ export function RegistrationWizard({
                   </div>
                 )
               })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 14 }}>
+              {visibleScanSlots < 10 ? (
+                <button type="button" className="btn btn-outline btn-sm"
+                  onClick={() => setVisibleScanSlots((count) => Math.min(10, count + 3))}>
+                  + Add more document options
+                </button>
+              ) : null}
+              {visibleScanSlots > 3 ? (
+                <button type="button" className="btn btn-outline btn-sm"
+                  onClick={() => setVisibleScanSlots((count) => Math.max(3, count - 3))}>
+                  Show fewer
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1144,7 +1175,7 @@ export function RegistrationWizard({
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={() => { saveDraft(form); setLocalError('Draft saved to storage') }}
+              onClick={() => { void handleSaveDraft() }}
             >
               <Save size={14} /> Save Draft
             </button>

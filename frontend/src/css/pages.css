@@ -640,14 +640,120 @@
   background: var(--color-surface);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
-  padding: 32px;
+  padding: 34px;
   animation: modalSlide var(--duration) var(--ease-spring);
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px 24px;
+  gap: 24px 26px;
+  padding-top: 24px;
+}
+
+.page-container {
+  display: grid;
+  gap: 22px;
+}
+
+.registration-toolbar {
+  min-height: 74px;
+}
+
+.registration-toolbar .btn {
+  min-height: 38px;
+}
+
+.registration-filter-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.registration-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.registration-filter-row input,
+.registration-filter-row select {
+  min-height: 38px;
+  width: 100%;
+}
+
+.registration-filter-row select {
+  flex: 0 1 180px;
+}
+
+.registration-filter-row-bottom > div:first-child {
+  flex: 1 1 240px;
+}
+
+.registration-create-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .registration-filter-row {
+    flex-wrap: wrap;
+  }
+  .registration-filter-row-bottom > div:first-child {
+    flex-basis: 100%;
+  }
+}
+
+.page-header {
+  gap: 18px;
+  padding-bottom: 4px;
+}
+
+.page-header h1 {
+  color: var(--gray-900);
+  font-size: 1.65rem;
+}
+
+.filters-bar {
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.table-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+
+.data-table {
+  font-size: 0.84rem;
+}
+
+.data-table th {
+  padding: 13px 16px;
+  color: var(--gray-600);
+  background: #f8fafc;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.data-table td {
+  padding: 14px 16px;
+  color: var(--gray-700);
+}
+
+.data-table tbody tr:hover {
+  background: #f8fbff;
+}
+
+.modal-actions {
+  gap: 10px;
+  padding-top: 22px;
+  margin-top: 24px;
+  border-top: 1px solid var(--color-border-light);
 }
 
 .form-grid .form-group {

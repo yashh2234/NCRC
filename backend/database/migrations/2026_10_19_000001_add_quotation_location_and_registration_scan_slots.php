@@ -29,6 +29,11 @@ return new class extends Migration
                     }
                 });
             }
+            if (! Schema::hasColumn('client_registration', 'is_draft')) {
+                Schema::table('client_registration', function (Blueprint $table): void {
+                    $table->boolean('is_draft')->default(false)->after('payment_status');
+                });
+            }
         }
     }
 
@@ -51,6 +56,11 @@ return new class extends Migration
             if ($columns) {
                 Schema::table('client_registration', function (Blueprint $table) use ($columns): void {
                     $table->dropColumn($columns);
+                });
+            }
+            if (Schema::hasColumn('client_registration', 'is_draft')) {
+                Schema::table('client_registration', function (Blueprint $table): void {
+                    $table->dropColumn('is_draft');
                 });
             }
         }

@@ -29,7 +29,7 @@ class Registration extends Model
         'report_copy', 'gst_no', 'sample_nos',
         'scan_copy', 'scan_copy_1', 'scan_copy_2', 'scan_copy_3', 'scan_copy_4',
         'scan_copy_5', 'scan_copy_6', 'scan_copy_7', 'scan_copy_8', 'scan_copy_9',
-        'assign_to', 'current_stage', 'currently_with', 'priority', 'target_date', 'payment_status',
+        'assign_to', 'current_stage', 'currently_with', 'priority', 'target_date', 'payment_status', 'is_draft',
     ];
 
     protected $casts = [];

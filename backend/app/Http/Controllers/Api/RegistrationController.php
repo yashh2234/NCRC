@@ -95,15 +95,15 @@ class RegistrationController extends Controller
         $validated = $request->validate([
             'uid_no' => ['nullable', 'string', 'max:255'],
             'received_date' => ['required', 'string', 'max:255'],
-            'agency_name' => ['required', 'string', 'max:255'],
-            'reporting_address' => ['required', 'string', 'max:255'],
-            'mobile_no' => ['required', 'string', 'max:50'],
-            'name_of_work' => ['required', 'string'],
+            'agency_name' => ['required_unless:is_draft,true', 'nullable', 'string', 'max:255'],
+            'reporting_address' => ['required_unless:is_draft,true', 'nullable', 'string', 'max:255'],
+            'mobile_no' => ['required_unless:is_draft,true', 'nullable', 'string', 'max:50'],
+            'name_of_work' => ['required_unless:is_draft,true', 'nullable', 'string'],
             'work_order_no' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
             'work' => ['nullable', 'string', 'max:255'],
             'report_status' => ['nullable', 'string', 'max:255'],
-            'sample_details' => ['required', 'string'],
+            'sample_details' => ['required_unless:is_draft,true', 'nullable', 'string'],
             'sample_details_1' => ['nullable', 'string'],
             'sample_details_2' => ['nullable', 'string'],
             'sample_details_3' => ['nullable', 'string'],
@@ -141,7 +141,17 @@ class RegistrationController extends Controller
             'target_date' => ['nullable', 'string', 'max:255'],
             'payment_status' => ['nullable', 'string', 'max:255'],
             'handover_note' => ['nullable', 'string'],
+            'is_draft' => ['nullable', 'boolean'],
         ]);
+        $validated = array_merge([
+            'uid_no' => '',
+            'received_date' => now()->format('Y-m-d'),
+            'agency_name' => '',
+            'reporting_address' => '',
+            'mobile_no' => '',
+            'name_of_work' => '',
+            'sample_details' => '',
+        ], $validated);
 
         $registration = DB::transaction(function () use ($validated, $request) {
             $nextId = ((int) (DB::table('client_registration')->max('iClientId') ?? 0)) + 1;
@@ -206,11 +216,16 @@ class RegistrationController extends Controller
                 'scan_copy_8' => '',
                 'scan_copy_9' => '',
                 'assign_to' => $validated['assign_to'] ?? 'lab',
-                'current_stage' => $validated['current_stage'] ?? '1. Registered',
+                'current_stage' => $validated['is_draft']
+                    ? 'Draft'
+                    : (($validated['current_stage'] ?? '1. Registered') === 'Draft'
+                        ? '1. Registered'
+                        : ($validated['current_stage'] ?? '1. Registered')),
                 'currently_with' => $validated['currently_with'] ?? '',
                 'priority' => $validated['priority'] ?? 'Medium',
                 'target_date' => !empty($validated['target_date']) ? $validated['target_date'] : null,
                 'payment_status' => $validated['payment_status'] ?? 'Not Invoiced',
+                'is_draft' => (bool) ($validated['is_draft'] ?? false),
             ]);
 
             DB::table('stage_logs')->insert([
@@ -236,7 +251,9 @@ class RegistrationController extends Controller
             'created_at' => now(),
         ]);
 
-        $this->syncJobFromRegistration($registration, $request);
+        if (! $registration->is_draft) {
+            $this->syncJobFromRegistration($registration, $request);
+        }
 
         return response()->json([
             'message' => 'Registration created successfully',
@@ -249,15 +266,15 @@ class RegistrationController extends Controller
         $validated = $request->validate([
             'uid_no' => ['nullable', 'string', 'max:255'],
             'received_date' => ['required', 'string', 'max:255'],
-            'agency_name' => ['required', 'string', 'max:255'],
-            'reporting_address' => ['required', 'string', 'max:255'],
-            'mobile_no' => ['required', 'string', 'max:50'],
-            'name_of_work' => ['required', 'string'],
+            'agency_name' => ['required_unless:is_draft,true', 'nullable', 'string', 'max:255'],
+            'reporting_address' => ['required_unless:is_draft,true', 'nullable', 'string', 'max:255'],
+            'mobile_no' => ['required_unless:is_draft,true', 'nullable', 'string', 'max:50'],
+            'name_of_work' => ['required_unless:is_draft,true', 'nullable', 'string'],
             'work_order_no' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
             'work' => ['nullable', 'string', 'max:255'],
             'report_status' => ['nullable', 'string', 'max:255'],
-            'sample_details' => ['required', 'string'],
+            'sample_details' => ['required_unless:is_draft,true', 'nullable', 'string'],
             'sample_details_1' => ['nullable', 'string'],
             'sample_details_2' => ['nullable', 'string'],
             'sample_details_3' => ['nullable', 'string'],
@@ -295,6 +312,7 @@ class RegistrationController extends Controller
             'target_date' => ['nullable', 'string', 'max:255'],
             'payment_status' => ['nullable', 'string', 'max:255'],
             'handover_note' => ['nullable', 'string'],
+            'is_draft' => ['nullable', 'boolean'],
         ]);
 
         $existing = DB::table('client_registration')->where('iClientId', $registrationId)->first();
@@ -302,7 +320,9 @@ class RegistrationController extends Controller
 
         $oldStage = $existing->current_stage ?? '1. Registered';
         $oldWith = $existing->currently_with ?? '';
-        $newStage = $validated['current_stage'] ?? $oldStage;
+        $newStage = ($validated['current_stage'] ?? $oldStage) === 'Draft'
+            ? '1. Registered'
+            : ($validated['current_stage'] ?? $oldStage);
         $newWith = $validated['currently_with'] ?? $oldWith;
         $handoverNote = $validated['handover_note'] ?? '';
 
@@ -349,11 +369,12 @@ class RegistrationController extends Controller
             'prepared_date' => $validated['prepared_date'] ? $this->normalizeLegacyDate($validated['prepared_date']) : '',
             'dispatch_date' => $validated['dispatch_date'] ? $this->normalizeLegacyDate($validated['dispatch_date']) : '',
             'assign_to' => $validated['assign_to'] ?? 'lab',
-            'current_stage' => $newStage,
+            'current_stage' => $validated['is_draft'] ? 'Draft' : $newStage,
             'currently_with' => $newWith,
             'priority' => $validated['priority'] ?? ($existing->priority ?? 'Medium'),
             'target_date' => !empty($validated['target_date']) ? $validated['target_date'] : null,
             'payment_status' => $validated['payment_status'] ?? ($existing->payment_status ?? 'Not Invoiced'),
+            'is_draft' => (bool) ($validated['is_draft'] ?? false),
         ]);
 
         if ($newStage !== $oldStage || $newWith !== $oldWith || !empty($handoverNote)) {
@@ -370,7 +391,9 @@ class RegistrationController extends Controller
         }
 
         $registration = DB::table('client_registration')->where('iClientId', $registrationId)->first();
-        $this->syncJobFromRegistration($registration, $request);
+        if (! $registration->is_draft) {
+            $this->syncJobFromRegistration($registration, $request);
+        }
 
         return response()->json([
             'message' => 'Registration updated',
@@ -459,6 +482,7 @@ class RegistrationController extends Controller
             'priority' => $registration->priority ?? 'Medium',
             'target_date' => $registration->target_date ?? '',
             'payment_status' => $registration->payment_status ?? ($balanceDues <= 0 && $totalPayment > 0 ? 'Fully Received' : 'Not Invoiced'),
+            'is_draft' => (bool) ($registration->is_draft ?? false),
             'days_at_stage' => $daysAtStage,
             'stage_logs' => $logs->map(function ($log) {
                 return [

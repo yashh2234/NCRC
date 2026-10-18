@@ -20,6 +20,16 @@ function normalizeDate(value: string | null | undefined) {
   return value
 }
 
+function displayDate(value: string | null | undefined) {
+  if (!value) return ''
+  const normalized = normalizeDate(value)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    const [year, month, day] = normalized.split('-')
+    return `${day}/${month}/${year}`
+  }
+  return normalized
+}
+
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(value)
 }
@@ -129,7 +139,7 @@ export function RegistrationsPage() {
     const headers = ['UID No', 'Date', 'Agency Name', 'Current Stage', 'Currently With', 'Priority', 'Days at Stage', 'Payment Status', 'Total Payment', 'Balance Dues']
     const rows = filtered.map((r) => [
       r.uid_no,
-      normalizeDate(r.received_date),
+      displayDate(r.received_date),
       r.agency_name,
       r.current_stage ?? '1. Registered',
       r.currently_with ?? '',
@@ -230,65 +240,9 @@ export function RegistrationsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Clean Professional Top Toolbar */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 12,
-        padding: '16px 20px',
-        background: '#fff',
-        borderRadius: 12,
-        border: '1px solid #e2e8f0'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-            Manage Client Registration
-          </h2>
-          <span style={{
-            fontSize: '0.78rem',
-            fontWeight: 700,
-            background: '#eff6ff',
-            color: '#2563eb',
-            padding: '2px 10px',
-            borderRadius: 999
-          }}>
-            {filtered.length} Records
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            className="ghost-button"
-            onClick={handleExport}
-            type="button"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', padding: '7px 14px' }}
-          >
-            <Download size={15} /> Export CSV
-          </button>
-          <button
-            className="primary-button"
-            onClick={beginCreate}
-            type="button"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.84rem', padding: '7px 16px', fontWeight: 600 }}
-          >
-            <Plus size={16} /> Create Registration
-          </button>
-        </div>
-      </div>
-
-      {/* Compact filters */}
-      <div style={{
-        display: 'flex',
-        gap: 8,
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        padding: '10px 12px',
-        background: '#f8fafc',
-        borderRadius: 10,
-        border: '1px solid #e2e8f0'
-      }}>
+      {/* Registration filters and actions */}
+      <div className="registration-filter-stack">
+        <div className="registration-filter-row registration-filter-row-top">
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
@@ -305,11 +259,20 @@ export function RegistrationsPage() {
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} aria-label="Start date" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
         <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>to</span>
         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-label="End date" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
-        <button className="primary-button" onClick={applyDateFilter} type="button" style={{ padding: '7px 12px', fontSize: '0.82rem', fontWeight: 600 }}>Apply</button>
-        {activeFilter ? <button className="ghost-button" onClick={clearDateFilter} type="button" style={{ fontSize: '0.82rem', padding: '7px 10px' }}><X size={14} /> Clear</button> : null}
+        <button className="btn btn-outline" onClick={handleExport} type="button">
+          <Download size={15} /> Export
+        </button>
+        </div>
+        <div className="registration-filter-row registration-filter-row-bottom">
         <div style={{ position: 'relative', minWidth: 220, flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search UID, agency, work..." aria-label="Search registrations" style={{ width: '100%', padding: '7px 10px 7px 32px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
+        </div>
+        <button className="btn btn-primary" onClick={applyDateFilter} type="button">Apply</button>
+        {activeFilter ? <button className="ghost-button" onClick={clearDateFilter} type="button"><X size={14} /> Clear</button> : null}
+        <button className="btn btn-primary registration-create-button" onClick={beginCreate} type="button">
+          <Plus size={16} /> Create Registration
+        </button>
         </div>
       </div>
 
@@ -350,12 +313,15 @@ export function RegistrationsPage() {
                   }}
                   title="Click to edit registration"
                 >
-                  {registration.uid_no}
+                  <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                    {registration.is_draft ? <span className="badge badge-warning">Draft</span> : null}
+                    <span>{registration.uid_no || 'Draft registration'}</span>
+                  </span>
                 </button>
               ),
               received_date: (
                 <span style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', color: '#334155' }}>
-                  {normalizeDate(registration.received_date) || '-'}
+                  {displayDate(registration.received_date) || '-'}
                 </span>
               ),
               agency_name: (

@@ -181,6 +181,7 @@ export interface Registration {
   priority?: string
   target_date?: string
   payment_status?: string
+  is_draft?: boolean
   days_at_stage?: number
   stage_logs?: StageLog[]
 }
@@ -233,6 +234,7 @@ export interface RegistrationFormData {
   priority?: string
   target_date?: string
   payment_status?: string
+  is_draft?: boolean
   handover_note?: string
   scan_copy?: string
   scan_copy_1?: string

@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { ArrowUpDown, ArrowUp, ArrowDown, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface DataTableColumn {
   key: string
@@ -28,20 +28,8 @@ export function DataTable({
   filename = 'export',
   onRowClick
 }: DataTableProps) {
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-    setPage(1)
-  }
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows
@@ -54,31 +42,13 @@ export function DataTable({
     )
   }, [rows, search, columns])
 
-  const sorted = useMemo(() => {
-    if (!sortKey) return filtered
-    return [...filtered].sort((a, b) => {
-      const aVal = a[sortKey]
-      const bVal = b[sortKey]
-      if (aVal == null) return 1
-      if (bVal == null) return -1
-
-      let cmp = 0
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        cmp = aVal - bVal
-      } else {
-        cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
-      }
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-  }, [filtered, sortKey, sortDir])
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
-  const pageRows = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   const exportCsv = () => {
     const header = columns.map((c) => c.label).join(',')
-    const body = sorted
+    const body = filtered
       .map((row) => columns.map((col) => `"${String(row[col.key] ?? '').replaceAll('"', '""')}"`).join(','))
       .join('\n')
     const blob = new Blob([`${header}\n${body}`], { type: 'text/csv' })
@@ -88,13 +58,6 @@ export function DataTable({
     a.download = `${filename}.csv`
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortKey !== columnKey) return <ArrowUpDown size={13} style={{ color: 'var(--gray-300)' }} />
-    return sortDir === 'asc'
-      ? <ArrowUp size={13} style={{ color: 'var(--color-primary)' }} />
-      : <ArrowDown size={13} style={{ color: 'var(--color-primary)' }} />
   }
 
   return (
@@ -127,7 +90,7 @@ export function DataTable({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="sync-pill">
-              {sorted.length} {sorted.length === 1 ? 'record' : 'records'}
+              {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
             </span>
 
             {exportable ? (
@@ -153,23 +116,7 @@ export function DataTable({
               <tr>
                 {columns.map((col) => (
                   <th key={col.key} style={{ padding: '14px 16px' }}>
-                    {col.sortable !== false ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSort(col.key)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6, background: 'none',
-                          border: 'none', padding: 0, fontWeight: 700, fontSize: 'inherit',
-                          color: 'inherit', cursor: 'pointer', textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                        }}
-                      >
-                        <span>{col.label}</span>
-                        <SortIcon columnKey={col.key} />
-                      </button>
-                    ) : (
-                      <span>{col.label}</span>
-                    )}
+                    <span>{col.label}</span>
                   </th>
                 ))}
               </tr>
@@ -208,7 +155,7 @@ export function DataTable({
             background: 'var(--gray-50)', fontSize: '0.82rem',
           }}>
             <span style={{ color: 'var(--gray-400)', fontWeight: 500 }}>
-              Page {safePage} of {totalPages} ({sorted.length} total records)
+              Page {safePage} of {totalPages} ({filtered.length} total records)
             </span>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

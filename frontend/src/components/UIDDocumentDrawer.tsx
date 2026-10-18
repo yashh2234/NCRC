@@ -41,7 +41,6 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [reportVersions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'all' | 'photos'>('all')
 
   const loadUidDocuments = useCallback(async () => {
     if (!uidNo) return
@@ -92,9 +91,6 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
 
   if (!isOpen) return null
 
-  const photos = documents.filter((d) => d.file_type?.startsWith('image/') || d.tags?.includes('sample_photo'))
-  const displayedDocuments = activeTab === 'photos' ? photos : documents
-
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 50,
@@ -136,29 +132,6 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
           </div>
           <button className="icon-button" onClick={onClose} type="button">
             <X size={18} />
-          </button>
-        </div>
-
-        {/* Category Tabs */}
-        <div style={{
-          padding: '10px 16px',
-          borderBottom: '1px solid var(--color-border-light)',
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: 'var(--gray-50)',
-        }}>
-          <button
-            className={`btn btn-sm ${activeTab === 'all' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setActiveTab('all')}
-            type="button"
-          >
-            All Files ({documents.length})
-          </button>
-          <button
-            className={`btn btn-sm ${activeTab === 'photos' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setActiveTab('photos')}
-            type="button"
-          >
-            <ImageIcon size={14} /> Sample Photos ({photos.length})
           </button>
         </div>
 
@@ -220,7 +193,7 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
               }}>
                 <FileText size={14} /> Attached UID Files
               </h4>
-              {displayedDocuments.map((doc) => (
+              {documents.map((doc) => (
                 <div key={doc.id} style={{
                   border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius)',

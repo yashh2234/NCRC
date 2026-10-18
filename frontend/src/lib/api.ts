@@ -473,18 +473,25 @@ export const api = {
     return request(`/registrations/${id}/history`)
   },
 
-  uploadRegistrationScan(formData: FormData): Promise<{ message: string; path: string; url: string }> {
+  uploadRegistrationScan(formData: FormData, onProgress?: (percent: number) => void): Promise<{ message: string; path: string; url: string }> {
     const token = getToken()
-    return fetch(`${BASE_URL}/registrations/upload-scan`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    }).then(r => r.json())
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${BASE_URL}/registrations/upload-scan`)
+      xhr.setRequestHeader('Accept', 'application/json')
+      if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token)
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100))
+      }
+      xhr.onload = () => {
+        const payload = JSON.parse(xhr.responseText || '{}')
+        if (xhr.status >= 200 && xhr.status < 300) resolve(payload)
+        else reject(new Error(payload.message ?? 'Upload failed'))
+      }
+      xhr.onerror = () => reject(new Error('Upload failed'))
+      xhr.send(formData)
+    })
   },
-
   jobs(params?: Record<string, string>): Promise<{ data: Array<{ id: number; uid_no: string; title: string; status: string; current_stage: { name: string; slug: string; color: string } | null; assigned_to: number | null; created_at: string }> }> {
     const qs = params ? '?' + new URLSearchParams(params).toString() : ''
     return request(`/jobs${qs}`)
