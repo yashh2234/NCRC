@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
 
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
+  'Andaman and Nicobar Islands', 'Dadra and Nagar Haveli and Daman and Diu',
+  'Lakshadweep',
+];
+
 type QuotationItem = {
   id?: number;
   description: string;
@@ -18,6 +29,7 @@ type Quotation = {
   valid_until: string | null;
   client_name: string;
   agency_name: string | null;
+  location?: string | null;
   total_amount: number;
   discount: number;
   tax_amount: number;
@@ -40,7 +52,7 @@ export default function QuotationsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
-    client_name: '', agency_name: '', contact_person: '', mobile_no: '', email: '',
+    client_name: '', agency_name: '', contact_person: '', mobile_no: '', email: '', location: '',
     date: new Date().toISOString().slice(0, 10), valid_until: '', discount: 0, tax_amount: 0,
     terms_and_conditions: '', notes: '', inquiry_id: null as number | null,
   });
@@ -65,7 +77,7 @@ export default function QuotationsPage() {
   const openCreate = () => {
     setEditing(null);
     setForm({
-      client_name: '', agency_name: '', contact_person: '', mobile_no: '', email: '',
+      client_name: '', agency_name: '', contact_person: '', mobile_no: '', email: '', location: '',
       date: new Date().toISOString().slice(0, 10), valid_until: '', discount: 0, tax_amount: 0,
       terms_and_conditions: '', notes: '', inquiry_id: null,
     });
@@ -77,7 +89,7 @@ export default function QuotationsPage() {
     setEditing(q);
     setForm({
       client_name: q.client_name, agency_name: q.agency_name || '',
-      contact_person: '', mobile_no: '', email: '',
+      contact_person: '', mobile_no: '', email: '', location: q.location || '',
       date: q.date, valid_until: q.valid_until || '', discount: q.discount,
       tax_amount: q.tax_amount, terms_and_conditions: '', notes: '', inquiry_id: q.inquiry_id,
     });
@@ -100,13 +112,19 @@ export default function QuotationsPage() {
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
   const totalAmount = items.reduce((sum, i) => sum + i.amount, 0);
-  const netAmount = totalAmount - (form.discount || 0) + (form.tax_amount || 0);
+  const taxableAmount = Math.max(0, totalAmount - (form.discount || 0));
+  const isRajasthan = form.location === 'Rajasthan';
+  const cgstAmount = isRajasthan ? taxableAmount * 0.09 : 0;
+  const sgstAmount = isRajasthan ? taxableAmount * 0.09 : 0;
+  const igstAmount = isRajasthan ? 0 : taxableAmount * 0.18;
+  const taxAmount = cgstAmount + sgstAmount + igstAmount;
+  const netAmount = taxableAmount + taxAmount;
 
   const handleSave = async () => {
     try {
       const method = editing ? 'PUT' : 'POST';
       const url = editing ? `/quotations/${editing.id}` : '/quotations';
-      await request(url, { method, body: JSON.stringify({ ...form, items }) });
+      await request(url, { method, body: JSON.stringify({ ...form, tax_amount: taxAmount, items }) });
       setShowModal(false);
       fetchQuotations();
     } catch (e: any) { alert(e.message || 'Save failed'); }
@@ -222,6 +240,14 @@ export default function QuotationsPage() {
                 <input className="form-input" type="date" value={form.valid_until}
                   onChange={(e) => setForm({ ...form, valid_until: e.target.value })} />
               </div>
+              <div className="form-group">
+                <label>Client Location *</label>
+                <select className="form-input" value={form.location} required
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}>
+                  <option value="">-- Select State --</option>
+                  {INDIAN_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
+                </select>
+              </div>
             </div>
 
             <h3 style={{ marginTop: 16 }}>Line Items</h3>
@@ -264,9 +290,13 @@ export default function QuotationsPage() {
                   onChange={(e) => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="form-group">
-                <label>Tax Amount</label>
-                <input className="form-input" type="number" value={form.tax_amount}
-                  onChange={(e) => setForm({ ...form, tax_amount: parseFloat(e.target.value) || 0 })} />
+                <label>{isRajasthan ? 'CGST 9% + SGST 9%' : 'IGST 18%'}</label>
+                <div style={{ fontWeight: 600 }}>₹{taxAmount.toLocaleString()}</div>
+                <small style={{ color: '#666' }}>
+                  {isRajasthan
+                    ? `CGST: ₹${cgstAmount.toLocaleString()} | SGST: ₹${sgstAmount.toLocaleString()}`
+                    : `IGST: ₹${igstAmount.toLocaleString()}`}
+                </small>
               </div>
               <div className="form-group">
                 <label>Total: ₹{totalAmount.toLocaleString()}</label>

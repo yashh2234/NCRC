@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
 
 type Registration = {
-  iClientId: number;
+  iClientId?: number;
+  id?: number;
   uid_no: string;
   agency_name: string;
   mobile_no: string;
@@ -83,9 +84,10 @@ export default function WorkOrdersPage() {
   );
 
   const handleUidSelect = (reg: Registration) => {
+    const registrationId = reg.iClientId ?? reg.id ?? null;
     setForm({
       ...form,
-      registration_id: reg.iClientId,
+      registration_id: registrationId,
       client_name: reg.agency_name || '',
       agency_name: reg.agency_name || '',
       mobile_no: reg.mobile_no || '',
@@ -117,7 +119,7 @@ export default function WorkOrdersPage() {
       inquiry_id: wo.inquiry_id, quotation_id: wo.quotation_id, registration_id: wo.registration_id,
     });
     // Find the UID for the linked registration
-    const linkedReg = registrations.find((r) => r.iClientId === wo.registration_id);
+    const linkedReg = registrations.find((r) => (r.iClientId ?? r.id) === wo.registration_id);
     setUidSearch(linkedReg?.uid_no || '');
     setShowModal(true);
   };
@@ -152,7 +154,7 @@ export default function WorkOrdersPage() {
   // Resolve UID for a registration_id
   const getUidForRegistration = (regId: number | null) => {
     if (!regId) return '-';
-    const reg = registrations.find((r) => r.iClientId === regId);
+    const reg = registrations.find((r) => (r.iClientId ?? r.id) === regId);
     return reg?.uid_no || '-';
   };
 
@@ -247,7 +249,7 @@ export default function WorkOrdersPage() {
             <h2>{editing ? 'Edit Work Order' : 'New Work Order'}</h2>
             <div className="form-grid">
               <div className="form-group" style={{ gridColumn: '1 / -1', position: 'relative' }}>
-                <label>Link to UID *</label>
+                <label>Link to UID (optional)</label>
                 <input className="form-input" placeholder="Search UID..."
                   value={uidSearch}
                   onChange={(e) => {
@@ -264,7 +266,7 @@ export default function WorkOrdersPage() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                   }}>
                     {filteredRegistrations.slice(0, 20).map((reg) => (
-                      <div key={reg.iClientId}
+                      <div key={reg.iClientId ?? reg.id}
                         style={{
                           padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
                           transition: 'background 0.15s',

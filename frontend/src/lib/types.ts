@@ -169,6 +169,11 @@ export interface Registration {
   scan_copy_2?: string
   scan_copy_3?: string
   scan_copy_4?: string
+  scan_copy_5?: string
+  scan_copy_6?: string
+  scan_copy_7?: string
+  scan_copy_8?: string
+  scan_copy_9?: string
   status: string
   color?: string
   current_stage?: string
@@ -234,6 +239,11 @@ export interface RegistrationFormData {
   scan_copy_2?: string
   scan_copy_3?: string
   scan_copy_4?: string
+  scan_copy_5?: string
+  scan_copy_6?: string
+  scan_copy_7?: string
+  scan_copy_8?: string
+  scan_copy_9?: string
   stage_logs?: StageLog[]
 }
 

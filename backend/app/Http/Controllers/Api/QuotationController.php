@@ -48,6 +48,7 @@ class QuotationController extends Controller
             'contact_person' => 'nullable|string|max:222',
             'mobile_no' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:222',
+            'location' => 'required|string|max:222',
             'date' => 'required|date',
             'valid_until' => 'nullable|date',
             'discount' => 'nullable|numeric|min:0',
@@ -68,7 +69,8 @@ class QuotationController extends Controller
             }
 
             $discount = $validated['discount'] ?? 0;
-            $taxAmount = $validated['tax_amount'] ?? 0;
+            $taxableAmount = max(0, $totalAmount - $discount);
+            $taxAmount = $this->calculateTaxAmount($validated['location'] ?? null, $taxableAmount);
             $netAmount = $totalAmount - $discount + $taxAmount;
 
             $quotation = Quotation::create([
@@ -81,6 +83,7 @@ class QuotationController extends Controller
                 'contact_person' => $validated['contact_person'] ?? null,
                 'mobile_no' => $validated['mobile_no'] ?? null,
                 'email' => $validated['email'] ?? null,
+                'location' => $validated['location'] ?? null,
                 'total_amount' => $totalAmount,
                 'discount' => $discount,
                 'tax_amount' => $taxAmount,
@@ -120,6 +123,7 @@ class QuotationController extends Controller
             'contact_person' => 'nullable|string|max:222',
             'mobile_no' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:222',
+            'location' => 'nullable|string|max:222',
             'date' => 'sometimes|date',
             'valid_until' => 'nullable|date',
             'discount' => 'nullable|numeric|min:0',
@@ -149,9 +153,21 @@ class QuotationController extends Controller
             }
             $validated['total_amount'] = $totalAmount;
             $discount = $validated['discount'] ?? $quotation->discount;
-            $taxAmount = $validated['tax_amount'] ?? $quotation->tax_amount;
+            $taxAmount = $this->calculateTaxAmount(
+                $validated['location'] ?? $quotation->location,
+                max(0, $totalAmount - $discount)
+            );
             $validated['net_amount'] = $totalAmount - $discount + $taxAmount;
             unset($validated['items']);
+        }
+
+        if (array_key_exists('location', $validated) || array_key_exists('discount', $validated)) {
+            $discount = $validated['discount'] ?? $quotation->discount;
+            $validated['tax_amount'] = $this->calculateTaxAmount(
+                $validated['location'] ?? $quotation->location,
+                max(0, $quotation->total_amount - $discount)
+            );
+            $validated['net_amount'] = $quotation->total_amount - $discount + $validated['tax_amount'];
         }
 
         if (isset($validated['status']) && $validated['status'] === 'sent' && !$quotation->sent_at) {
@@ -170,6 +186,11 @@ class QuotationController extends Controller
         $quotation->items()->delete();
         $quotation->delete();
         return response()->json(['message' => 'Quotation deleted']);
+    }
+
+    private function calculateTaxAmount(?string $location, float $taxableAmount): float
+    {
+        return round($taxableAmount * 0.18, 2);
     }
 
     public function convertToWorkOrder(Quotation $quotation)

@@ -93,7 +93,7 @@ class RegistrationController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'uid_no' => ['required', 'string', 'max:255'],
+            'uid_no' => ['nullable', 'string', 'max:255'],
             'received_date' => ['required', 'string', 'max:255'],
             'agency_name' => ['required', 'string', 'max:255'],
             'reporting_address' => ['required', 'string', 'max:255'],
@@ -200,6 +200,11 @@ class RegistrationController extends Controller
                 'scan_copy_2' => '',
                 'scan_copy_3' => '',
                 'scan_copy_4' => '',
+                'scan_copy_5' => '',
+                'scan_copy_6' => '',
+                'scan_copy_7' => '',
+                'scan_copy_8' => '',
+                'scan_copy_9' => '',
                 'assign_to' => $validated['assign_to'] ?? 'lab',
                 'current_stage' => $validated['current_stage'] ?? '1. Registered',
                 'currently_with' => $validated['currently_with'] ?? '',
@@ -242,7 +247,7 @@ class RegistrationController extends Controller
     public function update(Request $request, int $registrationId): JsonResponse
     {
         $validated = $request->validate([
-            'uid_no' => ['required', 'string', 'max:255'],
+            'uid_no' => ['nullable', 'string', 'max:255'],
             'received_date' => ['required', 'string', 'max:255'],
             'agency_name' => ['required', 'string', 'max:255'],
             'reporting_address' => ['required', 'string', 'max:255'],
@@ -443,6 +448,11 @@ class RegistrationController extends Controller
             'scan_copy_2' => $registration->scan_copy_2 ?? '',
             'scan_copy_3' => $registration->scan_copy_3 ?? '',
             'scan_copy_4' => $registration->scan_copy_4 ?? '',
+            'scan_copy_5' => $registration->scan_copy_5 ?? '',
+            'scan_copy_6' => $registration->scan_copy_6 ?? '',
+            'scan_copy_7' => $registration->scan_copy_7 ?? '',
+            'scan_copy_8' => $registration->scan_copy_8 ?? '',
+            'scan_copy_9' => $registration->scan_copy_9 ?? '',
             'status' => $balanceDues > 0 ? 'Pending' : 'Complete',
             'current_stage' => $registration->current_stage ?? '1. Registered',
             'currently_with' => $registration->currently_with ?? '',
@@ -699,7 +709,7 @@ class RegistrationController extends Controller
     {
         $request->validate([
             'file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf,docx,xlsx,csv', 'max:15360'],
-            'field' => ['required', 'string', 'in:scan_copy,scan_copy_1,scan_copy_2,scan_copy_3,scan_copy_4,report_copy'],
+            'field' => ['required', 'string', 'in:scan_copy,scan_copy_1,scan_copy_2,scan_copy_3,scan_copy_4,scan_copy_5,scan_copy_6,scan_copy_7,scan_copy_8,scan_copy_9,report_copy'],
             'registration_id' => ['required', 'integer'],
         ]);
 
@@ -738,6 +748,11 @@ class RegistrationController extends Controller
             'scan_copy_2' => 'Doc #3',
             'scan_copy_3' => 'Doc #4',
             'scan_copy_4' => 'Doc #5',
+            'scan_copy_5' => 'Doc #6',
+            'scan_copy_6' => 'Doc #7',
+            'scan_copy_7' => 'Doc #8',
+            'scan_copy_8' => 'Doc #9',
+            'scan_copy_9' => 'Doc #10',
             'report_copy' => 'Report Copy',
         ];
         $slotLabel = $slotMap[$field] ?? $field;

@@ -911,7 +911,7 @@ export function RegistrationWizard({
             </p>
 
             <div style={{ display: 'grid', gap: 12 }}>
-              {[0, 1, 2, 3, 4].map((idx) => {
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => {
                 const field = idx === 0 ? 'scan_copy' : (`scan_copy_${idx}` as keyof RegistrationFormData)
                 const filePath = form[field] as string | undefined
                 const isUploading = uploadingSlot === idx

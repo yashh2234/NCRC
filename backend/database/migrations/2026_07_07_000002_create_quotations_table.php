@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('contact_person', 222)->nullable();
             $table->string('mobile_no', 50)->nullable();
             $table->string('email', 222)->nullable();
+            $table->string('location', 222)->nullable();
             $table->decimal('total_amount', 12, 2)->default(0);
             $table->decimal('discount', 12, 2)->default(0);
             $table->decimal('tax_amount', 12, 2)->default(0);

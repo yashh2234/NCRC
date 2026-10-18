@@ -12,7 +12,7 @@ class Quotation extends Model
 
     protected $fillable = [
         'inquiry_id', 'quotation_no', 'date', 'valid_until',
-        'client_name', 'agency_name', 'contact_person', 'mobile_no', 'email',
+        'client_name', 'agency_name', 'contact_person', 'mobile_no', 'email', 'location',
         'total_amount', 'discount', 'tax_amount', 'net_amount',
         'terms_and_conditions', 'status', 'sent_via', 'sent_at',
         'accepted_at', 'notes', 'created_by',
