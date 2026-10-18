@@ -35,6 +35,7 @@ export function DataTable({
     if (!search.trim()) return rows
     const q = search.toLowerCase()
     return rows.filter((row) =>
+      String(row.searchText ?? '').toLowerCase().includes(q) ||
       columns.some((col) => {
         const val = row[col.key]
         return val != null && String(val).toLowerCase().includes(q)

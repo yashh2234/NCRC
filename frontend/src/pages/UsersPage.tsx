@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Search, UserPlus, UserCog, Trash2, X } from 'lucide-react'
+import { UserPlus, UserCog, Trash2, X, Activity, Clock } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { DataTable } from '../components/DataTable'
 import type { UserFormData, UserRecord } from '../lib/types'
@@ -12,17 +12,15 @@ const emptyUserForm: UserFormData = {
 
 export function UsersPage() {
   const { users: userRecords, roles, refresh, setStatus, error, clearError } = useAuth()
-  const [query, setQuery] = useState('')
   const [form, setForm] = useState<UserFormData>(emptyUserForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [localError, setLocalError] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [activityUser, setActivityUser] = useState<UserRecord | null>(null)
+  const [activities, setActivities] = useState<Array<{ id: number; action: string; module: string | null; created_at: string | null; time_ago: string | null }>>([])
+  const [activityLoading, setActivityLoading] = useState(false)
 
   const displayError = error || localError
-  const filtered = query.trim()
-    ? userRecords.filter((r) => [r.name, r.username, r.email, r.group?.group_name ?? '', r.phone].join(' ').toLowerCase().includes(query.trim().toLowerCase()))
-    : userRecords
-
   const beginCreate = () => {
     setEditingId(null); setForm({ ...emptyUserForm, group_id: roles[0]?.id ? String(roles[0].id) : '1', is_active: '1' })
     clearError(); setLocalError(''); setStatus('Creating user'); setShowForm(true)
@@ -56,6 +54,19 @@ export function UsersPage() {
     } catch (e) { setLocalError(e instanceof Error ? e.message : 'Unable to delete user'); setStatus('Needs attention') }
   }
 
+  const showActivity = async (record: UserRecord) => {
+    setActivityUser(record)
+    setActivityLoading(true)
+    try {
+      const response = await api.userActivity(record.id)
+      setActivities((response.activities ?? []).filter((entry) => entry.action !== 'page_visit'))
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : 'Unable to load user activity')
+    } finally {
+      setActivityLoading(false)
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -68,22 +79,17 @@ export function UsersPage() {
         </div>
       </div>
 
-      <div className="filter-bar">
-        <div className="search-field">
-          <Search size={16} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search users, email, group..." />
-        </div>
-        <span className="record-count">{filtered.length} users</span>
-      </div>
-
       <div className="table-card">
         <DataTable
+          searchable={false}
+          exportable={false}
+          showHeader={false}
           columns={[
             { key: 'name', label: 'Name' }, { key: 'username', label: 'Username' }, { key: 'email', label: 'Email' },
-            { key: 'group', label: 'Job Tracker Role' }, { key: 'is_active', label: 'Active' }, { key: 'last_login', label: 'Last login' },
+            { key: 'group', label: 'Job Tracker Role' }, { key: 'is_active', label: 'Active' },
             { key: 'actions', label: '', sortable: false },
           ]}
-          rows={filtered.map((record) => ({
+          rows={userRecords.map((record) => ({
             name: <span className="uid-cell">{record.name}</span>,
             username: record.username, email: record.email,
             group: (
@@ -92,14 +98,39 @@ export function UsersPage() {
               </span>
             ),
             is_active: record.is_active !== false ? <span className="badge badge-success">Active</span> : <span className="badge badge-danger">Inactive</span>,
-            last_login: <span className="mono text-muted">{record.last_login_at ?? '-'}</span>,
             actions: <div className="row-actions-inline">
+              <button className="icon-btn" onClick={() => void showActivity(record)} type="button" title="View activity"><Activity size={15} /></button>
               <button className="icon-btn" onClick={() => beginEdit(record)} type="button" title="Edit"><UserCog size={15} /></button>
               <button className="icon-btn" onClick={() => void handleDelete(record)} type="button" title="Delete"><Trash2 size={15} /></button>
             </div>,
           }))}
         />
       </div>
+
+      {activityUser && (
+        <div className="modal-overlay" onClick={() => setActivityUser(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <button className="modal-close" onClick={() => setActivityUser(null)} type="button"><X size={20} /></button>
+            <div style={{ marginBottom: 18 }}>
+              <p className="section-label">User activity</p>
+              <h2>{activityUser.name || activityUser.username}</h2>
+            </div>
+            {activityLoading ? <p className="empty-state">Loading activity...</p> : activities.length === 0 ? <p className="empty-state">No activity recorded.</p> : (
+              <div className="session-stack" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                {activities.map((entry) => (
+                  <div className="session-row" key={entry.id}>
+                    <div>
+                      <strong>{entry.action.replace(/_/g, ' ')}</strong>
+                      <span>{entry.module || 'System'}</span>
+                    </div>
+                    <small><Clock size={12} /> {entry.time_ago || entry.created_at || ''}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>

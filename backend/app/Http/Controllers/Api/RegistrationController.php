@@ -152,6 +152,7 @@ class RegistrationController extends Controller
             'name_of_work' => '',
             'sample_details' => '',
         ], $validated);
+        $validated['sample_details'] = $validated['sample_details'] ?? '';
 
         $registration = DB::transaction(function () use ($validated, $request) {
             $nextId = ((int) (DB::table('client_registration')->max('iClientId') ?? 0)) + 1;
@@ -183,7 +184,7 @@ class RegistrationController extends Controller
                 'new_back_2' => $validated['new_back_2'] ?? '',
                 'new_back_3' => $validated['new_back_3'] ?? '',
                 'new_back_4' => $validated['new_back_4'] ?? '',
-                'sample_details' => $validated['sample_details'],
+                'sample_details' => $validated['sample_details'] ?? '',
                 'sample_details_1' => $validated['sample_details_1'] ?? '',
                 'sample_details_2' => $validated['sample_details_2'] ?? '',
                 'sample_details_3' => $validated['sample_details_3'] ?? '',
@@ -319,6 +320,7 @@ class RegistrationController extends Controller
         abort_if(! $existing, 404, 'Registration not found');
 
         $oldStage = $existing->current_stage ?? '1. Registered';
+        $validated['sample_details'] = $validated['sample_details'] ?? '';
         $oldWith = $existing->currently_with ?? '';
         $newStage = ($validated['current_stage'] ?? $oldStage) === 'Draft'
             ? '1. Registered'

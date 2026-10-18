@@ -46,7 +46,7 @@ class PermissionController extends Controller
         $allPermissions = Permission::orderBy('module')->orderBy('name')->get();
 
         $rolePermissionIds = $role->newPermissions()->pluck('permissions.id')->toArray();
-        $legacyPerms = $role->permissions();
+        $legacyPerms = $role->getPermissionsAttribute();
 
         $permissions = $allPermissions->map(fn ($p) => [
             'id' => $p->id,

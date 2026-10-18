@@ -1,35 +1,27 @@
 import { AuthProvider, useAuth } from './lib/auth'
 import { LoginPage } from './pages/LoginPage'
-import { DashboardPage } from './pages/DashboardPage'
 import { UsersPage } from './pages/UsersPage'
 import { RegistrationsPage } from './pages/RegistrationsPage'
 import { BillingPage } from './pages/BillingPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { RolesPage } from './pages/RolesPage'
-import { SettingsPage } from './pages/SettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { PurchaseOrdersPage } from './pages/PurchaseOrdersPage'
-import { LabPage } from './pages/LabPage'
-import { UserTrackingPage } from './pages/UserTrackingPage'
 import { DueReportsPage } from './pages/DueReportsPage'
 import { FinalReportsPage } from './pages/FinalReportsPage'
 import { UlrLinkPage } from './pages/UlrLinkPage'
 import { WorkflowTemplatesPage } from './pages/WorkflowTemplatesPage'
-import { JobsPage } from './pages/JobsPage'
-import { PermissionsPage } from './pages/PermissionsPage'
-import { DocumentLibraryPage } from './pages/DocumentLibraryPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import QuotationsPage from './pages/QuotationsPage'
 import WorkOrdersPage from './pages/WorkOrdersPage'
 import OutsourcePage from './pages/OutsourcePage'
 import { JobTypesPage } from './pages/JobTypesPage'
-import { HelpGuidePage } from './pages/HelpGuidePage'
 import { AppShell } from './components/AppShell'
 import { useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
 import { isModuleAllowed } from './lib/roleConfig'
-import { Briefcase, ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, Settings, ClipboardCheck, BookOpen, type LucideIcon } from 'lucide-react'
+import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   key: string
@@ -50,13 +42,6 @@ function AuthenticatedApp() {
 
   // All possible nav groups
   const allGroups: NavGroup[] = [
-    {
-      label: 'UID Register',
-      icon: Briefcase,
-      items: [
-        { key: 'jobs', label: 'UID Register' },
-      ],
-    },
     {
       label: 'Clients',
       icon: ClipboardList,
@@ -103,14 +88,6 @@ function AuthenticatedApp() {
       ],
     },
     {
-      label: 'Users',
-      icon: Users,
-      items: [
-        { key: 'users', label: 'Manage Users' },
-        { key: 'user_tracking', label: 'User Tracking' },
-      ],
-    },
-    {
       label: 'Daily Expenses',
       icon: IndianRupee,
       items: [
@@ -125,34 +102,11 @@ function AuthenticatedApp() {
       ],
     },
     {
-      label: 'Workflow & System',
-      icon: Briefcase,
-      items: [
-        { key: 'lab', label: 'Testing' },
-        { key: 'documents', label: 'Documents' },
-      ],
-    },
-    {
-      label: 'Groups',
+      label: 'Administration',
       icon: Users,
       items: [
-        { key: 'roles', label: 'Manage Groups' },
-        { key: 'permissions', label: 'Permissions' },
-      ],
-    },
-    {
-      label: 'Company Settings',
-      icon: Settings,
-      items: [
-        { key: 'settings', label: 'Company Settings' },
-        { key: 'job_types', label: 'Job Types' },
-      ],
-    },
-    {
-      label: 'Help',
-      icon: BookOpen,
-      items: [
-        { key: 'help_guide', label: 'How to Use' },
+        { key: 'users', label: 'Manage Users' },
+        { key: 'roles', label: 'Groups & Permissions' },
       ],
     },
   ]
@@ -181,7 +135,7 @@ function AuthenticatedApp() {
       onModuleChange={handleModuleChange}
     >
       <div className={`view ${activeModule === 'dashboard' ? 'visible' : ''}`}>
-        {activeModule === 'dashboard' && <DashboardPage />}
+        {activeModule === 'dashboard' ? <div aria-hidden="true" /> : null}
       </div>
       <div className={`view ${activeModule === 'users' ? 'visible' : ''}`}>
         {activeModule === 'users' && <UsersPage />}
@@ -203,9 +157,6 @@ function AuthenticatedApp() {
       </div>
       <div className={`view ${activeModule === 'billing' ? 'visible' : ''}`}>
         {activeModule === 'billing' && <BillingPage />}
-      </div>
-      <div className={`view ${activeModule === 'lab' ? 'visible' : ''}`}>
-        {activeModule === 'lab' && <LabPage />}
       </div>
       <div className={`view ${activeModule.startsWith('report') ? 'visible' : ''}`}>
         {activeModule.startsWith('report') && <ReportsPage defaultType={activeModule.startsWith('report_') ? activeModule.replace('report_', '') : undefined} />}
@@ -234,27 +185,8 @@ function AuthenticatedApp() {
       <div className={`view ${activeModule === 'workflow_templates' ? 'visible' : ''}`}>
         {activeModule === 'workflow_templates' && <WorkflowTemplatesPage />}
       </div>
-      <div className={`view ${activeModule === 'jobs' ? 'visible' : ''}`}>
-        {activeModule === 'jobs' && <JobsPage />}
-      </div>
-      <div className={`view ${activeModule === 'user_tracking' ? 'visible' : ''}`}>
-        {activeModule === 'user_tracking' && <UserTrackingPage />}
-      </div>
-
-      <div className={`view ${activeModule === 'documents' ? 'visible' : ''}`}>
-        {activeModule === 'documents' && <DocumentLibraryPage />}
-      </div>
-      <div className={`view ${activeModule === 'permissions' ? 'visible' : ''}`}>
-        {activeModule === 'permissions' && <PermissionsPage />}
-      </div>
-      <div className={`view ${activeModule === 'settings' ? 'visible' : ''}`}>
-        {activeModule === 'settings' && <SettingsPage />}
-      </div>
       <div className={`view ${activeModule === 'job_types' ? 'visible' : ''}`}>
         {activeModule === 'job_types' && <JobTypesPage />}
-      </div>
-      <div className={`view ${activeModule === 'help_guide' ? 'visible' : ''}`}>
-        {activeModule === 'help_guide' && <HelpGuidePage />}
       </div>
     </AppShell>
   )

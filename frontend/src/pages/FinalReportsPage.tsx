@@ -125,6 +125,20 @@ export function FinalReportsPage() {
   const rows = data.map((r) => {
     const sc = STATUS_COLORS[r.status] ?? { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' }
     return {
+      searchText: [
+        r.create_date,
+        r.uid_no,
+        r.ulr_no,
+        r.customer_details,
+        r.agency_name,
+        r.reference_no,
+        r.material_details,
+        r.source_location,
+        r.work_order_no,
+        r.sample_date,
+        r.sample_tested_date,
+        r.status === 'Complete' ? 'Approved' : r.status,
+      ].filter(Boolean).join(' '),
       create_date: (
         <span style={{ fontSize: '0.82rem', whiteSpace: 'nowrap', color: '#334155' }}>
           {r.create_date ?? '-'}
@@ -267,45 +281,6 @@ export function FinalReportsPage() {
 
   return (
     <section className="surface" style={{ padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff' }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ background: '#e0f2fe', color: '#0284c7', padding: 8, borderRadius: 8 }}>
-              <FileText size={22} />
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
-                Manage All Reports
-              </h2>
-              <p style={{ margin: '2px 0 0', fontSize: '0.84rem', color: '#64748b' }}>
-                Complete archive of finalized & testing lab reports with one-click print & edit
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats Pill */}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Total Reports</span>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>{data.length}</span>
-          </div>
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#16a34a', display: 'block' }}>Approved</span>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#15803d' }}>
-              {data.filter(d => d.status === 'Complete').length}
-            </span>
-          </div>
-          <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 14px', borderRadius: 8, textAlign: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#b45309', display: 'block' }}>Pending</span>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#b45309' }}>
-              {data.filter(d => d.status === 'Pending').length}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Filter Toolbar Matching Old Software Start Date - End Date - GO */}
       <div style={{
         display: 'flex',
@@ -394,4 +369,3 @@ export function FinalReportsPage() {
     </section>
   )
 }
-
