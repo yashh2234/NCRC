@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Check, X, Play, FileText, UserCheck, History, RotateCcw, Pencil, Printer } from 'lucide-react'
 import { api } from '../lib/api'
 import { Timeline } from '../components/Timeline'
 import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge'
 import { JobDetailPage } from './JobDetailPage'
 import { ReportEditPage } from './ReportEditPage'
+import { EXCEL_TEMPLATE_OPTIONS } from '../components/ExcelLabReportEditor'
 
 import type { CubeReport } from '../lib/types'
 
@@ -16,6 +17,8 @@ interface ReportTypeInfo {
   testing: number
   generated: number
   assigned_to_me: number
+  is_template?: boolean
+  template_key?: string
 }
 
 const STATUS_FLOW: Record<string, { label: string; color: string; next: string[] }> = {
@@ -45,6 +48,12 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [timelineData, setTimelineData] = useState<Array<{ event: string; timestamp: string | null; icon: string; user?: string }>>([])
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [editingReportId, setEditingReportId] = useState<number | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    report_type: 'cc_cube', template: 'cc_cube', uid_no: '', customer_details: '', agency_name: '',
+    material_details: '', sample_date: '', sample_tested_date: '', ulr_no: '', reference_no: '',
+  })
 
   const handlePrint = async (reportId: number) => {
     try {
@@ -74,6 +83,14 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
 
   const loadReports = useCallback(async () => {
     if (!activeType) return
+    const selectedType = types.find((type) => type.key === activeType)
+    if (selectedType?.is_template) {
+      setReports([])
+      setTotalRecords(0)
+      setLastPage(1)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -91,7 +108,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
     } finally {
       setLoading(false)
     }
-  }, [activeType, statusFilter, startDate, endDate, search, page])
+  }, [activeType, statusFilter, startDate, endDate, search, page, types])
 
   const loadUsers = useCallback(async () => {
     try {
@@ -165,6 +182,25 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   }
 
   const activeTypeInfo = types.find((t) => t.key === activeType)
+
+  const updateCreate = (field: string, value: string) => setCreateForm((previous) => ({ ...previous, [field]: value }))
+  const handleCreate = async (event: FormEvent) => {
+    event.preventDefault()
+    setCreating(true)
+    setLocalError('')
+    try {
+      const payload = { ...createForm, lab_data: { _template: createForm.template } }
+      if (createForm.report_type === 'cc_cube') await api.createCubeReport(payload)
+      else await api.createLabReport(createForm.report_type, payload)
+      setShowCreate(false)
+      await loadTypes()
+      await loadReports()
+    } catch {
+      setLocalError('Unable to create lab report')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const statusSteps = ['Pending', 'Testing', 'Report Generated', 'Complete']
 
@@ -251,49 +287,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   }
 
   return (
-    <div className="two-column" style={{ gridTemplateColumns: '220px minmax(0, 1fr)' }}>
-      <section className="surface" style={{ alignContent: 'start' }}>
-        <div className="surface-heading">
-          <div>
-            <p className="section-label">Report types</p>
-            <h2>All tests</h2>
-          </div>
-        </div>
-        <nav style={{ display: 'grid', gap: 4 }}>
-          {types.map((type) => (
-            <button
-              key={type.key}
-              type="button"
-              className={activeType === type.key ? 'ghost-button' : ''}
-              style={{
-                justifyContent: 'flex-start',
-                textAlign: 'left',
-                padding: '10px 12px',
-                background: activeType === type.key ? '#edf6f4' : 'transparent',
-                border: activeType === type.key ? '1px solid #cfe2dd' : '1px solid transparent',
-                borderRadius: 8,
-                cursor: 'pointer',
-                fontWeight: activeType === type.key ? 700 : 500,
-              }}
-              onClick={() => { setActiveType(type.key); setPage(1) }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                <span>{type.label}</span>
-                <span style={{ fontSize: '0.78rem', color: type.pending > 0 ? '#b65f3c' : '#65737d' }}>
-                  {type.assigned_to_me > 0
-                    ? `${type.assigned_to_me} mine`
-                    : type.pending > 0
-                      ? `${type.pending} pend`
-                      : type.testing > 0
-                        ? `${type.testing} test`
-                        : type.total}
-                </span>
-              </div>
-            </button>
-          ))}
-        </nav>
-      </section>
-
+    <div>
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', padding: '0 2px 12px' }}>
           <input
@@ -333,17 +327,46 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
           )}
         </div>
 
-        <section className="surface">
-        <div className="surface-heading">
-          <div>
-            <p className="section-label">{activeTypeInfo?.label ?? 'Reports'}</p>
-            <h2>Report queue</h2>
+        <section className="surface" style={{ marginBottom: 16 }}>
+          <div className="surface-heading">
+            <div>
+              <p className="section-label">Report types</p>
+              <h2>All tests</h2>
+            </div>
           </div>
-        </div>
+          <select
+            value={activeType}
+            onChange={(event) => { setActiveType(event.target.value); setPage(1) }}
+            aria-label="Select lab test"
+            className="input"
+            style={{ width: 280, maxWidth: '100%' }}
+          >
+            <option value="" disabled>Select a test</option>
+            {types.map((type) => (
+              <option key={type.key} value={type.key}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </section>
 
-        {localError ? <div className="error-banner">{localError}</div> : null}
+        <section className="surface" style={{ width: '100%', boxSizing: 'border-box' }}>
+          <div className="surface-heading">
+            <div>
+              <p className="section-label">{activeTypeInfo?.label ?? 'Reports'}</p>
+              <h2>Report queue <span className="sync-pill" style={{ marginLeft: 8, verticalAlign: 'middle' }}>{activeTypeInfo?.total ?? 0} total tests</span></h2>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ whiteSpace: 'nowrap' }}>+ Add lab report</button>
+          </div>
 
-        {loading ? (
+          {localError ? <div className="error-banner">{localError}</div> : null}
+
+        {activeTypeInfo?.is_template ? (
+          <div className="empty-state">
+            <p><strong>{activeTypeInfo.label}</strong> is available as an Excel lab-report format.</p>
+            <p>Choose this format inside a report’s Lab testing screen. Existing reports are listed under their report type.</p>
+          </div>
+        ) : loading ? (
           <p className="empty-state">Loading reports...</p>
         ) : reports.length === 0 ? (
           <p className="empty-state">No {activeTypeInfo?.label?.toLowerCase() ?? ''} reports found.</p>
@@ -418,6 +441,32 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
         ) : null}
         </section>
       </div>
+      {showCreate ? (
+        <div onClick={() => setShowCreate(false)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <form className="surface" onClick={(event) => event.stopPropagation()} onSubmit={handleCreate} style={{ width: 680, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="surface-heading">
+              <div><p className="section-label">Laboratory</p><h2>Add lab report</h2></div>
+              <button type="button" className="ghost-button" onClick={() => setShowCreate(false)}>Close</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <label>Report type<select className="input" value={createForm.report_type} onChange={(event) => updateCreate('report_type', event.target.value)}>
+                {types.filter((type) => !type.is_template).map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
+              </select></label>
+              <label>Report format<select className="input" value={createForm.template} onChange={(event) => updateCreate('template', event.target.value)}>
+                {EXCEL_TEMPLATE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              </select></label>
+              {([
+                ['uid_no', 'UID No.'], ['ulr_no', 'ULR No.'], ['customer_details', 'Customer name & address'],
+                ['agency_name', 'Agency name'], ['reference_no', 'Reference no.'], ['material_details', 'Material details'],
+                ['sample_date', 'Sample receipt date'], ['sample_tested_date', 'Sample tested date'],
+              ] as const).map(([key, label]) => (
+                <label key={key}>{label}<input className="input" required={['uid_no', 'customer_details', 'agency_name', 'material_details', 'sample_date', 'sample_tested_date'].includes(key)} type={key.includes('date') ? 'date' : 'text'} value={createForm[key]} onChange={(event) => updateCreate(key, event.target.value)} /></label>
+              ))}
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={creating}>{creating ? 'Creating...' : 'Create pending lab report'}</button>
+          </form>
+        </div>
+      ) : null}
 
       {timelineReportId !== null ? (
         <Timeline entries={timelineData} onClose={() => { setTimelineReportId(null); setTimelineData([]) }} />

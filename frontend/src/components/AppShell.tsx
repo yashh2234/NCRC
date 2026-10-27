@@ -15,6 +15,7 @@ const iconMap: Record<string, LucideIcon> = {
   registrations: ClipboardList,
   billing: ReceiptText,
   reports: BarChart3,
+  tenders: FileText,
   expenses: IndianRupee,
   purchase_orders: FileText,
   invoices: Receipt,
@@ -168,6 +169,14 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
           >
             <LayoutDashboard size={18} />
             Dashboard
+          </button>
+          <button
+            className={activeModule === 'tenders' ? 'active' : ''}
+            onClick={() => onModuleChange('tenders')}
+            type="button"
+          >
+            <FileText size={18} />
+            Tenders
           </button>
 
           {groups.map((group) => {

@@ -226,6 +226,10 @@ export const api = {
     return request('/reports/cube', { method: 'POST', body: JSON.stringify(data) })
   },
 
+  createLabReport(type: string, data: Record<string, unknown>): Promise<{ message: string; iReportId: number }> {
+    return request(`/reports/${type}/create`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
   approveReport(reportId: number): Promise<{ message: string }> {
     return request(`/reports/${reportId}/approve`, { method: 'POST' })
   },

@@ -280,7 +280,8 @@ export function FinalReportsPage() {
   })
 
   return (
-    <section className="surface" style={{ padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff' }}>
+    <div>
+      <section className="surface" style={{ padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', marginBottom: 16 }}>
       {/* Filter Toolbar Matching Old Software Start Date - End Date - GO */}
       <div style={{
         display: 'flex',
@@ -351,6 +352,9 @@ export function FinalReportsPage() {
         )}
       </div>
 
+      </section>
+
+      <section className="surface" style={{ padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff' }}>
       {error ? <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div> : null}
 
       {loading ? (
@@ -366,6 +370,7 @@ export function FinalReportsPage() {
           <DataTable columns={columns} rows={rows} filename="final-reports" />
         </div>
       )}
-    </section>
+      </section>
+    </div>
   )
 }

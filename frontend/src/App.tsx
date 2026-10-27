@@ -17,6 +17,7 @@ import QuotationsPage from './pages/QuotationsPage'
 import WorkOrdersPage from './pages/WorkOrdersPage'
 import OutsourcePage from './pages/OutsourcePage'
 import { JobTypesPage } from './pages/JobTypesPage'
+import { TenderPage } from './pages/TenderPage'
 import { AppShell } from './components/AppShell'
 import { useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
@@ -137,6 +138,9 @@ function AuthenticatedApp() {
     >
       <div className={`view ${activeModule === 'dashboard' ? 'visible' : ''}`}>
         {activeModule === 'dashboard' ? <div aria-hidden="true" /> : null}
+      </div>
+      <div className={`view ${activeModule === 'tenders' ? 'visible' : ''}`}>
+        {activeModule === 'tenders' && <TenderPage />}
       </div>
       <div className={`view ${activeModule === 'users' ? 'visible' : ''}`}>
         {activeModule === 'users' && <UsersPage />}

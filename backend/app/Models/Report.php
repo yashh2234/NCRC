@@ -45,6 +45,7 @@ class Report extends Model
         'approved_by',
         'locked_at',
         'locked_by',
+        'lab_data',
     ];
 
     protected $casts = [
@@ -56,6 +57,7 @@ class Report extends Model
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'locked_at' => 'datetime',
+        'lab_data' => 'array',
     ];
 
     public function job(): BelongsTo

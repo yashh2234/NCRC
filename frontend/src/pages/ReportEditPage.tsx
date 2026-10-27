@@ -1,20 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { formatDateForInput } from '../lib/utils'
-import { CubeTable } from '../components/TestResultTables/CubeTable'
-import { CoreTable } from '../components/TestResultTables/CoreTable'
-import { BeamTable } from '../components/TestResultTables/BeamTable'
-import { BitumenCoreTable } from '../components/TestResultTables/BitumenCoreTable'
-import { BitumenLooseTable } from '../components/TestResultTables/BitumenLooseTable'
-import { BricksTable } from '../components/TestResultTables/BricksTable'
-import { FerroCoverTable } from '../components/TestResultTables/FerroCoverTable'
-import { InterlockingTilesTable } from '../components/TestResultTables/InterlockingTilesTable'
-import { MainholeCoverTable } from '../components/TestResultTables/MainholeCoverTable'
-import { MesTable } from '../components/TestResultTables/MesTable'
-import { SandTable } from '../components/TestResultTables/SandTable'
-import { WaterTable } from '../components/TestResultTables/WaterTable'
-import { GenericTable } from '../components/TestResultTables/GenericTable'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
+import { ExcelLabReportEditor, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
 
 interface DetailRow {
   set_count?: number
@@ -40,6 +28,8 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [showDrawer, setShowDrawer] = useState(false)
+  const [labData, setLabData] = useState<Record<string, string>>({})
+  const [templateKey, setTemplateKey] = useState('')
 
   // State for core fields
   const [coreFields, setCoreFields] = useState<any>({})
@@ -48,6 +38,8 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
     api.reportDetail(type, reportId)
       .then((data: any) => {
         setReport(data.report)
+        setLabData((data.report as any).lab_data || {})
+        setTemplateKey((data.report as any).lab_data?._template || resolveExcelTemplateKey(type, (data.report as any).material_details || ''))
         const detailsTestingDate = (data.details as any[])[0]?.date_of_testing
         const initialTestingDate = (data.report as any).sample_tested_date || detailsTestingDate
         setCoreFields({
@@ -78,11 +70,15 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
     setDetails((prev) => prev.map((d, i) => (i === index ? { ...d, [field]: value } : d)))
   }
 
+  const updateLabData = (field: string, value: string) => {
+    setLabData((previous) => ({ ...previous, [field]: value }))
+  }
+
   const handleSave = async (markComplete: boolean = false) => {
     setError('')
     setMessage('')
     try {
-      await api.updateReport(type, reportId, coreFields)
+      await api.updateReport(type, reportId, { ...coreFields, lab_data: { ...labData, _template: templateKey } })
       
       const payload = {
         details,
@@ -214,33 +210,15 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         </div>
       </div>
 
-      {type === 'cc_cube' ? (
-        <CubeTable details={details} updateDetail={updateDetail} />
-      ) : type === 'cc_core' ? (
-        <CoreTable details={details} updateDetail={updateDetail} />
-      ) : type === 'cc_beam' ? (
-        <BeamTable details={details} updateDetail={updateDetail} />
-      ) : type === 'bitumen_core' ? (
-        <BitumenCoreTable details={details} updateDetail={updateDetail} />
-      ) : type === 'bitumen_loose' ? (
-        <BitumenLooseTable details={details} updateDetail={updateDetail} />
-      ) : type === 'bricks' ? (
-        <BricksTable details={details} updateDetail={updateDetail} />
-      ) : type === 'ferro_cover' ? (
-        <FerroCoverTable details={details} updateDetail={updateDetail} />
-      ) : type === 'interlocking' ? (
-        <InterlockingTilesTable details={details} updateDetail={updateDetail} />
-      ) : type === 'mainhole_cover' ? (
-        <MainholeCoverTable details={details} updateDetail={updateDetail} />
-      ) : type === 'mes' ? (
-        <MesTable details={details} updateDetail={updateDetail} />
-      ) : type === 'sand' ? (
-        <SandTable details={details} updateDetail={updateDetail} />
-      ) : type === 'water' ? (
-        <WaterTable details={details} updateDetail={updateDetail} />
-      ) : (
-        <GenericTable type={type} details={details} />
-      )}
+      <ExcelLabReportEditor
+        reportType={type}
+        material={coreFields.material_details}
+        details={details}
+        labData={labData}
+        templateKey={templateKey}
+        updateDetail={updateDetail}
+        updateLabData={updateLabData}
+      />
 
       <div style={{ display: 'flex', gap: 12, marginTop: 24, padding: '16px 0', borderTop: '1px solid #dfe6ea', alignItems: 'center' }}>
         <button type="button" onClick={() => void handlePrint()} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>

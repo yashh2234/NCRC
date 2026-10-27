@@ -11,6 +11,7 @@ use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UserActivity;
 use App\Services\WorkflowBridge;
+use App\Services\ExcelTemplatePdfRenderer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,10 +19,12 @@ use Illuminate\Support\Facades\DB;
 class ReportController extends Controller
 {
     protected WorkflowBridge $bridge;
+    protected ExcelTemplatePdfRenderer $templatePdfRenderer;
 
-    public function __construct(WorkflowBridge $bridge)
+    public function __construct(WorkflowBridge $bridge, ExcelTemplatePdfRenderer $templatePdfRenderer)
     {
         $this->bridge = $bridge;
+        $this->templatePdfRenderer = $templatePdfRenderer;
     }
 
     public const REPORT_TYPES = [
@@ -99,6 +102,29 @@ class ReportController extends Controller
         ],
     ];
 
+    public const EXCEL_TEMPLATES = [
+        'acc_block' => 'ACC Block',
+        'bitumen_sample_dbm_bc' => 'Bitumen Sample DBM / BC',
+        'bm_ii_mix' => 'BM-II Mix',
+        'cement_opc_43' => 'Cement OPC-43',
+        'chequered_tile_22mm' => 'Chequered Tile 22 mm',
+        'clay_bricks' => 'Clay Bricks',
+        'dbm_bc_density' => 'DBM BC Bitumen Core Density',
+        'fcdc_ferro_cover' => 'FCDC Ferro Cover',
+        'grit_10mm' => 'Grit 10mm',
+        'grit_20mm' => 'Grit 20mm',
+        'gsb_iii_mix' => 'GSB-III Mix',
+        'interlocking_60mm' => 'Interlocking 60mm',
+        'kerb_stone' => 'Kerb Stone',
+        'm30_mix' => 'M-30 Mix',
+        'main_hole_cover_hd20' => 'Main Hole Cover HD 20',
+        'sand' => 'Sand',
+        'soil_omc_mdd_cbr' => 'Soil OMC MDD & CBR',
+        'verified_floor_tile' => 'Verified Floor Tile',
+        'water' => 'Water',
+        'wmm_mix' => 'WMM Mix OMC MDD',
+    ];
+
     public function printReport(Request $request, string $type, int $reportId)
     {
         abort_if(! isset(self::REPORT_TYPES[$type]), 404, "Unknown report type: $type");
@@ -116,7 +142,7 @@ class ReportController extends Controller
         ];
 
         if ($request->query('format') === 'pdf') {
-            $html = view('pdf.report', $payload)->render();
+            $html = $this->templatePdfRenderer->render($report, $details, $company);
             return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
                 ->download('report-' . $reportId . '.pdf');
         }
@@ -143,6 +169,19 @@ class ReportController extends Controller
                 'testing' => $testing,
                 'generated' => $generated,
                 'assigned_to_me' => $assignedToMe,
+            ];
+        }
+        foreach (self::EXCEL_TEMPLATES as $key => $label) {
+            $types[] = [
+                'key' => 'template:' . $key,
+                'label' => $label,
+                'total' => 0,
+                'pending' => 0,
+                'testing' => 0,
+                'generated' => 0,
+                'assigned_to_me' => 0,
+                'is_template' => true,
+                'template_key' => $key,
             ];
         }
 
@@ -689,6 +728,7 @@ class ReportController extends Controller
             'sample_date' => ['nullable', 'date'],
             'sample_tested_date' => ['nullable', 'date'],
             'dispatch_date' => ['nullable', 'date'],
+            'lab_data' => ['nullable', 'array'],
         ]);
 
         $report->update(array_merge($validated, [
@@ -756,6 +796,7 @@ class ReportController extends Controller
                 'updated_date' => now(),
                 'create_date' => now(),
                 'cancel_remark' => '',
+                'lab_data' => $validated['lab_data'] ?? null,
             ]);
 
             CubeReport::query()->create([
@@ -819,6 +860,7 @@ class ReportController extends Controller
             'dispatch_date' => ['nullable', 'date'],
             'sampled_by' => ['nullable', 'string'],
             'environment_condition' => ['nullable', 'string'],
+            'lab_data' => ['nullable', 'array'],
         ]);
 
         $userId = (int) $request->user()->id;
@@ -849,6 +891,7 @@ class ReportController extends Controller
                 'updated_date' => now(),
                 'create_date' => now(),
                 'cancel_remark' => '',
+                'lab_data' => $validated['lab_data'] ?? null,
             ]);
 
             // Create a default detail row in the type-specific table

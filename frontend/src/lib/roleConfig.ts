@@ -40,7 +40,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ede9fe',
     description: 'Full access to all modules and all dashboard data',
     allowedModules: [
-      'dashboard', 'jobs', 'registrations', 'quotations', 'work_orders', 'outsource',
+      'dashboard', 'tenders', 'jobs', 'registrations', 'quotations', 'work_orders', 'outsource',
       'reports', 'ulr_add', 'ulr_register', 'ulr_links', 'final_reports', 'billing', 'due_reports',
       'users', 'user_tracking', 'expenses', 'purchase_orders',
       'lab', 'documents', 'roles', 'permissions', 'settings', 'analytics',
@@ -59,7 +59,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ecfeff',
     description: 'Stages 1 (Registered) & 6 (Report Dispatched) — Job intake, UID generation, dispatch',
     allowedModules: [
-      'dashboard', 'jobs', 'registrations', 'quotations', 'work_orders',
+      'dashboard', 'tenders', 'jobs', 'registrations', 'quotations', 'work_orders',
       'billing', 'clients', 'due_reports', 'help_guide',
     ],
     dashboardWidgets: [
@@ -74,7 +74,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ecfdf5',
     description: 'Stages 2 (Field/Site Work) & 3 (Lab Testing) — Field work, sample collection, lab testing',
     allowedModules: [
-      'dashboard', 'jobs', 'lab', 'outsource', 'ulr_add', 'ulr_register', 'ulr_links', 'reports', 'help_guide',
+      'dashboard', 'tenders', 'jobs', 'lab', 'outsource', 'ulr_add', 'ulr_register', 'ulr_links', 'reports', 'help_guide',
     ],
     dashboardWidgets: [
       'welcome', 'my_queue', 'my_tasks', 'job_metrics',
@@ -88,7 +88,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#fffbeb',
     description: 'Stage 4 (Report Drafting) — Report drafting & finalization',
     allowedModules: [
-      'dashboard', 'jobs', 'reports', 'final_reports', 'ulr_add', 'ulr_register', 'ulr_links', 'help_guide',
+      'dashboard', 'tenders', 'jobs', 'reports', 'final_reports', 'ulr_add', 'ulr_register', 'ulr_links', 'help_guide',
     ],
     dashboardWidgets: [
       'welcome', 'my_queue', 'my_tasks', 'job_metrics',
@@ -102,7 +102,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#eef2ff',
     description: 'Stage 5 (Report Review) — Technical review & approval',
     allowedModules: [
-      'dashboard', 'jobs', 'reports', 'final_reports', 'work_orders', 'ulr_add', 'ulr_register', 'ulr_links',
+      'dashboard', 'tenders', 'jobs', 'reports', 'final_reports', 'work_orders', 'ulr_add', 'ulr_register', 'ulr_links',
       'lab', 'analytics', 'help_guide',
     ],
     dashboardWidgets: [
@@ -117,7 +117,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#fef2f2',
     description: 'Stage 7 (Payment Pending) — Payment follow-up, financial oversight',
     allowedModules: [
-      'dashboard', 'jobs', 'registrations', 'billing', 'expenses',
+      'dashboard', 'tenders', 'jobs', 'registrations', 'billing', 'expenses',
       'purchase_orders', 'clients', 'analytics', 'due_reports', 'quotations',
       'work_orders', 'help_guide',
     ],
@@ -135,7 +135,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#f3f4f6',
     description: 'General staff — basic access',
     allowedModules: [
-      'dashboard', 'jobs', 'help_guide',
+      'dashboard', 'tenders', 'jobs', 'help_guide',
     ],
     dashboardWidgets: [
       'welcome', 'my_queue', 'my_tasks',
