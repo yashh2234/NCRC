@@ -7,3 +7,5 @@
 /api
 /OfficeDOCS/
 /Old
+# PHP error logs written by the server
+error_log
