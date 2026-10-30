@@ -15,10 +15,12 @@ class ExpenseController extends Controller
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
 
+        $category = $request->query('category');
+
         $expenses = DailyExpense::query()
-            ->when($startDate && $endDate, function ($q) use ($startDate, $endDate): void {
-                $q->whereDate('date', '>=', $startDate)->whereDate('date', '<=', $endDate);
-            })
+            ->when($startDate, fn ($q) => $q->whereDate('date', '>=', $startDate))
+            ->when($endDate, fn ($q) => $q->whereDate('date', '<=', $endDate))
+            ->when($category, fn ($q) => $q->where('expenses_category', $category))
             ->orderByDesc('date')
             ->orderByDesc('iExpensesId')
             ->limit(100)
@@ -26,6 +28,7 @@ class ExpenseController extends Controller
             ->map(fn (DailyExpense $e): array => [
                 'id' => $e->iExpensesId,
                 'date' => optional($e->date)->format('d/m/Y'),
+                'date_iso' => optional($e->date)->format('Y-m-d'),
                 'opening_balance' => (float) ($e->opening_balance ?: 0),
                 'total_income' => (float) ($e->total_income ?: 0),
                 'total_expenses' => (float) ($e->total_expenses ?: 0),

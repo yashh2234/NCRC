@@ -13,8 +13,8 @@ export function PieChartComponent({ data }: Props) {
             <Cell key={index} fill={entry.color} />
           ))}
         </Pie>
-        <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #dfe6ea', fontSize: 13 }} />
-        <Legend verticalAlign="bottom" iconType="circle" iconSize={10} formatter={(value: string) => <span style={{ color: '#4a5b66', fontSize: 12, fontWeight: 600 }}>{value}</span>} />
+        <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
+        <Legend verticalAlign="bottom" iconType="circle" iconSize={10} formatter={(value: string) => <span style={{ color: '#475569', fontSize: 12, fontWeight: 600 }}>{value}</span>} />
       </PieChart>
     </ResponsiveContainer>
   )

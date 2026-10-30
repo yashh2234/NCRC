@@ -49,7 +49,7 @@ export function RegistrationTrendChart({ data }: ChartProps) {
     <div className="chart-container">
       <p className="section-label">Trends</p>
       <h3>Monthly registrations</h3>
-      <Suspense fallback={<div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#65737d' }}>Loading chart...</div>}>
+      <Suspense fallback={<div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Loading chart...</div>}>
         <LazyBarChart data={chartData} color={COLORS.primary} />
       </Suspense>
     </div>
@@ -67,7 +67,7 @@ export function MonthlyRevenueChart({ data }: ChartProps) {
     <div className="chart-container">
       <p className="section-label">Revenue</p>
       <h3>Monthly payment overview</h3>
-      <Suspense fallback={<div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#65737d' }}>Loading chart...</div>}>
+      <Suspense fallback={<div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Loading chart...</div>}>
         <LazyAreaChart data={chartData} colors={COLORS} />
       </Suspense>
     </div>
@@ -84,7 +84,7 @@ export function ReportStatusChart({ data }: ReportStatusProps) {
     <div className="chart-container">
       <p className="section-label">Reports</p>
       <h3>Status distribution</h3>
-      <Suspense fallback={<div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#65737d' }}>Loading chart...</div>}>
+      <Suspense fallback={<div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Loading chart...</div>}>
         <LazyPieChart data={pieData} />
       </Suspense>
     </div>
@@ -112,9 +112,9 @@ export function ExpenseCategoryChart({ data }: ExpenseChartProps) {
       <p className="section-label">Expenses</p>
       <h3>Monthly expenses by category</h3>
       {chartData.length === 0 ? (
-        <p style={{ textAlign: 'center', color: '#65737d', padding: '2rem 0', fontSize: '0.85rem' }}>No expenses this month</p>
+        <p style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0', fontSize: '0.85rem' }}>No expenses this month</p>
       ) : (
-        <Suspense fallback={<div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#65737d' }}>Loading chart...</div>}>
+        <Suspense fallback={<div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>Loading chart...</div>}>
           <LazyBarChart data={chartData} color={COLORS.secondary} dataKey="amount" labelKey="category" />
         </Suspense>
       )}

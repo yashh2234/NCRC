@@ -154,7 +154,7 @@ export function ExcelLabReportEditor({ reportType, material, details, labData, u
   const rows = details.length > 0 ? details : [{}]
 
   return (
-    <section style={{ marginTop: 28, border: '1px solid #dfe6ea', background: '#fff' }}>
+    <section style={{ marginTop: 28, border: '1px solid #e2e8f0', background: '#fff' }}>
       <div style={{ background: '#000', color: '#fff', textAlign: 'center', padding: 10, fontWeight: 700, textTransform: 'uppercase' }}>
         {template.title} — {template.standard}
       </div>
@@ -195,4 +195,4 @@ export function ExcelLabReportEditor({ reportType, material, details, labData, u
 }
 
 const headerStyle = { background: '#000', color: '#fff', border: '1px solid #333', padding: 8, textTransform: 'uppercase' as const }
-const cellStyle = { border: '1px solid #dfe6ea', padding: 8, verticalAlign: 'top' as const }
+const cellStyle = { border: '1px solid #e2e8f0', padding: 8, verticalAlign: 'top' as const }

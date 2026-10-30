@@ -51,7 +51,7 @@ export function AuditLogPage() {
                 padding: '6px 14px',
                 borderRadius: 20,
                 border: `1px solid ${actionFilter === a ? '#327268' : '#d0d7de'}`,
-                background: actionFilter === a ? '#edf6f4' : 'transparent',
+                background: actionFilter === a ? '#eff4ff' : 'transparent',
                 fontSize: '0.82rem',
                 cursor: 'pointer',
                 fontWeight: actionFilter === a ? 700 : 500,

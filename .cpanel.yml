@@ -1,13 +1,20 @@
 ---
+# cPanel Git deployment for ncrc.namotech.in (PHP 8.3).
+# The repository checkout is the subdomain's document root; the React build is
+# copied over it and the root .htaccess routes /api to backend/public/index.php.
 deployment:
   tasks:
     - export DEPLOYPATH=/home2/namoteuj/ncrc.namotech.in/
+    - export PHP=/opt/cpanel/ea-php83/root/usr/bin/php
+    - export COMPOSER=$(command -v composer || echo /opt/cpanel/composer/bin/composer)
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R frontend/dist/. $DEPLOYPATH
-    - /bin/ln -sfn /home2/namoteuj/ncrc.namotech.in/backend/public $DEPLOYPATH/api
+    # The old /api symlink made Laravel see "/login" instead of "/api/login"; routing is in .htaccess now.
+    - /bin/rm -f $DEPLOYPATH/api
     - /bin/chmod 755 $DEPLOYPATH
-    - cd backend && composer install --no-dev --optimize-autoloader
-    - cd backend && php artisan storage:link
-    - cd backend && php artisan config:cache
-    - cd backend && php artisan route:cache
-    - cd backend && php artisan view:cache
+    - cd backend && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction
+    - cd backend && /bin/chmod -R 775 storage bootstrap/cache
+    - cd backend && ($PHP artisan storage:link || true)
+    - cd backend && $PHP artisan config:cache
+    - cd backend && $PHP artisan route:cache
+    - cd backend && $PHP artisan view:cache

@@ -32,3 +32,19 @@ export function formatDateForInput(dateStr: string | undefined | null): string {
 
   return ''
 }
+
+/** Human-readable DD/MM/YYYY for tables; passes through values it can't parse. */
+export function formatDisplayDate(dateStr: string | undefined | null): string {
+  const iso = formatDateForInput(dateStr)
+  if (!iso) return dateStr ? String(dateStr) : '-'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+/** Tinted badge/button colours from one hex: light background, coloured text. */
+export function softTone(color: string): { backgroundColor: string; color: string; borderColor: string } {
+  const hex = /^#[0-9a-f]{3}$/i.test(color)
+    ? '#' + color.slice(1).split('').map((c) => c + c).join('')
+    : color
+  return { backgroundColor: `${hex}1a`, color: hex, borderColor: `${hex}33` }
+}

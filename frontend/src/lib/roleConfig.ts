@@ -42,7 +42,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     allowedModules: [
       'dashboard', 'tenders', 'jobs', 'registrations', 'quotations', 'work_orders', 'outsource',
       'reports', 'ulr_add', 'ulr_register', 'ulr_links', 'final_reports', 'billing', 'due_reports',
-      'users', 'user_tracking', 'expenses', 'purchase_orders',
+      'admin', 'users', 'user_tracking', 'expenses', 'purchase_orders',
       'lab', 'documents', 'roles', 'permissions', 'settings', 'analytics',
       'workflow_templates', 'clients', 'job_types', 'help_guide',
     ],

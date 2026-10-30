@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { softTone } from '../lib/utils'
 
 type Dispatch = {
   id: number;
@@ -102,7 +103,6 @@ export default function DispatchPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Dispatch</h1>
         <button className="btn btn-primary" onClick={openCreate}>+ New Dispatch</button>
       </div>
 
@@ -144,7 +144,7 @@ export default function DispatchPage() {
                 <td>{d.tracking_number || '-'}</td>
                 <td>{d.recipient_name || '-'}</td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: STATUS_COLORS[d.status] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(STATUS_COLORS[d.status] || '#64748b')}>
                     {d.status}
                   </span>
                 </td>
@@ -152,11 +152,11 @@ export default function DispatchPage() {
                   <button className="btn btn-sm" onClick={() => openEdit(d)}>Edit</button>
                   <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.id)}>Del</button>
                   {d.status === 'pending' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#2196f3', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#2196f3')}
                       onClick={() => handleStatusChange(d.id, 'dispatched')}>Dispatch</button>
                   )}
                   {d.status === 'dispatched' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#4caf50', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#4caf50')}
                       onClick={() => {
                         const receivedBy = prompt('Received by:');
                         if (receivedBy) handleStatusChange(d.id, 'delivered', { received_by: receivedBy, received_at: new Date().toISOString() });

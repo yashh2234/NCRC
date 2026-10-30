@@ -62,34 +62,22 @@ export function DataTable({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      {/* Top Filter & Export Bar */}
+    <div className="dt">
       {showHeader && (
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: 'var(--color-surface)', padding: '12px 16px', borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-xs)',
-        }}>
+        <div className="dt-toolbar">
           {searchable ? (
-            <div style={{ position: 'relative', width: 280 }}>
-              <Search size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-300)' }} />
+            <div className="search-field dt-search">
+              <Search size={15} />
               <input
-                type="text"
+                type="search"
                 placeholder="Search records..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                style={{
-                  width: '100%', paddingLeft: 40, paddingRight: 14,
-                  minHeight: 38, borderRadius: 999,
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--gray-50)', fontSize: '0.82rem',
-                  outline: 'none',
-                }}
               />
             </div>
           ) : <div />}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="dt-toolbar__meta">
             <span className="sync-pill">
               {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
             </span>
@@ -103,29 +91,20 @@ export function DataTable({
         </div>
       )}
 
-      {/* Table */}
-      <div style={{
-        borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--color-border)',
-        overflow: 'hidden',
-        background: 'var(--color-surface)',
-        boxShadow: 'var(--shadow-xs)',
-      }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+      <div className="table-card">
+        <div className="table-wrap">
+          <table>
             <thead>
               <tr>
                 {columns.map((col) => (
-                  <th key={col.key} style={{ padding: '14px 16px' }}>
-                    <span>{col.label}</span>
-                  </th>
+                  <th key={col.key}>{col.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pageRows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)', fontWeight: 500 }}>
+                  <td colSpan={columns.length} className="dt-empty">
                     No records found.
                   </td>
                 </tr>
@@ -134,12 +113,10 @@ export function DataTable({
                   <tr
                     key={row.id ? String(row.id) : idx}
                     onClick={() => onRowClick?.(row)}
-                    style={{ cursor: onRowClick ? 'pointer' : undefined }}
+                    className={onRowClick ? 'dt-row-clickable' : undefined}
                   >
                     {columns.map((col) => (
-                      <td key={col.key} style={{ padding: '12px 16px' }}>
-                        {row[col.key]}
-                      </td>
+                      <td key={col.key}>{row[col.key]}</td>
                     ))}
                   </tr>
                 ))
@@ -148,25 +125,21 @@ export function DataTable({
           </table>
         </div>
 
-        {/* Footer Pagination */}
         {totalPages > 1 ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 16px', borderTop: '1px solid var(--color-border-light)',
-            background: 'var(--gray-50)', fontSize: '0.82rem',
-          }}>
-            <span style={{ color: 'var(--gray-400)', fontWeight: 500 }}>
-              Page {safePage} of {totalPages} ({filtered.length} total records)
+          <div className="dt-pagination">
+            <span>
+              Page {safePage} of {totalPages} · {filtered.length} records
             </span>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="dt-pagination__buttons">
               <button
                 className="btn btn-outline btn-sm"
                 disabled={safePage <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 type="button"
+                aria-label="Previous page"
               >
-                <ChevronLeft size={14} /> Previous
+                <ChevronLeft size={14} /> <span className="dt-btn-label">Previous</span>
               </button>
 
               <button
@@ -174,8 +147,9 @@ export function DataTable({
                 disabled={safePage >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 type="button"
+                aria-label="Next page"
               >
-                Next <ChevronRight size={14} />
+                <span className="dt-btn-label">Next</span> <ChevronRight size={14} />
               </button>
             </div>
           </div>

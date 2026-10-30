@@ -131,7 +131,7 @@ export function RolesPage() {
       <div className="page-header">
         <div>
           <p className="section-label">Administration</p>
-          <h1>Groups & Permissions</h1>
+          <h2>Groups & Permissions</h2>
           <p className="text-muted">Choose a group, then select the sections that group can open.</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate} type="button"><Plus size={16} /> New Group</button>
@@ -193,13 +193,24 @@ export function RolesPage() {
                         {labelForModule(group.module)}
                         <span className="text-muted" style={{ marginLeft: 'auto', fontSize: '0.75rem' }}>{selected}/{group.permissions.length}</span>
                       </label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingLeft: 28 }}>
-                        {group.permissions.map((permission) => (
-                          <label key={permission.name} className="sync-pill" style={{ cursor: 'pointer', background: selectedPermissions.includes(permission.name) ? 'var(--color-primary-tint)' : undefined }}>
-                            <input type="checkbox" checked={selectedPermissions.includes(permission.name)} onChange={() => togglePermission(permission.name)} style={{ width: 'auto', minHeight: 'auto' }} />
-                            {permission.name.replace(/^(view|create|update|delete|manage)_/, '')}
-                          </label>
-                        ))}
+                      <div style={{ overflowX: 'auto', marginTop: 10, paddingLeft: 28 }}>
+                        <table className="data-table" style={{ minWidth: 520 }}>
+                          <thead><tr><th>Permission</th><th>Create</th><th>Update</th><th>View</th><th>Delete</th></tr></thead>
+                          <tbody>
+                            {[...new Set(group.permissions.map((permission) => permission.name.replace(/^(view|create|update|delete|manage)_/, '')))].map((resource) => {
+                              const permissionFor = (action: string) => group.permissions.find((permission) => permission.name === `${action}${resource.charAt(0).toUpperCase()}${resource.slice(1)}` || permission.name === `${action}_${resource}`)
+                              return (
+                                <tr key={resource}>
+                                  <td><strong>{resource.replace(/([a-z])([A-Z])/g, '$1 $2')}</strong></td>
+                                  {['create', 'update', 'view', 'delete'].map((action) => {
+                                    const permission = permissionFor(action)
+                                    return <td key={action}>{permission ? <input type="checkbox" checked={selectedPermissions.includes(permission.name)} onChange={() => togglePermission(permission.name)} /> : <span className="text-muted">—</span>}</td>
+                                  })}
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, FlaskConical, RefreshCcw, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft } from 'lucide-react'
+import { Bell, FlaskConical, RefreshCcw, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -16,6 +16,7 @@ const iconMap: Record<string, LucideIcon> = {
   billing: ReceiptText,
   reports: BarChart3,
   tenders: FileText,
+  admin: Users,
   expenses: IndianRupee,
   purchase_orders: FileText,
   invoices: Receipt,
@@ -74,6 +75,17 @@ interface NotificationItem {
   time_ago: string | null
 }
 
+const COMPACT_BREAKPOINT = 1024
+
+function isCompactViewport() {
+  return typeof window !== 'undefined' && window.innerWidth <= COMPACT_BREAKPOINT
+}
+
+const STANDALONE_TITLES: Record<string, string> = {
+  dashboard: 'Dashboard',
+  tenders: 'Tenders',
+}
+
 export function AppShell({ groups, activeModule, onModuleChange, children }: AppShellProps) {
   const { user, logout, refresh, error } = useAuth()
   useTracking()
@@ -81,18 +93,36 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
   const [unread, setUnread] = useState(0)
   const [showNotifs, setShowNotifs] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState<boolean>(() => {
+    if (isCompactViewport()) return false
     const saved = localStorage.getItem('sidebar_drawer_open')
-    if (saved !== null) return saved === 'true'
-    return typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    return saved !== null ? saved === 'true' : true
   })
 
   const toggleDrawer = () => {
     setDrawerOpen((prev) => {
       const next = !prev
-      localStorage.setItem('sidebar_drawer_open', String(next))
+      // Only remember the desktop preference; on small screens the drawer is an overlay
+      if (!isCompactViewport()) localStorage.setItem('sidebar_drawer_open', String(next))
       return next
     })
   }
+
+  const pageTitle = STANDALONE_TITLES[activeModule]
+    ?? groups.flatMap((group) => group.items).find((item) => item.key === activeModule)?.label
+    ?? 'Dashboard'
+
+  const navigate = (key: string) => {
+    onModuleChange(key)
+    if (isCompactViewport()) setDrawerOpen(false)
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isCompactViewport()) setDrawerOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('nav_expanded')
@@ -144,38 +174,38 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
 
   return (
     <main className={`app-shell ${drawerOpen ? 'drawer-open' : 'drawer-closed'}`}>
-      {drawerOpen && (
-        <div
-          className="drawer-backdrop"
-          onClick={() => setDrawerOpen(false)}
-          style={{ display: typeof window !== 'undefined' && window.innerWidth <= 1024 ? 'block' : 'none' }}
-        />
-      )}
+      <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
 
-      <aside className="sidebar">
-        <div className="brand-mark" style={{ justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <FlaskConical size={20} style={{ color: 'var(--color-primary)' }} />
-            <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em' }}>NCRC</span>
+      <aside className="sidebar" aria-label="Main navigation">
+        <div className="sidebar-brand">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="sidebar-brand__logo"><FlaskConical size={17} /></span>
+            <span className="sidebar-brand__name">
+              <strong>NCRC</strong>
+              <span>Namotech Consultancy</span>
+            </span>
           </div>
+          <button className="sidebar-drawer-toggle sidebar-close" onClick={() => setDrawerOpen(false)} type="button" aria-label="Close menu">
+            <X size={18} />
+          </button>
         </div>
 
         <nav>
           {/* Dashboard is always at top, outside groups */}
           <button
             className={activeModule === 'dashboard' ? 'active' : ''}
-            onClick={() => onModuleChange('dashboard')}
+            onClick={() => navigate('dashboard')}
             type="button"
           >
-            <LayoutDashboard size={18} />
+            <LayoutDashboard size={17} />
             Dashboard
           </button>
           <button
             className={activeModule === 'tenders' ? 'active' : ''}
-            onClick={() => onModuleChange('tenders')}
+            onClick={() => navigate('tenders')}
             type="button"
           >
-            <FileText size={18} />
+            <FileText size={17} />
             Tenders
           </button>
 
@@ -191,10 +221,10 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
                 <button
                   key={group.label}
                   className={activeModule === item.key ? 'active' : ''}
-                  onClick={() => onModuleChange(item.key)}
+                  onClick={() => navigate(item.key)}
                   type="button"
                 >
-                  <Icon size={18} />
+                  <Icon size={17} />
                   {group.label}
                 </button>
               )
@@ -217,7 +247,7 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
                     <button
                       className={activeModule === item.key ? 'active nav-child' : 'nav-child'}
                       key={item.key}
-                      onClick={() => onModuleChange(item.key)}
+                      onClick={() => navigate(item.key)}
                       type="button"
                     >
                       <Icon size={15} />
@@ -237,33 +267,18 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
             const config = getRoleConfig(role)
             return (
               <>
-                <div style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: config.bgColor,
-                  color: config.color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 700, fontSize: '0.82rem', flexShrink: 0,
-                  border: `2px solid ${config.color}22`,
-                }}>
+                <div className="user-block__avatar" style={{ background: config.bgColor, color: config.color }}>
                   {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <strong>{user?.name}</strong>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    fontSize: '0.68rem', fontWeight: 600,
-                    color: config.color,
-                    background: config.bgColor,
-                    padding: '1px 8px', borderRadius: 999,
-                    width: 'fit-content', marginTop: 1,
-                  }}>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: config.color, flexShrink: 0,
-                    }} />
+                <div className="user-block__meta">
+                  <strong title={user?.name}>{user?.name}</strong>
+                  <span className="user-block__role" style={{ color: config.color, background: config.bgColor }}>
                     {config.label}
                   </span>
                 </div>
+                <button className="icon-btn" onClick={() => void logout()} type="button" title="Sign out" aria-label="Sign out">
+                  <LogOut size={16} />
+                </button>
               </>
             )
           })()}
@@ -272,16 +287,18 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
 
       <section className="workspace">
         <header className="topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="topbar__title">
             <button
               className="sidebar-drawer-toggle"
               onClick={toggleDrawer}
               type="button"
-              title={drawerOpen ? 'Close Menu Drawer' : 'Open Menu Drawer'}
+              title={drawerOpen ? 'Hide menu' : 'Show menu'}
+              aria-label={drawerOpen ? 'Hide menu' : 'Show menu'}
+              aria-expanded={drawerOpen}
             >
-              <PanelLeft size={16} />
+              <PanelLeft size={18} />
             </button>
-            <h1>{groups.flatMap((group) => group.items).find((item) => item.key === activeModule)?.label ?? 'Dashboard'}</h1>
+            <h1>{pageTitle}</h1>
           </div>
           <div className="topbar-actions">
             {/*
@@ -361,61 +378,31 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
 
             */}
             {/* Notifications */}
-            <div ref={notifRef} style={{ position: 'relative' }}>
-              <button className="icon-button" onClick={() => { void loadNotifs(); setShowNotifs((s) => !s) }} type="button" title="Notifications" style={{ position: 'relative' }}>
+            <div ref={notifRef} className="notif-wrap">
+              <button className="icon-button" onClick={() => { void loadNotifs(); setShowNotifs((s) => !s) }} type="button" title="Notifications" aria-label="Notifications">
                 <Bell size={18} />
-                {unread > 0 ? (
-                  <span style={{
-                    position: 'absolute', top: -3, right: -3,
-                    background: 'var(--color-red)', color: '#fff',
-                    fontSize: '0.58rem', fontWeight: 800,
-                    borderRadius: '50%', width: 17, height: 17,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '2px solid var(--color-surface)',
-                  }}>
-                    {unread > 9 ? '9+' : unread}
-                  </span>
-                ) : null}
+                {unread > 0 ? <span className="notif-badge">{unread > 9 ? '9+' : unread}</span> : null}
               </button>
               {showNotifs ? (
-                <div style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: 8,
-                  width: 380, maxHeight: 420, overflowY: 'auto',
-                  background: 'var(--color-surface)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 100,
-                }}>
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '14px 18px', borderBottom: '1px solid var(--color-border-light)',
-                  }}>
-                    <strong style={{ fontSize: '0.92rem', color: 'var(--gray-900)' }}>Notifications</strong>
-                    {unread > 0 ? <button className="ghost-button" onClick={() => void handleMarkAllRead()} type="button" style={{ fontSize: '0.74rem', minHeight: 30, padding: '0 12px' }}><Check size={13} /> Mark all read</button> : null}
+                <div className="notif-panel">
+                  <div className="notif-panel__head">
+                    <strong>Notifications</strong>
+                    {unread > 0 ? <button className="btn btn-outline btn-xs" onClick={() => void handleMarkAllRead()} type="button"><Check size={13} /> Mark all read</button> : null}
                   </div>
                   {notifications.length === 0 ? (
-                    <p style={{ padding: 28, color: 'var(--gray-400)', textAlign: 'center', fontSize: '0.85rem' }}>No notifications</p>
+                    <p className="notif-empty">You&apos;re all caught up</p>
                   ) : (
                     notifications.map((n) => (
                       <div
                         key={n.id}
+                        className={`notif-item${n.read ? '' : ' unread'}`}
                         onClick={() => { if (!n.read) void handleMarkRead(n.id) }}
-                        style={{
-                          padding: '12px 18px',
-                          borderBottom: '1px solid var(--color-border-light)',
-                          cursor: 'pointer',
-                          background: n.read ? 'transparent' : 'var(--color-primary-tint)',
-                          transition: 'background 0.15s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = n.read ? 'var(--gray-50)' : 'var(--color-primary-tint)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? 'transparent' : 'var(--color-primary-tint)')}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong style={{ fontSize: '0.84rem', color: 'var(--gray-900)' }}>{n.title}</strong>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--gray-400)' }}>{n.time_ago}</span>
+                        <div className="notif-item__row">
+                          <strong>{n.title}</strong>
+                          <span>{n.time_ago}</span>
                         </div>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--gray-500)', margin: '4px 0 0' }}>{n.message ?? ''}</p>
+                        {n.message ? <p>{n.message}</p> : null}
                       </div>
                     ))
                   )}
@@ -424,14 +411,23 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
             </div>
 
             {/* Actions */}
-            <button className="icon-button" onClick={() => void refresh()} type="button" title="Refresh"><RefreshCcw size={16} /></button>
-            <button className="icon-button" onClick={() => void logout()} type="button" title="Logout"><LogOut size={16} /></button>
+            <button className="icon-button" onClick={() => void refresh()} type="button" title="Refresh" aria-label="Refresh"><RefreshCcw size={17} /></button>
+            {(() => {
+              const config = getRoleConfig(user?.tracker_role ?? 'staff')
+              return (
+                <span className="topbar-avatar" title={user?.name} style={{ background: config.bgColor, color: config.color }}>
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                </span>
+              )
+            })()}
           </div>
         </header>
 
-        {error ? <div className="error-banner">{error}</div> : null}
+        <div className="workspace-body">
+          {error ? <div className="error-banner">{error}</div> : null}
 
-        {children}
+          {children}
+        </div>
       </section>
     </main>
   )

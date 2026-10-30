@@ -94,7 +94,7 @@ export function TestingScreen({ reportId, reportType, uid_no, agencyName, onClos
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Testing: {uid_no}</h3>
-            <span style={{ fontSize: '0.82rem', color: '#65737d' }}>{agencyName} | {reportType}</span>
+            <span style={{ fontSize: '0.82rem', color: '#64748b' }}>{agencyName} | {reportType}</span>
           </div>
           <button className="icon-button" onClick={onClose} type="button"><X size={18} /></button>
         </div>
@@ -103,7 +103,7 @@ export function TestingScreen({ reportId, reportType, uid_no, agencyName, onClos
         {message ? <div className="success-banner">{message}</div> : null}
 
         {loading ? (
-          <p style={{ textAlign: 'center', padding: 32, color: '#65737d' }}>Loading details...</p>
+          <p style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>Loading details...</p>
         ) : (
           <>
             <ExcelLabReportEditor

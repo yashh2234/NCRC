@@ -296,13 +296,13 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
             onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="Search reports"
             aria-label="Search reports"
-            style={{ width: 220, flex: '0 0 220px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }}
+            style={{ width: 220, flex: '0 0 220px', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.82rem' }}
           />
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
             aria-label="Filter reports by status"
-            style={{ width: 190, flex: '0 0 190px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, background: '#fff', fontSize: '0.82rem' }}
+            style={{ width: 190, flex: '0 0 190px', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', fontSize: '0.82rem' }}
           >
             <option value="">All statuses</option>
             {statusSteps.map(step => {
@@ -316,10 +316,10 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
               return <option key={step} value={step}>{step}{count !== undefined ? ` (${count})` : ''}</option>
             })}
           </select>
-          <span style={{ color: '#65737d', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>From</span>
-          <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1) }} style={{ flex: '0 0 140px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }} />
-          <span style={{ color: '#65737d', fontSize: '0.82rem' }}>to</span>
-          <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1) }} style={{ flex: '0 0 140px', padding: '8px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.82rem' }} />
+          <span style={{ color: '#64748b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>From</span>
+          <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1) }} style={{ flex: '0 0 140px', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.82rem' }} />
+          <span style={{ color: '#64748b', fontSize: '0.82rem' }}>to</span>
+          <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1) }} style={{ flex: '0 0 140px', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.82rem' }} />
           {(startDate || endDate || statusFilter || search) && (
             <button type="button" onClick={() => { setStartDate(''); setEndDate(''); setStatusFilter(''); setSearch(''); setPage(1) }} style={{ flex: '0 0 auto', padding: '8px 10px', borderRadius: 6, border: '1px solid #d0d7de', background: 'transparent', fontSize: '0.82rem', cursor: 'pointer' }}>
               Clear
@@ -426,7 +426,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
             >
               Previous
             </button>
-            <span style={{ fontSize: '0.82rem', color: '#65737d' }}>
+            <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
               Showing {totalRecords === 0 ? 0 : ((page - 1) * 50) + 1}-{Math.min(page * 50, totalRecords)} of {totalRecords} records
             </span>
             <button

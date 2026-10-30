@@ -17,4 +17,8 @@ class DailyExpense extends Model
         'expenses_remark', 'payment_mode', 'remark', 'person_name',
         'created_date',
     ];
+
+    protected $casts = [
+        'date' => 'date',
+    ];
 }

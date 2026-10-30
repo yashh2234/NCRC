@@ -4,7 +4,7 @@ import { request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 
 interface ExpenseItem {
-  id: number; date: string; opening_balance: number; total_income: number; total_expenses: number
+  id: number; date: string; date_iso?: string; opening_balance: number; total_income: number; total_expenses: number
   closing_balance: number; category: string; remark: string; payment_mode: string; person_name: string
 }
 interface ExpenseSummary { total_income: number; total_expenses: number }
@@ -21,7 +21,7 @@ const PAYMENT_MODES = ['', 'Cash', 'UPI', 'Bank Transfer', 'Card', 'Cheque']
 
 export function ExpensesPage() {
   const [items, setItems] = useState<ExpenseItem[]>([])
-  const [summary, setSummary] = useState<ExpenseSummary>({ total_income: 0, total_expenses: 0 })
+  const [, setSummary] = useState<ExpenseSummary>({ total_income: 0, total_expenses: 0 })
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -39,6 +39,7 @@ export function ExpensesPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLocalError('')
     try {
       const params: Record<string, string> = {}
       if (startDate) params.start_date = startDate
@@ -59,7 +60,7 @@ export function ExpensesPage() {
   }
 
   const beginEdit = (item: ExpenseItem) => {
-    setEditingId(item.id); setDate(item.date); setCategory(item.category)
+    setEditingId(item.id); setDate(item.date_iso ?? item.date); setCategory(item.category)
     setTotalIncome(String(item.total_income || '')); setTotalExpenses(String(item.total_expenses || ''))
     setPaymentMode(item.payment_mode); setRemark(item.remark); setPersonName(item.person_name); setShowForm(true)
   }
@@ -95,21 +96,13 @@ export function ExpensesPage() {
       <div className="page-header">
         <div>
           <p className="section-label">Finance</p>
-          <h1>Daily Expenses</h1>
         </div>
-        <div className="page-actions">
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true) }} type="button"><Plus size={16} /> Add Entry</button>
-          <button className="btn btn-outline" onClick={handleExport} type="button"><Download size={16} /> Export</button>
-        </div>
+
       </div>
 
       <div className="filter-bar">
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span className="sync-pill">Income: {money(summary.total_income)}</span>
-          <span className="sync-pill">Expenses: {money(summary.total_expenses)}</span>
-        </div>
-        <div className="date-filter" style={{ marginLeft: 'auto' }}>
-          <Calendar size={14} />
+        <div className="date-filter" style={{ marginRight: 'auto' }}>
+          <Calendar size={28} />
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           <span>to</span>
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
@@ -117,7 +110,10 @@ export function ExpensesPage() {
             <option value="">All Categories</option>
             {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <span className="record-count">{items.length} entries</span>
+        </div>
+                <div className="page-actions">
+          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true) }} type="button"><Plus size={16} /> Add Entry</button>
+          <button className="btn btn-outline" onClick={handleExport} type="button"><Download size={16} /> Export</button>
         </div>
       </div>
 

@@ -44,12 +44,12 @@ interface FormFieldProps {
 export function FormField({ label, error, children, required, style, description }: FormFieldProps) {
   return (
     <label style={{ display: 'block', marginBottom: 14, ...style }}>
-      <span style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: 'var(--gray-800)', marginBottom: 5 }}>
-        {label} {required ? <span style={{ color: '#ef4444', marginLeft: 2, fontWeight: 700 }}>*</span> : null}
+      <span style={{ display: 'block', fontWeight: 500, fontSize: '0.8rem', color: 'var(--gray-700)', marginBottom: 6 }}>
+        {label} {required ? <span style={{ color: 'var(--color-red)', marginLeft: 2 }}>*</span> : null}
       </span>
       {children}
       {description ? <span style={{ fontSize: '0.72rem', color: 'var(--gray-500)', marginTop: 4, display: 'block' }}>{description}</span> : null}
-      {error ? <span style={{ fontSize: '0.72rem', color: '#ef4444', marginTop: 4, display: 'block', fontWeight: 500 }}>{error}</span> : null}
+      {error ? <span style={{ fontSize: '0.72rem', color: 'var(--color-red-text)', marginTop: 4, display: 'block', fontWeight: 500 }}>{error}</span> : null}
     </label>
   )
 }
@@ -86,23 +86,23 @@ export function ClientSelector({ value, onChange, placeholder = 'Select client',
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <div onClick={() => !disabled && setOpen(!open)} style={{ padding: '8px 12px', border: '1px solid #dfe6ea', borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer', background: disabled ? '#f5f7f8' : '#fff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Building2 size={14} style={{ color: '#65737d' }} />
-        <span style={{ flex: 1, color: selected ? '#17202a' : '#65737d' }}>{selected ? selected.company_name : placeholder}</span>
-        {value ? <X size={14} style={{ cursor: 'pointer', color: '#65737d' }} onClick={(e) => { e.stopPropagation(); onChange(null) }} /> : null}
+      <div onClick={() => !disabled && setOpen(!open)} className={`combo-trigger${disabled ? ' is-disabled' : ''}${open ? ' is-open' : ''}`}>
+        <Building2 size={15} className="combo-icon" />
+        <span className={selected ? 'combo-value' : 'combo-value is-placeholder'}>{selected ? selected.company_name : placeholder}</span>
+        {value ? <X size={14} className="combo-clear" onClick={(e) => { e.stopPropagation(); onChange(null) }} /> : null}
       </div>
       {open ? (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#fff', border: '1px solid #dfe6ea', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.10)', maxHeight: 260, overflow: 'auto' }}>
-          <div style={{ padding: 8, borderBottom: '1px solid #e8eef1' }}>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." style={{ width: '100%', fontSize: '0.82rem', padding: '6px 8px', borderRadius: 4, border: '1px solid #dfe6ea' }} />
+        <div className="combo-menu">
+          <div className="combo-search">
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." autoFocus />
           </div>
           {filtered.map(item => (
-            <div key={item.id} onClick={() => { onChange(item.id); setOpen(false); setQ('') }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.82rem', background: item.id === value ? '#edf6f4' : 'transparent' }}>
+            <div key={item.id} onClick={() => { onChange(item.id); setOpen(false); setQ('') }} className={item.id === value ? 'combo-option is-selected' : 'combo-option'}>
               <strong>{item.company_name}</strong>
-              {item.mobile ? <span style={{ color: '#65737d', marginLeft: 8, fontSize: '0.78rem' }}>{item.mobile}</span> : null}
+              {item.mobile ? <span className="combo-option__meta">{item.mobile}</span> : null}
             </div>
           ))}
-          {filtered.length === 0 ? <p style={{ padding: 12, color: '#65737d', fontSize: '0.82rem', textAlign: 'center' }}>No clients found</p> : null}
+          {filtered.length === 0 ? <p className="combo-empty">No clients found</p> : null}
         </div>
       ) : null}
     </div>
@@ -133,23 +133,23 @@ export function UserSelector({ value, onChange, placeholder = 'Select user', dis
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <div onClick={() => !disabled && setOpen(!open)} style={{ padding: '8px 12px', border: '1px solid #dfe6ea', borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer', background: disabled ? '#f5f7f8' : '#fff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <User size={14} style={{ color: '#65737d' }} />
-        <span style={{ flex: 1, color: selected ? '#17202a' : '#65737d' }}>{selected ? selected.name : placeholder}</span>
-        {value ? <X size={14} style={{ cursor: 'pointer', color: '#65737d' }} onClick={(e) => { e.stopPropagation(); onChange(null) }} /> : null}
+      <div onClick={() => !disabled && setOpen(!open)} className={`combo-trigger${disabled ? ' is-disabled' : ''}${open ? ' is-open' : ''}`}>
+        <User size={15} className="combo-icon" />
+        <span className={selected ? 'combo-value' : 'combo-value is-placeholder'}>{selected ? selected.name : placeholder}</span>
+        {value ? <X size={14} className="combo-clear" onClick={(e) => { e.stopPropagation(); onChange(null) }} /> : null}
       </div>
       {open ? (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#fff', border: '1px solid #dfe6ea', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.10)', maxHeight: 260, overflow: 'auto' }}>
-          <div style={{ padding: 8, borderBottom: '1px solid #e8eef1' }}>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." style={{ width: '100%', fontSize: '0.82rem', padding: '6px 8px', borderRadius: 4, border: '1px solid #dfe6ea' }} />
+        <div className="combo-menu">
+          <div className="combo-search">
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." autoFocus />
           </div>
           {filtered.map(item => (
-            <div key={item.id} onClick={() => { onChange(item.id); setOpen(false); setQ('') }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.82rem', background: item.id === value ? '#edf6f4' : 'transparent' }}>
+            <div key={item.id} onClick={() => { onChange(item.id); setOpen(false); setQ('') }} className={item.id === value ? 'combo-option is-selected' : 'combo-option'}>
               <strong>{item.name}</strong>
-              {item.groups?.length ? <span style={{ color: '#65737d', marginLeft: 8, fontSize: '0.78rem' }}>{item.groups[0].group_name}</span> : null}
+              {item.groups?.length ? <span className="combo-option__meta">{item.groups[0].group_name}</span> : null}
             </div>
           ))}
-          {filtered.length === 0 ? <p style={{ padding: 12, color: '#65737d', fontSize: '0.82rem', textAlign: 'center' }}>No users found</p> : null}
+          {filtered.length === 0 ? <p className="combo-empty">No users found</p> : null}
         </div>
       ) : null}
     </div>
@@ -177,14 +177,14 @@ export function DepartmentSelector({ value, onChange, placeholder = 'Select depa
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <div onClick={() => !disabled && setOpen(!open)} style={{ padding: '8px 12px', border: '1px solid #dfe6ea', borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer', background: disabled ? '#f5f7f8' : '#fff', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Layers size={14} style={{ color: '#65737d' }} />
-        <span style={{ flex: 1, color: selected ? '#17202a' : '#65737d' }}>{selected ? selected.name : placeholder}</span>
+      <div onClick={() => !disabled && setOpen(!open)} className={`combo-trigger${disabled ? ' is-disabled' : ''}${open ? ' is-open' : ''}`}>
+        <Layers size={15} className="combo-icon" />
+        <span className={selected ? 'combo-value' : 'combo-value is-placeholder'}>{selected ? selected.name : placeholder}</span>
       </div>
       {open ? (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#fff', border: '1px solid #dfe6ea', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}>
+        <div className="combo-menu">
           {items.map(item => (
-            <div key={item.id} onClick={() => { onChange(item.id); setOpen(false) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.82rem', background: item.id === value ? '#edf6f4' : 'transparent' }}>
+            <div key={item.id} onClick={() => { onChange(item.id); setOpen(false) }} className={item.id === value ? 'combo-option is-selected' : 'combo-option'}>
               {item.name}
             </div>
           ))}
@@ -207,7 +207,7 @@ export function DatePicker({ value, onChange, label, required, style }: DatePick
   return (
     <div style={{ marginBottom: 14, ...style }}>
       {label ? (
-        <span style={{ display: 'block', fontWeight: 600, fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: 5 }}>
+        <span style={{ display: 'block', fontWeight: 500, fontSize: '0.8rem', color: 'var(--gray-700)', marginBottom: 6 }}>
           {label} {required ? <span style={{ color: 'var(--color-red)' }}>*</span> : null}
         </span>
       ) : null}

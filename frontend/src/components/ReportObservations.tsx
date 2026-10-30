@@ -59,12 +59,12 @@ export function ReportObservations({ reportId, existing, onSaved }: ReportObserv
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 4 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 4, fontSize: '0.7rem', color: '#65737d', fontWeight: 600, padding: '0 4px' }}>
+      <div style={{ display: 'grid', gap: 4, overflowX: 'auto' }}>
+        <div className="keep-cols" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 4, minWidth: 560, fontSize: '0.7rem', color: '#64748b', fontWeight: 600, padding: '0 4px' }}>
           <span>Parameter</span><span>Value</span><span>Unit</span><span>Spec</span><span>Result</span><span />
         </div>
         {rows.map((row, idx) => (
-          <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 4 }}>
+          <div key={idx} className="keep-cols" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 4, minWidth: 560 }}>
             <input value={row.parameter} onChange={e => updateRow(idx, 'parameter', e.target.value)} placeholder="Parameter" style={{ fontSize: '0.78rem', padding: '4px 6px' }} />
             <input value={row.value} onChange={e => updateRow(idx, 'value', e.target.value)} placeholder="Value" style={{ fontSize: '0.78rem', padding: '4px 6px' }} />
             <input value={row.unit} onChange={e => updateRow(idx, 'unit', e.target.value)} placeholder="Unit" style={{ fontSize: '0.78rem', padding: '4px 6px' }} />

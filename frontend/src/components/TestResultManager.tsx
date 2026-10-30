@@ -118,7 +118,7 @@ export function TestResultManager({ jobId }: TestResultManagerProps) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: '0.85rem', color: '#65737d' }}>{results.length} result(s)</span>
+        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{results.length} result(s)</span>
         {!showBatchForm ? (
           <button className="ghost-button" onClick={() => setShowBatchForm(true)} type="button">
             <Plus size={14} /> Record Tests
@@ -127,14 +127,14 @@ export function TestResultManager({ jobId }: TestResultManagerProps) {
       </div>
 
       {showBatchForm ? (
-        <div style={{ padding: 12, border: '1px solid #e8eef1', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
+        <div style={{ padding: 12, border: '1px solid #edf0f4', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
           <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: 8 }}>Select Tests & Enter Values</strong>
           <div style={{ maxHeight: 300, overflow: 'auto', marginBottom: 8 }}>
             {tests.map(t => (
               <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, cursor: 'pointer', background: selectedTests.includes(t.id) ? '#e8f4fd' : 'transparent' }}>
                 <input type="checkbox" checked={selectedTests.includes(t.id)} onChange={() => toggleTest(t.id)} />
-                <span style={{ flex: 1, fontSize: '0.82rem' }}>{t.name} <span style={{ color: '#65737d', fontSize: '0.72rem' }}>{t.code}</span></span>
-                {t.unit ? <span style={{ fontSize: '0.72rem', color: '#65737d' }}>({t.unit})</span> : null}
+                <span style={{ flex: 1, fontSize: '0.82rem' }}>{t.name} <span style={{ color: '#64748b', fontSize: '0.72rem' }}>{t.code}</span></span>
+                {t.unit ? <span style={{ fontSize: '0.72rem', color: '#64748b' }}>({t.unit})</span> : null}
                 {selectedTests.includes(t.id) ? (
                   <input
                     value={batchValues[t.id] ?? ''}
@@ -158,33 +158,33 @@ export function TestResultManager({ jobId }: TestResultManagerProps) {
         </div>
       ) : null}
 
-      {loading ? <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p> : null}
+      {loading ? <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p> : null}
 
       {!loading && results.length === 0 && !showBatchForm ? (
-        <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No test results recorded yet.</p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No test results recorded yet.</p>
       ) : null}
 
       <div style={{ display: 'grid', gap: 8 }}>
         {results.map(r => {
           const st = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending
           return (
-            <div key={r.id} style={{ padding: '10px 14px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+            <div key={r.id} style={{ padding: '10px 14px', border: '1px solid #edf0f4', borderRadius: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FlaskConical size={14} style={{ color: '#65737d' }} />
+                  <FlaskConical size={14} style={{ color: '#64748b' }} />
                   <strong style={{ fontSize: '0.85rem' }}>{r.test_name || r.test?.name || 'Test #' + r.test_id}</strong>
                   {r.result_value !== null ? <span style={{ fontSize: '0.9rem', fontWeight: 700 }}> = {r.result_value} {r.unit}</span> : null}
                 </div>
                 <span className="sync-pill" style={{ background: st.bg, color: st.color, fontSize: '0.72rem' }}>{r.status}</span>
               </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#65737d', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#64748b', flexWrap: 'wrap' }}>
                 {r.specification_limit ? <span>Spec: {r.specification_limit}</span> : null}
                 {r.standard_name ? <span>Std: {r.standard_name}</span> : null}
                 {r.method_name ? <span>Method: {r.method_name}</span> : null}
                 {r.tester ? <span>By: {r.tester.name}</span> : null}
                 {r.tested_at ? <span>{new Date(r.tested_at).toLocaleString()}</span> : null}
               </div>
-              {r.remarks ? <p style={{ fontSize: '0.76rem', color: '#4a5b66', marginTop: 4 }}>{r.remarks}</p> : null}
+              {r.remarks ? <p style={{ fontSize: '0.76rem', color: '#475569', marginTop: 4 }}>{r.remarks}</p> : null}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                 {r.status === 'pending' ? (
                   <button className="ghost-button" onClick={() => void updateStatus(r, 'in_progress')} type="button" style={{ fontSize: '0.72rem' }}>

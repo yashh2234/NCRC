@@ -22,49 +22,46 @@ export function LoginPage() {
     <main className="login-screen">
       <section className="login-art">
         <div className="brand-mark">
-          <FlaskConical size={24} />
+          <span className="sidebar-brand__logo"><FlaskConical size={18} /></span>
           <span>Namotech Consultancy</span>
         </div>
-        <p className="section-label">NCRC</p>
-        <h1>Internal Software</h1>
-        <p>
-          From intake to certified report — registrations, lab observations,
-          approvals, and billing, all in one record per job.
-        </p>
+        <div className="login-art__body">
+          <h1>NCRC <em>Lab</em> Management</h1>
+          <p>
+            From intake to certified report — registrations, lab observations,
+            approvals, and billing, all in one record per job.
+          </p>
+        </div>
+        <span className="login-art__foot">Internal software · Authorized personnel only</span>
       </section>
 
       <form className="auth-panel" onSubmit={handleSubmit}>
         <div>
-          <p className="section-label">Secure access</p>
           <h2>Sign in</h2>
+          <p className="auth-panel__sub">Use your work account to continue.</p>
         </div>
         <label>
           Email
-          <input value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label>
-          Password
+          <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            Password
+            <button type="button" className="link" style={{ fontSize: "0.8rem" }} onClick={() => setShowForgot(true)}>
+              Forgot password?
+            </button>
+          </span>
           <input
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
         {error ? <div className="error-banner">{error}</div> : null}
-        <span className="sync-pill" style={{ alignSelf: "flex-start" }}>
-          {status}
-        </span>
-        <button type="submit">
-          Sign in
-          <ArrowRight size={18} />
-        </button>
-        <button
-          type="button"
-          className="ghost-button"
-          onClick={() => setShowForgot(true)}
-          style={{ marginTop: "0.25rem" }}
-        >
-          Forgot Password?
+        <button type="submit" disabled={status === "Signing in"}>
+          {status === "Signing in" ? "Signing in…" : "Sign in"}
+          <ArrowRight size={17} />
         </button>
       </form>
     </main>

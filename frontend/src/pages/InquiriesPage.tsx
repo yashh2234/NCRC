@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { softTone } from '../lib/utils'
 
 type Inquiry = {
   id: number;
@@ -111,7 +112,6 @@ export default function InquiriesPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Inquiries</h1>
         <button className="btn btn-primary" onClick={openCreate}>+ New Inquiry</button>
       </div>
 
@@ -162,12 +162,12 @@ export default function InquiriesPage() {
                 <td>{inq.contact_person || inq.mobile_no || '-'}</td>
                 <td>{inq.inquiry_type.replace('_', ' ')}</td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: PRIORITY_COLORS[inq.priority] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(PRIORITY_COLORS[inq.priority] || '#64748b')}>
                     {inq.priority}
                   </span>
                 </td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: STATUS_COLORS[inq.status] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(STATUS_COLORS[inq.status] || '#64748b')}>
                     {inq.status}
                   </span>
                 </td>
@@ -176,11 +176,11 @@ export default function InquiriesPage() {
                   <button className="btn btn-sm" onClick={() => openEdit(inq)}>Edit</button>
                   <button className="btn btn-sm btn-danger" onClick={() => handleDelete(inq.id)}>Del</button>
                   {inq.status === 'new' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#ff9800', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#ff9800')}
                       onClick={() => handleStatusChange(inq.id, 'contacted')}>Contact</button>
                   )}
                   {inq.status === 'contacted' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#9c27b0', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#9c27b0')}
                       onClick={() => handleStatusChange(inq.id, 'quoted')}>Quote</button>
                   )}
                 </td>

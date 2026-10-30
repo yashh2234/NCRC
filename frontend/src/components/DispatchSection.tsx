@@ -38,10 +38,10 @@ export function DispatchSection({ jobId }: DispatchSectionProps) {
       .finally(() => setLoading(false))
   }, [jobId])
 
-  if (loading) return <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p>
+  if (loading) return <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p>
 
   if (dispatches.length === 0) {
-    return <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No dispatch records yet.</p>
+    return <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No dispatch records yet.</p>
   }
 
   return (
@@ -49,24 +49,24 @@ export function DispatchSection({ jobId }: DispatchSectionProps) {
       {dispatches.map(d => {
         const st = STATUS_STYLE[d.status] ?? STATUS_STYLE.pending
         return (
-          <div key={d.id} style={{ padding: '10px 14px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+          <div key={d.id} style={{ padding: '10px 14px', border: '1px solid #edf0f4', borderRadius: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Package size={16} style={{ color: '#65737d' }} />
+                <Package size={16} style={{ color: '#64748b' }} />
                 <div>
                   <strong style={{ fontSize: '0.85rem' }}>{d.dispatch_method.replace(/_/g, ' ')}</strong>
-                  {d.tracking_number ? <span style={{ fontSize: '0.78rem', color: '#65737d', marginLeft: 8 }}>#{d.tracking_number}</span> : null}
+                  {d.tracking_number ? <span style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: 8 }}>#{d.tracking_number}</span> : null}
                 </div>
               </div>
               <span className="sync-pill" style={{ background: st.bg, color: st.color, fontSize: '0.72rem' }}>{d.status}</span>
             </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#65737d', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#64748b', flexWrap: 'wrap' }}>
               {d.dispatch_date ? <span><Clock size={11} /> {new Date(d.dispatch_date).toLocaleDateString()}</span> : null}
               {d.courier_name ? <span><Truck size={11} /> {d.courier_name}</span> : null}
               {d.recipient_name ? <span>To: {d.recipient_name}</span> : null}
               {d.received_at ? <span><CheckCircle size={11} /> Received {new Date(d.received_at).toLocaleDateString()}</span> : null}
             </div>
-            {d.notes ? <p style={{ fontSize: '0.76rem', color: '#4a5b66', marginTop: 4 }}>{d.notes}</p> : null}
+            {d.notes ? <p style={{ fontSize: '0.76rem', color: '#475569', marginTop: 4 }}>{d.notes}</p> : null}
           </div>
         )
       })}

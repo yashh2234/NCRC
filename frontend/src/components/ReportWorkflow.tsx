@@ -80,16 +80,16 @@ export function ReportWorkflow({ jobId }: ReportWorkflowProps) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: '0.85rem', color: '#65737d' }}>{reports.length} report(s)</span>
+        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{reports.length} report(s)</span>
         <button className="ghost-button" onClick={() => void createDraft()} type="button" disabled={creating}>
           <FileText size={14} /> New Draft
         </button>
       </div>
 
-      {loading ? <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p> : null}
+      {loading ? <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p> : null}
 
       {!loading && reports.length === 0 ? (
-        <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No reports yet.</p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No reports yet.</p>
       ) : null}
 
       <div style={{ display: 'grid', gap: 8 }}>
@@ -97,11 +97,11 @@ export function ReportWorkflow({ jobId }: ReportWorkflowProps) {
           const badge = STATUS_BADGES[r.workflow_status] ?? STATUS_BADGES.draft
           const isOpen = expanded === r.id
           return (
-            <div key={r.id} style={{ padding: '10px 14px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+            <div key={r.id} style={{ padding: '10px 14px', border: '1px solid #edf0f4', borderRadius: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <strong style={{ fontSize: '0.85rem' }}>{r.type}</strong>
-                  <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#65737d' }}>#{r.id}</span>
+                  <span style={{ marginLeft: 8, fontSize: '0.78rem', color: '#64748b' }}>#{r.id}</span>
                 </div>
                 <span className="sync-pill" style={{ background: badge.bg, color: badge.color, fontSize: '0.72rem' }}>
                   {r.workflow_status.replace(/_/g, ' ')}
@@ -138,14 +138,14 @@ export function ReportWorkflow({ jobId }: ReportWorkflowProps) {
                 ) : null}
 
                 {r.approved_at ? (
-                  <span style={{ fontSize: '0.72rem', color: '#65737d', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <CheckCircle size={12} /> Approved {new Date(r.approved_at).toLocaleDateString()}
                   </span>
                 ) : null}
               </div>
 
               {isOpen ? (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e8eef1' }}>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #edf0f4' }}>
                   <ReportObservations
                     reportId={r.id}
                     existing={r.observations as any}

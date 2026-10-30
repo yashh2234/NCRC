@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
+import { softTone } from '../lib/utils'
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -150,7 +151,6 @@ export default function QuotationsPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Quotations</h1>
         <button className="btn btn-primary" onClick={openCreate}>+ New Quotation</button>
       </div>
 
@@ -193,7 +193,7 @@ export default function QuotationsPage() {
                 <td>₹{Number(q.total_amount).toLocaleString()}</td>
                 <td>₹{Number(q.net_amount).toLocaleString()}</td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: STATUS_COLORS[q.status] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(STATUS_COLORS[q.status] || '#64748b')}>
                     {q.status}
                   </span>
                 </td>
@@ -201,11 +201,11 @@ export default function QuotationsPage() {
                   <button className="btn btn-sm" onClick={() => openEdit(q)}>Edit</button>
                   <button className="btn btn-sm btn-danger" onClick={() => handleDelete(q.id)}>Delete</button>
                   {q.status === 'draft' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#2196f3', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#2196f3')}
                       onClick={() => handleStatusChange(q.id, 'sent')}>Send</button>
                   )}
                   {q.status === 'sent' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#4caf50', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#4caf50')}
                       onClick={() => handleStatusChange(q.id, 'accepted')}>Accept</button>
                   )}
                 </td>

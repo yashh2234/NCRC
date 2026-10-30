@@ -91,7 +91,7 @@ export function AssignmentManager({ jobId }: AssignmentManagerProps) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: '0.85rem', color: '#65737d' }}>{assignments.length} assignment(s)</span>
+        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{assignments.length} assignment(s)</span>
         {!showForm ? (
           <button className="ghost-button" onClick={() => setShowForm(true)} type="button">
             <Plus size={14} /> New Assignment
@@ -100,7 +100,7 @@ export function AssignmentManager({ jobId }: AssignmentManagerProps) {
       </div>
 
       {showForm ? (
-        <div style={{ padding: 12, border: '1px solid #e8eef1', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
+        <div style={{ padding: 12, border: '1px solid #edf0f4', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <select value={form.department_id} onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}>
               <option value="">Department</option>
@@ -135,31 +135,31 @@ export function AssignmentManager({ jobId }: AssignmentManagerProps) {
         </div>
       ) : null}
 
-      {loading ? <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p> : null}
+      {loading ? <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p> : null}
 
       {!loading && assignments.length === 0 && !showForm ? (
-        <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No assignments. Create one to start.</p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No assignments. Create one to start.</p>
       ) : null}
 
       <div style={{ display: 'grid', gap: 8 }}>
         {assignments.map(a => {
           const st = STATUS_BTN[a.status] ?? STATUS_BTN.pending
           return (
-            <div key={a.id} style={{ padding: '10px 14px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+            <div key={a.id} style={{ padding: '10px 14px', border: '1px solid #edf0f4', borderRadius: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <strong style={{ fontSize: '0.85rem' }}>{a.department?.name ?? 'General'}</strong>
-                  {a.assigned_user ? <span style={{ fontSize: '0.82rem', color: '#65737d' }}><User size={12} /> {a.assigned_user.name}</span> : null}
-                  {a.vendor ? <span style={{ fontSize: '0.82rem', color: '#65737d' }}><Truck size={12} /> {a.vendor.vendor_name}</span> : null}
+                  {a.assigned_user ? <span style={{ fontSize: '0.82rem', color: '#64748b' }}><User size={12} /> {a.assigned_user.name}</span> : null}
+                  {a.vendor ? <span style={{ fontSize: '0.82rem', color: '#64748b' }}><Truck size={12} /> {a.vendor.vendor_name}</span> : null}
                 </div>
                 <span className="sync-pill" style={{ background: `${st.color}20`, color: st.color, fontSize: '0.72rem' }}>{a.status.replace(/_/g, ' ')}</span>
               </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#65737d' }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#64748b' }}>
                 <span style={{ textTransform: 'capitalize' }}>{a.assignment_type}</span>
                 <span style={{ textTransform: 'capitalize' }}>Priority: {a.priority}</span>
                 {a.due_date ? <span>Due: {new Date(a.due_date).toLocaleDateString()}</span> : null}
               </div>
-              {a.notes ? <p style={{ fontSize: '0.78rem', color: '#4a5b66', marginTop: 4 }}>{a.notes}</p> : null}
+              {a.notes ? <p style={{ fontSize: '0.78rem', color: '#475569', marginTop: 4 }}>{a.notes}</p> : null}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                 {a.status === 'pending' ? (
                   <button className="ghost-button" onClick={() => void updateStatus(a, 'in_progress')} type="button" style={{ fontSize: '0.72rem' }}><Play size={11} /> Start</button>

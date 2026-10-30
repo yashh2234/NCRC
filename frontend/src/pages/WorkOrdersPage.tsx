@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
+import { softTone } from '../lib/utils'
 
 type Registration = {
   iClientId?: number;
@@ -161,7 +162,6 @@ export default function WorkOrdersPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Work Orders</h1>
         <button className="btn btn-primary" onClick={openCreate}>+ New Work Order</button>
       </div>
 
@@ -202,10 +202,7 @@ export default function WorkOrdersPage() {
               <tr key={wo.id}>
                 <td><strong>{wo.work_order_no}</strong></td>
                 <td>
-                  <span className="badge" style={{
-                    backgroundColor: '#8b5cf6',
-                    color: '#fff',
-                  }}>
+                  <span className="badge" style={softTone('#8b5cf6')}>
                     {getUidForRegistration(wo.registration_id)}
                   </span>
                 </td>
@@ -216,7 +213,7 @@ export default function WorkOrdersPage() {
                   ₹{Number(wo.balance_dues).toLocaleString()}
                 </td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: STATUS_COLORS[wo.status] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(STATUS_COLORS[wo.status] || '#64748b')}>
                     {wo.status}
                   </span>
                 </td>
@@ -225,15 +222,15 @@ export default function WorkOrdersPage() {
                   <button className="btn btn-sm" onClick={() => openEdit(wo)}>Edit</button>
                   <button className="btn btn-sm btn-danger" onClick={() => handleDelete(wo.id)}>Del</button>
                   {wo.status === 'draft' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#2196f3', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#2196f3')}
                       onClick={() => handleStatusChange(wo.id, 'active')}>Activate</button>
                   )}
                   {wo.status === 'active' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#ff9800', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#ff9800')}
                       onClick={() => handleStatusChange(wo.id, 'in_progress')}>Start</button>
                   )}
                   {wo.status === 'in_progress' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#4caf50', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#4caf50')}
                       onClick={() => handleStatusChange(wo.id, 'completed')}>Complete</button>
                   )}
                 </td>

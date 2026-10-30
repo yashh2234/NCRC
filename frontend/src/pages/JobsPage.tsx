@@ -50,18 +50,18 @@ export function JobsPage() {
     title: job.title ?? '-',
     stage: job.current_stage ? (
       <StatusBadge color={job.current_stage.color}>{job.current_stage.name}</StatusBadge>
-    ) : <span style={{ color: '#65737d' }}>Not started</span>,
+    ) : <span style={{ color: '#64748b' }}>Not started</span>,
     status: <StatusBadge status={job.status} />,
     priority: <StatusBadge priority={job.priority} />,
-    assigned: job.assigned_user ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><User size={13} /> {job.assigned_user.name}</span> : <span style={{ color: '#65737d' }}>Unassigned</span>,
+    assigned: job.assigned_user ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><User size={13} /> {job.assigned_user.name}</span> : <span style={{ color: '#64748b' }}>Unassigned</span>,
     sla: job.active_stage_tracking?.sla_deadline ? (
       <span style={{ color: job.active_stage_tracking.is_overdue ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: 4 }}>
         <Clock size={13} />
         {job.active_stage_tracking.is_overdue ? `${Math.floor(job.active_stage_tracking.overdue_minutes / 60)}h overdue` : 'On track'}
       </span>
-    ) : <span style={{ color: '#65737d' }}>No SLA</span>,
+    ) : <span style={{ color: '#64748b' }}>No SLA</span>,
     age: job.created_at ? (
-      <span style={{ fontSize: '0.82rem', color: '#65737d' }}>
+      <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
         {Math.floor((Date.now() - new Date(job.created_at).getTime()) / (1000 * 60 * 60 * 24))}d
       </span>
     ) : '-',
@@ -115,7 +115,7 @@ export function JobsPage() {
       {error ? <div className="error-banner">{error}</div> : null}
 
       {loading ? (
-        <p style={{ padding: 32, textAlign: 'center', color: '#65737d' }}>Loading jobs...</p>
+        <p style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading jobs...</p>
       ) : (
         <DataTable columns={columns} rows={rows} pageSize={20} filename="jobs-export" onRowClick={handleRowClick} />
       )}

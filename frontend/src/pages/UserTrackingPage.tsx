@@ -154,7 +154,7 @@ export function UserTrackingPage() {
           : (
             <div className="session-stack">
               {summary.user_activity_today.map((u) => (
-                <article key={u.id} className="session-row" onClick={() => handleSelectUser(u.id)} style={{ cursor: 'pointer', background: selectedUserId === u.id ? '#edf6f4' : undefined }}>
+                <article key={u.id} className="session-row" onClick={() => handleSelectUser(u.id)} style={{ cursor: 'pointer', background: selectedUserId === u.id ? '#eff4ff' : undefined }}>
                   <div>
                     <strong>{u.name}</strong>
                     <span>{u.today_actions} action{u.today_actions !== 1 ? 's' : ''} today</span>
@@ -193,7 +193,7 @@ export function UserTrackingPage() {
             </div>
           )}
           {userInfo ? (
-            <div style={{ padding: '10px 16px', borderTop: '1px solid #e8eef1', fontSize: '0.8rem', color: '#65737d' }}>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #edf0f4', fontSize: '0.8rem', color: '#64748b' }}>
               {totalToday} action{totalToday !== 1 ? 's' : ''} today &middot; Last seen: {userInfo.last_activity_at ?? 'Never'}
             </div>
           ) : null}

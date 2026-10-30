@@ -77,13 +77,13 @@ export function DocumentManager({ jobId }: DocumentManagerProps) {
     for (const [prefix, color] of Object.entries(FILE_ICONS)) {
       if (mime.startsWith(prefix)) return color
     }
-    return '#65737d'
+    return '#64748b'
   }
 
   return (
     <div>
       {/* Upload form */}
-      <div style={{ padding: 12, border: '1px solid #e8eef1', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
+      <div style={{ padding: 12, border: '1px solid #edf0f4', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Document title" style={{ flex: 1, fontSize: '0.82rem' }} />
           <input ref={fileRef} type="file" style={{ flex: 1, fontSize: '0.82rem' }} />
@@ -96,19 +96,19 @@ export function DocumentManager({ jobId }: DocumentManagerProps) {
         </div>
       </div>
 
-      {loading ? <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p> : null}
+      {loading ? <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p> : null}
 
       {!loading && docs.length === 0 ? (
-        <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No documents uploaded yet.</p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No documents uploaded yet.</p>
       ) : null}
 
       <div style={{ display: 'grid', gap: 6 }}>
         {docs.map(doc => (
-          <div key={doc.id} style={{ padding: '8px 12px', border: '1px solid #e8eef1', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div key={doc.id} style={{ padding: '8px 12px', border: '1px solid #edf0f4', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
             <FileText size={16} style={{ color: getIconColor(doc.file_type) }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong style={{ fontSize: '0.82rem', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</strong>
-              <span style={{ fontSize: '0.72rem', color: '#65737d' }}>
+              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
                 {doc.file_name} &middot; {formatSize(doc.file_size)}
                 {doc.tags ? ` &middot; ${doc.tags}` : ''}
               </span>

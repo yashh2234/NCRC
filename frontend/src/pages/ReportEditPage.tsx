@@ -220,7 +220,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         updateLabData={updateLabData}
       />
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 24, padding: '16px 0', borderTop: '1px solid #dfe6ea', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 24, padding: '16px 0', borderTop: '1px solid #e2e8f0', alignItems: 'center' }}>
         <button type="button" onClick={() => void handlePrint()} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
           Print
         </button>

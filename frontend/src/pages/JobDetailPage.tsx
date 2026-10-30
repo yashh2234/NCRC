@@ -104,7 +104,7 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
   if (loading) {
     return (
       <div className="surface" style={{ padding: 32 }}>
-        <p style={{ textAlign: 'center', color: '#65737d' }}>Loading job details...</p>
+        <p style={{ textAlign: 'center', color: '#64748b' }}>Loading job details...</p>
       </div>
     )
   }
@@ -129,7 +129,7 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
         <button className="ghost-button" onClick={onBack} type="button">
           <ArrowLeft size={16} /> Back to Jobs
         </button>
-        <span style={{ color: '#65737d' }}>/</span>
+        <span style={{ color: '#64748b' }}>/</span>
         <span style={{ fontWeight: 600 }}>Job #{job.uid_no}</span>
       </div>
 
@@ -160,20 +160,20 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, padding: '0 20px 16px' }}>
           {job.client ? (
-            <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Client</span><strong>{job.client.company_name}</strong></div>
+            <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Client</span><strong>{job.client.company_name}</strong></div>
           ) : null}
           {job.assigned_user ? (
-            <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Assigned To</span><strong style={{ display: 'flex', alignItems: 'center', gap: 4 }}><User size={14} /> {job.assigned_user.name}</strong></div>
+            <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Assigned To</span><strong style={{ display: 'flex', alignItems: 'center', gap: 4 }}><User size={14} /> {job.assigned_user.name}</strong></div>
           ) : null}
           {job.started_at ? (
-            <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Started</span><strong>{new Date(job.started_at).toLocaleDateString()}</strong></div>
+            <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Started</span><strong>{new Date(job.started_at).toLocaleDateString()}</strong></div>
           ) : null}
           {job.completed_at ? (
-            <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Completed</span><strong>{new Date(job.completed_at).toLocaleDateString()}</strong></div>
+            <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Completed</span><strong>{new Date(job.completed_at).toLocaleDateString()}</strong></div>
           ) : null}
           {job.active_stage_tracking?.sla_deadline ? (
             <div>
-              <span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>SLA Deadline</span>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>SLA Deadline</span>
               <strong style={{ color: job.active_stage_tracking.is_overdue ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Clock size={14} />
                 {job.active_stage_tracking.is_overdue
@@ -218,19 +218,19 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
         {/* Left column */}
         <div>
           <SectionCard title="Timeline" icon={Activity}>
-            {timeline.length === 0 ? <p style={{ color: '#65737d' }}>No timeline entries yet.</p> : (
+            {timeline.length === 0 ? <p style={{ color: '#64748b' }}>No timeline entries yet.</p> : (
               <div style={{ position: 'relative', paddingLeft: 24 }}>
-                <div style={{ position: 'absolute', left: 11, top: 0, bottom: 0, width: 2, background: '#e8eef1' }} />
+                <div style={{ position: 'absolute', left: 11, top: 0, bottom: 0, width: 2, background: '#edf0f4' }} />
                 {timeline.map((entry) => (
                   <div key={entry.id} style={{ position: 'relative', paddingBottom: 14 }}>
                     <div style={{ position: 'absolute', left: -19, top: 4, width: 12, height: 12, borderRadius: '50%', background: entry.to_stage?.color ?? '#6b7280', border: '2px solid #fff' }} />
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <strong style={{ fontSize: '0.85rem' }}>{entry.action}</strong>
-                        <span style={{ fontSize: '0.7rem', color: '#65737d', whiteSpace: 'nowrap' }}>{entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</span>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', whiteSpace: 'nowrap' }}>{entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</span>
                       </div>
-                      {entry.user ? <span style={{ fontSize: '0.76rem', color: '#65737d' }}>by {entry.user.name}</span> : null}
-                      {entry.notes ? <p style={{ fontSize: '0.78rem', color: '#4a5b66', marginTop: 2 }}>{entry.notes}</p> : null}
+                      {entry.user ? <span style={{ fontSize: '0.76rem', color: '#64748b' }}>by {entry.user.name}</span> : null}
+                      {entry.notes ? <p style={{ fontSize: '0.78rem', color: '#475569', marginTop: 2 }}>{entry.notes}</p> : null}
                     </div>
                   </div>
                 ))}
@@ -254,7 +254,7 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: 12, background: '#f9fafb', borderRadius: 8 }}>
               <User size={16} />
               <strong style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>Assign to:</strong>
-              <input type="number" value={assignUserId ?? ''} onChange={(e) => setAssignUserId(e.target.value ? Number(e.target.value) : null)} placeholder="User ID" style={{ width: 100, padding: '6px 10px', borderRadius: 6, border: '1px solid #dfe6ea', fontSize: '0.82rem' }} />
+              <input type="number" value={assignUserId ?? ''} onChange={(e) => setAssignUserId(e.target.value ? Number(e.target.value) : null)} placeholder="User ID" style={{ width: 100, padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.82rem' }} />
               <button className="ghost-button" onClick={() => void handleAssign()} type="button" disabled={!assignUserId}><Check size={14} /> Assign</button>
               <div style={{ flex: 1 }} />
               {job.status !== 'cancelled' ? <button className="ghost-button" onClick={() => void handleCancel()} type="button" style={{ color: '#ef4444' }}><Ban size={14} /> Cancel</button> : null}
@@ -265,7 +265,7 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
                 <strong style={{ fontSize: '0.85rem', display: 'block', marginBottom: 8 }}>Stage Transitions</strong>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {allowedTransitions.map((t) => (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: '1px solid #e8eef1', borderRadius: 8, background: '#fbfcfd' }}>
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: '1px solid #edf0f4', borderRadius: 8, background: '#fbfcfd' }}>
                       <span className="sync-pill" style={{ background: t.from_stage?.color ?? '#6b7280', color: '#fff', fontSize: '0.72rem' }}>{t.from_stage?.name ?? '?'}</span>
                       <ArrowRight size={12} />
                       <span className="sync-pill" style={{ background: t.to_stage?.color ?? '#6b7280', color: '#fff', fontSize: '0.72rem' }}>{t.to_stage?.name ?? '?'}</span>
@@ -283,7 +283,7 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
                 </label>
               </div>
             ) : (
-              <div style={{ padding: 16, textAlign: 'center', color: '#65737d', background: '#f9fafb', borderRadius: 8, fontSize: '0.85rem' }}>
+              <div style={{ padding: 16, textAlign: 'center', color: '#64748b', background: '#f9fafb', borderRadius: 8, fontSize: '0.85rem' }}>
                 {job.status === 'completed' ? 'This job is completed.' : job.status === 'cancelled' ? 'This job has been cancelled.' : 'No transitions available from the current stage.'}
               </div>
             )}
@@ -294,15 +294,15 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
         <div>
           <SectionCard title="Job Details" icon={Briefcase}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>UID</span><span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{job.uid_no}</span></div>
-              <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Template</span><span style={{ fontSize: '0.88rem' }}>{job.workflow_template?.name ?? '-'}</span></div>
-              <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Current Stage</span><span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{job.current_stage?.name ?? 'Not started'}</span></div>
-              <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Client</span><span style={{ fontSize: '0.88rem' }}>{job.client?.company_name ?? '-'}</span></div>
-              <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Created</span><span style={{ fontSize: '0.88rem' }}>{job.created_at ? new Date(job.created_at).toLocaleString() : '-'}</span></div>
-              <div><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Due</span><span style={{ fontSize: '0.88rem' }}>{job.due_at ? new Date(job.due_at).toLocaleString() : 'Not set'}</span></div>
+              <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>UID</span><span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{job.uid_no}</span></div>
+              <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Template</span><span style={{ fontSize: '0.88rem' }}>{job.workflow_template?.name ?? '-'}</span></div>
+              <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Current Stage</span><span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{job.current_stage?.name ?? 'Not started'}</span></div>
+              <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Client</span><span style={{ fontSize: '0.88rem' }}>{job.client?.company_name ?? '-'}</span></div>
+              <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Created</span><span style={{ fontSize: '0.88rem' }}>{job.created_at ? new Date(job.created_at).toLocaleString() : '-'}</span></div>
+              <div><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Due</span><span style={{ fontSize: '0.88rem' }}>{job.due_at ? new Date(job.due_at).toLocaleString() : 'Not set'}</span></div>
             </div>
             {job.description ? (
-              <div style={{ marginTop: 12 }}><span style={{ fontSize: '0.72rem', color: '#65737d', display: 'block' }}>Description</span><p style={{ margin: '4px 0', fontSize: '0.85rem' }}>{job.description}</p></div>
+              <div style={{ marginTop: 12 }}><span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Description</span><p style={{ margin: '4px 0', fontSize: '0.85rem' }}>{job.description}</p></div>
             ) : null}
           </SectionCard>
 
@@ -324,15 +324,15 @@ export function JobDetailPage({ jobId, onBack }: JobDetailPageProps) {
 
           <SectionCard title="Stage History" icon={Activity} defaultOpen={false}>
             {stageTracking.length === 0 ? (
-              <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No stage history yet.</p>
+              <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No stage history yet.</p>
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {stageTracking.map((st) => (
-                  <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid #e8eef1', borderRadius: 8, fontSize: '0.82rem' }}>
+                  <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: '1px solid #edf0f4', borderRadius: 8, fontSize: '0.82rem' }}>
                     <Circle size={8} fill={st.stage?.color ?? '#6b7280'} stroke={st.stage?.color ?? '#6b7280'} />
                     <strong style={{ flex: 1 }}>{st.stage?.name ?? 'Unknown'}</strong>
-                    {st.entered_at ? <span style={{ color: '#65737d' }}>Entered: {new Date(st.entered_at).toLocaleString()}</span> : null}
-                    {st.exited_at ? <span style={{ color: '#65737d' }}>Exited: {new Date(st.exited_at).toLocaleString()}</span> : <span style={{ color: '#10b981' }}>Current</span>}
+                    {st.entered_at ? <span style={{ color: '#64748b' }}>Entered: {new Date(st.entered_at).toLocaleString()}</span> : null}
+                    {st.exited_at ? <span style={{ color: '#64748b' }}>Exited: {new Date(st.exited_at).toLocaleString()}</span> : <span style={{ color: '#10b981' }}>Current</span>}
                     {st.is_overdue ? <AlertTriangle size={14} style={{ color: '#ef4444' }} /> : null}
                   </div>
                 ))}

@@ -38,7 +38,7 @@
 }
 .dash-welcome__title {
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--gray-900);
 }
@@ -90,17 +90,16 @@
   transition: all var(--duration-fast) var(--ease-apple);
 }
 .pipeline-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 .pipeline-card--active {
   border-width: 2px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-sm);
 }
 .pipeline-card__count {
   display: block;
   font-size: 1.4rem;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.1;
 }
 .pipeline-card__label {
@@ -233,19 +232,18 @@
   .role-queue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .role-queue-card {
-  padding: 18px 14px;
-  border-radius: 12px;
+  padding: 16px 12px;
+  border-radius: var(--radius);
   text-align: center;
   transition: all var(--duration-fast) var(--ease-apple);
 }
 .role-queue-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 .role-queue-card__count {
   display: block;
   font-size: 1.6rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 .role-queue-card__label {
   font-size: 0.74rem;
@@ -268,21 +266,20 @@
   .financial-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .financial-card {
-  padding: 18px 14px;
-  border-radius: 12px;
+  padding: 16px 12px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   text-align: center;
   transition: all var(--duration-fast) var(--ease-apple);
 }
 .financial-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 .financial-card__value {
   display: block;
   font-size: 1.1rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 .financial-card__label {
   font-size: 0.72rem;
@@ -318,7 +315,7 @@
 }
 .attention-item__count {
   font-size: 1.1rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 /* ---- My Queue Table ---- */
@@ -380,13 +377,12 @@
   transition: all var(--duration-fast) var(--ease-apple);
 }
 .my-task-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 .my-task-card__count {
   display: block;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 600;
   margin-bottom: 4px;
 }
 .my-task-card__label {
@@ -424,7 +420,6 @@
 }
 .module-item:hover {
   box-shadow: var(--shadow-xs);
-  transform: translateY(-1px);
 }
 .module-item svg { color: var(--color-primary); }
 
@@ -459,7 +454,6 @@
 }
 .role-card:hover {
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
 }
 .role-card strong { color: var(--color-text); }
 .role-card span, .role-card small { color: var(--gray-400); }
@@ -513,7 +507,6 @@
 }
 .report-row:hover {
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
 }
 .report-row div:first-child { display: grid; gap: 4px; }
 .report-row span, .report-row small { color: var(--gray-400); }
@@ -531,7 +524,8 @@
 
 .form-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -616,14 +610,12 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  background: rgba(15, 23, 42, 0.45);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   z-index: 1000;
-  padding: 48px 24px;
+  padding: 6vh 20px 40px;
   overflow-y: auto;
   animation: overlayIn var(--duration) var(--ease-apple);
 }
@@ -638,9 +630,10 @@
   width: 100%;
   max-width: 640px;
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
-  padding: 34px;
+  padding: 24px;
   animation: modalSlide var(--duration) var(--ease-spring);
 }
 
@@ -710,7 +703,7 @@
 
 .page-header h1 {
   color: var(--gray-900);
-  font-size: 1.65rem;
+  font-size: 1.25rem;
 }
 
 .filters-bar {
@@ -733,15 +726,15 @@
 }
 
 .data-table th {
-  padding: 13px 16px;
-  color: var(--gray-600);
-  background: #f8fafc;
+  padding: 11px 16px;
+  color: var(--gray-500);
+  background: var(--gray-50);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
 
 .data-table td {
-  padding: 14px 16px;
+  padding: 11px 16px;
   color: var(--gray-700);
 }
 
@@ -750,6 +743,9 @@
 }
 
 .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   padding-top: 22px;
   margin-top: 24px;
@@ -774,58 +770,60 @@
 .modal-lg { max-width: 900px; }
 
 @keyframes modalSlide {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .modal-close {
   position: absolute;
-  top: 18px;
-  right: 18px;
-  width: 34px;
-  height: 34px;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border: none;
-  background: var(--gray-100);
-  border-radius: 50%;
+  background: transparent;
+  border-radius: var(--radius-sm);
   color: var(--gray-500);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-apple);
   z-index: 10;
 }
 .modal-close:hover {
-  background: var(--color-red-bg);
-  color: var(--color-red);
+  background: var(--gray-100);
+  color: var(--gray-900);
 }
 
 /* ===== Tab Navigation — Capsule Segmented Control ===== */
 .tab-nav {
-  display: inline-flex;
-  gap: 2px;
-  margin-bottom: 24px;
-  padding: 4px;
-  background: var(--gray-100);
-  border-radius: var(--radius-sm);
-  border: none;
+  display: flex;
+  gap: 4px;
+  max-width: 100%;
+  margin-bottom: 20px;
+  padding: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--color-border);
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.tab-nav::-webkit-scrollbar { display: none; }
 
 .tab-btn {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 18px;
+  padding: 10px 12px;
   border: none;
   background: transparent;
   color: var(--gray-500);
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.84rem;
+  font-weight: 500;
   cursor: pointer;
-  border-radius: calc(var(--radius-sm) - 2px);
-  margin-bottom: 0;
-  border-bottom: none;
+  border-radius: 0;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
   transition: all var(--duration-fast) var(--ease-apple);
   white-space: nowrap;
 }
@@ -833,10 +831,8 @@
   color: var(--gray-700);
 }
 .tab-btn.active {
-  color: var(--color-text);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-xs);
-  border-bottom-color: transparent;
+  color: var(--color-primary);
+  border-bottom-color: var(--brand-red);
 }
 
 /* ===== Apple Style Registration Page ===== */
@@ -1020,7 +1016,7 @@
   transition: border-color var(--duration-fast) var(--ease-apple);
 }
 .sample-row-card:hover {
-  border-color: rgba(0, 113, 227, 0.3);
+  border-color: rgba(37, 99, 235, 0.3);
 }
 .sample-row-card__header {
   display: flex;
@@ -1048,7 +1044,7 @@
 }
 .rate-summary-pill__value {
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--color-primary);
   font-family: var(--font-data);
 }
@@ -1062,9 +1058,9 @@
 }
 
 .dash-welcome {
-  padding: 28px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 .dash-welcome__title {
@@ -1088,10 +1084,7 @@
   gap: 12px;
 }
 .metric-tile {
-  min-height: 142px;
   padding: 18px;
-  border-radius: 16px;
-  box-shadow: none;
 }
 .metric-tile:hover {
   transform: none;
@@ -1115,9 +1108,9 @@
 
 .pipeline-grid { gap: 10px; }
 .pipeline-card {
-  min-height: 106px;
-  padding: 16px 10px;
-  border-radius: 14px;
+  min-height: 92px;
+  padding: 14px 10px;
+  border-radius: var(--radius);
 }
 .pipeline-card:hover { transform: none; }
 .pipeline-card__count { font-size: 1.3rem; }
@@ -1153,16 +1146,14 @@
   padding: 12px;
   margin: 0;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 .reg-toolbar .search-field { min-height: 38px; }
 .reg-toolbar .date-filter { margin-left: auto; }
 
-.reg-page-container .table-card {
-  border-radius: 16px;
-}
+
 .reg-page-container .table-card table {
   min-width: 1120px;
   table-layout: fixed;

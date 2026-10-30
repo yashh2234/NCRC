@@ -18,6 +18,7 @@ import WorkOrdersPage from './pages/WorkOrdersPage'
 import OutsourcePage from './pages/OutsourcePage'
 import { JobTypesPage } from './pages/JobTypesPage'
 import { TenderPage } from './pages/TenderPage'
+import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
 import { useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
@@ -107,8 +108,7 @@ function AuthenticatedApp() {
       label: 'Administration',
       icon: Users,
       items: [
-        { key: 'users', label: 'Manage Users' },
-        { key: 'roles', label: 'Groups & Permissions' },
+        { key: 'admin', label: 'Manage Users & Groups' },
       ],
     },
   ]
@@ -141,6 +141,9 @@ function AuthenticatedApp() {
       </div>
       <div className={`view ${activeModule === 'tenders' ? 'visible' : ''}`}>
         {activeModule === 'tenders' && <TenderPage />}
+      </div>
+      <div className={`view ${activeModule === 'admin' ? 'visible' : ''}`}>
+        {activeModule === 'admin' && <AdministrationPage />}
       </div>
       <div className={`view ${activeModule === 'users' ? 'visible' : ''}`}>
         {activeModule === 'users' && <UsersPage />}

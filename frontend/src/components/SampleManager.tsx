@@ -70,7 +70,7 @@ export function SampleManager({ jobId }: SampleManagerProps) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: '0.85rem', color: '#65737d' }}>{samples.length} sample(s)</span>
+        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{samples.length} sample(s)</span>
         {!showForm ? (
           <button className="ghost-button" onClick={() => { resetForm(); setEditingId(null); setShowForm(true) }} type="button">
             <Plus size={14} /> Add Sample
@@ -79,7 +79,7 @@ export function SampleManager({ jobId }: SampleManagerProps) {
       </div>
 
       {showForm ? (
-        <div style={{ padding: 12, border: '1px solid #e8eef1', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
+        <div style={{ padding: 12, border: '1px solid #edf0f4', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <input value={form.sample_name} onChange={e => setForm(f => ({ ...f, sample_name: e.target.value }))} placeholder="Sample name" />
             <input value={form.sample_type} onChange={e => setForm(f => ({ ...f, sample_type: e.target.value }))} placeholder="Sample type" />
@@ -99,15 +99,15 @@ export function SampleManager({ jobId }: SampleManagerProps) {
         </div>
       ) : null}
 
-      {loading ? <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p> : null}
+      {loading ? <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p> : null}
 
       {!loading && samples.length === 0 && !showForm ? (
-        <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No samples registered. Add one to start.</p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No samples registered. Add one to start.</p>
       ) : null}
 
       <div style={{ display: 'grid', gap: 8 }}>
         {samples.map(s => (
-          <div key={s.id} style={{ padding: '10px 14px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+          <div key={s.id} style={{ padding: '10px 14px', border: '1px solid #edf0f4', borderRadius: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
                 <strong style={{ fontSize: '0.88rem' }}>{s.sample_name || s.sample_type || 'Sample #' + s.id}</strong>
@@ -118,12 +118,12 @@ export function SampleManager({ jobId }: SampleManagerProps) {
                 <button className="ghost-button" onClick={() => void deleteSample(s)} type="button" style={{ padding: '2px 6px', color: '#ef4444' }}><Trash2 size={12} /></button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#65737d' }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: '0.78rem', color: '#64748b' }}>
               {s.condition ? <span>Condition: {s.condition}</span> : null}
               {s.received_date ? <span>Received: {new Date(s.received_date).toLocaleDateString()}</span> : null}
             </div>
-            {s.description ? <p style={{ fontSize: '0.78rem', color: '#4a5b66', marginTop: 4 }}>{s.description}</p> : null}
-            {s.remarks ? <p style={{ fontSize: '0.78rem', color: '#4a5b66', marginTop: 2 }}>Note: {s.remarks}</p> : null}
+            {s.description ? <p style={{ fontSize: '0.78rem', color: '#475569', marginTop: 4 }}>{s.description}</p> : null}
+            {s.remarks ? <p style={{ fontSize: '0.78rem', color: '#475569', marginTop: 2 }}>Note: {s.remarks}</p> : null}
           </div>
         ))}
       </div>

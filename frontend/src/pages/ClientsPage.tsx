@@ -199,7 +199,7 @@ export function ClientsPage() {
 
         {error ? <div className="error-banner">{error}</div> : null}
 
-        {loading ? <p style={{ padding: 24, textAlign: 'center', color: '#65737d' }}>Loading...</p> : (
+        {loading ? <p style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>Loading...</p> : (
           <DataTable columns={columns} rows={rows} pageSize={20} filename="clients" exportable={false} onRowClick={handleRowClick} />
         )}
       </section>
@@ -207,7 +207,7 @@ export function ClientsPage() {
       {/* Right: Client detail */}
       <section className="surface" style={{ overflow: 'auto' }}>
         {!selectedClient ? (
-          <div style={{ padding: 48, textAlign: 'center', color: '#65737d' }}>
+          <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
             <Building2 size={48} style={{ opacity: 0.3, marginBottom: 12 }} />
             <p>Select a client to view details</p>
           </div>
@@ -232,10 +232,10 @@ export function ClientsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.84rem' }}><MapPin size={14} /> {selectedClient.city ?? selectedClient.state ?? '-'}</div>
             </div>
             {selectedClient.gst_no ? <div className="sync-pill" style={{ marginBottom: 12 }}>GST: {selectedClient.gst_no}</div> : null}
-            {selectedClient.address ? <p style={{ fontSize: '0.84rem', color: '#4a5b66', marginBottom: 16 }}>{selectedClient.address}</p> : null}
+            {selectedClient.address ? <p style={{ fontSize: '0.84rem', color: '#475569', marginBottom: 16 }}>{selectedClient.address}</p> : null}
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: 16, borderBottom: '1px solid #e8eef1', marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 16, borderBottom: '1px solid #edf0f4', marginBottom: 16 }}>
               {[
                 { key: 'contacts', icon: Users, label: `Contacts (${selectedClient.contacts?.length ?? 0})` },
                 { key: 'communications', icon: MessageSquare, label: `Activity (${selectedClient.communications?.length ?? 0})` },
@@ -254,15 +254,15 @@ export function ClientsPage() {
                 <button className="ghost-button" onClick={() => setShowContactForm(true)} type="button"><Plus size={14} /> Add</button>
               </div>
               {(selectedClient.contacts ?? []).length === 0 ? (
-                <p style={{ color: '#65737d', fontSize: '0.82rem' }}>No contacts added.</p>
+                <p style={{ color: '#64748b', fontSize: '0.82rem' }}>No contacts added.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {(selectedClient.contacts ?? []).map((ct) => (
-                    <div key={ct.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+                    <div key={ct.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid #edf0f4', borderRadius: 8 }}>
                       <User size={14} />
                       <strong style={{ fontSize: '0.84rem', flex: 1 }}>{ct.name}</strong>
                       {ct.is_primary ? <span className="sync-pill" style={{ background: '#dbeafe', color: '#1e40af', fontSize: '0.68rem' }}>Primary</span> : null}
-                      {ct.designation ? <span style={{ fontSize: '0.78rem', color: '#65737d' }}>{ct.designation}</span> : null}
+                      {ct.designation ? <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{ct.designation}</span> : null}
                       {ct.mobile ? <span style={{ fontSize: '0.82rem' }}>{ct.mobile}</span> : null}
                     </div>
                   ))}
@@ -277,20 +277,20 @@ export function ClientsPage() {
                 <button className="ghost-button" onClick={() => setShowCommForm(true)} type="button"><Plus size={14} /> Log</button>
               </div>
               {(selectedClient.communications ?? []).length === 0 ? (
-                <p style={{ color: '#65737d', fontSize: '0.82rem' }}>No activity logged.</p>
+                <p style={{ color: '#64748b', fontSize: '0.82rem' }}>No activity logged.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {(selectedClient.communications ?? []).map((cm) => (
-                    <div key={cm.id} style={{ padding: '8px 10px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+                    <div key={cm.id} style={{ padding: '8px 10px', border: '1px solid #edf0f4', borderRadius: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <MessageSquare size={13} color={COMM_ICONS[cm.type] ?? '#6b7280'} />
                         <strong style={{ fontSize: '0.82rem', textTransform: 'capitalize' }}>{cm.type}</strong>
                         {cm.subject ? <span style={{ fontSize: '0.84rem' }}>— {cm.subject}</span> : null}
                         <span style={{ flex: 1 }} />
-                        <span style={{ fontSize: '0.72rem', color: '#65737d' }}>{cm.communication_date ? new Date(cm.communication_date).toLocaleString() : ''}</span>
+                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{cm.communication_date ? new Date(cm.communication_date).toLocaleString() : ''}</span>
                       </div>
-                      {cm.body ? <p style={{ fontSize: '0.8rem', color: '#4a5b66', margin: 0 }}>{cm.body}</p> : null}
-                      {cm.user ? <small style={{ color: '#65737d' }}>by {cm.user.name}</small> : null}
+                      {cm.body ? <p style={{ fontSize: '0.8rem', color: '#475569', margin: 0 }}>{cm.body}</p> : null}
+                      {cm.user ? <small style={{ color: '#64748b' }}>by {cm.user.name}</small> : null}
                     </div>
                   ))}
                 </div>

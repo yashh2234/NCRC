@@ -43,7 +43,7 @@ export function BillingSection({ jobId }: BillingSectionProps) {
     }).catch(() => {}).finally(() => setLoading(false))
   }, [jobId])
 
-  if (loading) return <p style={{ color: '#65737d', fontSize: '0.85rem' }}>Loading...</p>
+  if (loading) return <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading...</p>
 
   const totalBilled = billing.reduce((s, r) => s + (parseFloat(r.bill_amount) || 0), 0)
   const totalReceived = billing.reduce((s, r) => s + (parseFloat(r.amount_received) || 0), 0)
@@ -54,8 +54,8 @@ export function BillingSection({ jobId }: BillingSectionProps) {
       {/* Summary */}
       {billing.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-          <div style={{ padding: '8px 12px', background: '#fbfcfd', borderRadius: 8, border: '1px solid #e8eef1' }}>
-            <span style={{ fontSize: '0.72rem', color: '#65737d' }}>Billed</span>
+          <div style={{ padding: '8px 12px', background: '#fbfcfd', borderRadius: 8, border: '1px solid #edf0f4' }}>
+            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Billed</span>
             <strong style={{ display: 'block', fontSize: '1rem' }}>₹{totalBilled.toLocaleString()}</strong>
           </div>
           <div style={{ padding: '8px 12px', background: '#d1fae5', borderRadius: 8, border: '1px solid #a7f3d0' }}>
@@ -72,19 +72,19 @@ export function BillingSection({ jobId }: BillingSectionProps) {
       {/* Billing records */}
       {billing.length > 0 ? (
         <div style={{ marginBottom: 12 }}>
-          <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: 6, color: '#65737d' }}>Payment Records</strong>
+          <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: 6, color: '#64748b' }}>Payment Records</strong>
           <div style={{ display: 'grid', gap: 6 }}>
             {billing.map(b => (
-              <div key={b.id} style={{ padding: '8px 12px', border: '1px solid #e8eef1', borderRadius: 8, fontSize: '0.82rem' }}>
+              <div key={b.id} style={{ padding: '8px 12px', border: '1px solid #edf0f4', borderRadius: 8, fontSize: '0.82rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span><strong>{b.bill_no || '#' + b.id}</strong> {b.mode_of_payment ? `(${b.mode_of_payment})` : ''}</span>
                   <span>₹{parseFloat(b.bill_amount || '0').toLocaleString()}</span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#65737d', marginTop: 2 }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 2 }}>
                   Received: ₹{parseFloat(b.amount_received || '0').toLocaleString()} | Due: ₹{parseFloat(b.due_amount || '0').toLocaleString()}
                   {b.amount_received_date ? ` on ${new Date(b.amount_received_date).toLocaleDateString()}` : ''}
                 </div>
-                {b.remark ? <p style={{ fontSize: '0.76rem', marginTop: 2, color: '#4a5b66' }}>{b.remark}</p> : null}
+                {b.remark ? <p style={{ fontSize: '0.76rem', marginTop: 2, color: '#475569' }}>{b.remark}</p> : null}
               </div>
             ))}
           </div>
@@ -94,15 +94,15 @@ export function BillingSection({ jobId }: BillingSectionProps) {
       {/* Invoices */}
       {invoices.length > 0 ? (
         <div>
-          <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: 6, color: '#65737d' }}>Invoices</strong>
+          <strong style={{ fontSize: '0.8rem', display: 'block', marginBottom: 6, color: '#64748b' }}>Invoices</strong>
           <div style={{ display: 'grid', gap: 6 }}>
             {invoices.map(inv => (
-              <div key={inv.iInvoiceId} style={{ padding: '8px 12px', border: '1px solid #e8eef1', borderRadius: 8, fontSize: '0.82rem' }}>
+              <div key={inv.iInvoiceId} style={{ padding: '8px 12px', border: '1px solid #edf0f4', borderRadius: 8, fontSize: '0.82rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span><FileText size={12} /> <strong>{inv.invoice_no}</strong></span>
                   <span>₹{inv.net_amount?.toLocaleString()}</span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#65737d', marginTop: 2 }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 2 }}>
                   {inv.date} | {inv.items_count} item(s)
                 </div>
               </div>
@@ -112,7 +112,7 @@ export function BillingSection({ jobId }: BillingSectionProps) {
       ) : null}
 
       {billing.length === 0 && invoices.length === 0 ? (
-        <p style={{ color: '#65737d', fontSize: '0.85rem' }}>No billing records yet.</p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No billing records yet.</p>
       ) : null}
     </div>
   )

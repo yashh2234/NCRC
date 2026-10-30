@@ -232,7 +232,6 @@ export function PurchaseOrdersPage() {
       <div className="page-header">
         <div>
           <p className="section-label">Procurement</p>
-          <h1>Purchase Orders</h1>
         </div>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={beginCreate} type="button"><Plus size={16} /> New Purchase Order</button>

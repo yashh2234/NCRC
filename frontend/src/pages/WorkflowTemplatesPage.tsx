@@ -229,14 +229,14 @@ export function WorkflowTemplatesPage() {
 
         {error ? <div className="error-banner">{error}</div> : null}
 
-        {loading ? <p style={{ padding: 24, textAlign: 'center', color: '#65737d' }}>Loading...</p> : (
+        {loading ? <p style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>Loading...</p> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {templates.map((t) => (
               <div
                 key={t.id}
                 onClick={() => void loadTemplateDetail(t)}
                 className="role-card"
-                style={{ cursor: 'pointer', border: selectedTemplate?.id === t.id ? '2px solid #138a6b' : '1px solid #e8eef1' }}
+                style={{ cursor: 'pointer', border: selectedTemplate?.id === t.id ? '2px solid #138a6b' : '1px solid #edf0f4' }}
               >
                 <div className="surface-heading" style={{ marginBottom: 0 }}>
                   <div>
@@ -248,10 +248,10 @@ export function WorkflowTemplatesPage() {
                     <button className="icon-button" onClick={(e) => { e.stopPropagation(); void deleteTemplate(t) }} type="button" title="Delete"><Trash2 size={16} /></button>
                   </div>
                 </div>
-                <small style={{ color: '#65737d' }}>{t.description || 'No description'}</small>
+                <small style={{ color: '#64748b' }}>{t.description || 'No description'}</small>
               </div>
             ))}
-            {templates.length === 0 ? <p style={{ textAlign: 'center', color: '#65737d', padding: 32 }}>No workflow templates yet. Click "Seed Default" to create one.</p> : null}
+            {templates.length === 0 ? <p style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>No workflow templates yet. Click "Seed Default" to create one.</p> : null}
           </div>
         )}
       </section>
@@ -275,7 +275,7 @@ export function WorkflowTemplatesPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
             {stages.map((s) => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid #e8eef1', borderRadius: 8, background: '#fbfcfd' }}>
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid #edf0f4', borderRadius: 8, background: '#fbfcfd' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <button className="icon-button" onClick={() => void moveStageUp(s)} type="button" disabled={stages.indexOf(s) === 0} style={{ fontSize: '0.6rem', lineHeight: 1, padding: 2 }}>▲</button>
                   <button className="icon-button" onClick={() => void moveStageDown(s)} type="button" disabled={stages.indexOf(s) === stages.length - 1} style={{ fontSize: '0.6rem', lineHeight: 1, padding: 2 }}>▼</button>
@@ -285,14 +285,14 @@ export function WorkflowTemplatesPage() {
                 {s.is_start ? <span className="sync-pill" style={{ background: '#dbeafe', color: '#1e40af' }}>Start</span> : null}
                 {s.is_end ? <span className="sync-pill" style={{ background: '#d1fae5', color: '#0a5c3c' }}>End</span> : null}
                 {s.sla_hours ? <span className="sync-pill">{s.sla_hours}h SLA</span> : null}
-                <code style={{ fontSize: '0.72rem', color: '#65737d' }}>{s.slug}</code>
+                <code style={{ fontSize: '0.72rem', color: '#64748b' }}>{s.slug}</code>
                 <div className="row-actions">
                   <button className="icon-button" onClick={() => beginEditStage(s)} type="button" title="Edit"><Edit3 size={14} /></button>
                   <button className="icon-button" onClick={() => void deleteStage(s)} type="button" title="Delete"><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}
-            {stages.length === 0 ? <p style={{ color: '#65737d', padding: 16 }}>No stages defined. Add at least a start stage.</p> : null}
+            {stages.length === 0 ? <p style={{ color: '#64748b', padding: 16 }}>No stages defined. Add at least a start stage.</p> : null}
           </div>
 
           {/* Transition list */}
@@ -305,7 +305,7 @@ export function WorkflowTemplatesPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {transitions.map((t) => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid #e8eef1', borderRadius: 8 }}>
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid #edf0f4', borderRadius: 8 }}>
                 <span className="sync-pill" style={{ background: stageById(t.from_stage_id)?.color ?? '#6b7280', color: '#fff' }}>
                   {stageById(t.from_stage_id)?.name ?? '?'}
                 </span>
@@ -321,7 +321,7 @@ export function WorkflowTemplatesPage() {
                 </div>
               </div>
             ))}
-            {transitions.length === 0 ? <p style={{ color: '#65737d', padding: 16 }}>No transitions defined. Add transitions to connect stages.</p> : null}
+            {transitions.length === 0 ? <p style={{ color: '#64748b', padding: 16 }}>No transitions defined. Add transitions to connect stages.</p> : null}
           </div>
         </section>
       ) : null}

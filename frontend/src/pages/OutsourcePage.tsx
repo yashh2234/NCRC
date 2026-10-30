@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
+import { softTone } from '../lib/utils'
 
 type WorkOrderOption = {
   id: number;
@@ -151,7 +152,6 @@ export default function OutsourcePage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Outsource Assignments</h1>
         <button className="btn btn-primary" onClick={openCreate}>+ New Assignment</button>
       </div>
 
@@ -193,7 +193,7 @@ export default function OutsourcePage() {
                 <td><strong>{a.party_name}</strong></td>
                 <td>{a.party_contact || a.party_email || '-'}</td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: '#8b5cf6', color: '#fff' }}>
+                  <span className="badge" style={softTone('#8b5cf6')}>
                     {a.work_order?.work_order_no || '-'}
                   </span>
                 </td>
@@ -203,12 +203,12 @@ export default function OutsourcePage() {
                   ₹{Number(a.remaining_payment || 0).toLocaleString()}
                 </td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: PAYMENT_COLORS[a.payment_status] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(PAYMENT_COLORS[a.payment_status] || '#64748b')}>
                     {a.payment_status} {a.payment_amount > 0 ? `(₹${Number(a.payment_amount).toLocaleString()})` : ''}
                   </span>
                 </td>
                 <td>
-                  <span className="badge" style={{ backgroundColor: STATUS_COLORS[a.status] || '#999', color: '#fff' }}>
+                  <span className="badge" style={softTone(STATUS_COLORS[a.status] || '#64748b')}>
                     {a.status}
                   </span>
                 </td>
@@ -217,11 +217,11 @@ export default function OutsourcePage() {
                   <button className="btn btn-sm" onClick={() => openEdit(a)}>Edit</button>
                   <button className="btn btn-sm btn-danger" onClick={() => handleDelete(a.id)}>Delete</button>
                   {a.status === 'assigned' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#ff9800', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#ff9800')}
                       onClick={() => handleStatusChange(a.id, 'in_progress')}>Start</button>
                   )}
                   {a.status === 'in_progress' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#4caf50', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#4caf50')}
                       onClick={() => {
                         const details = prompt('Completion details:');
                         if (details) handleStatusChange(a.id, 'completed', {
@@ -231,7 +231,7 @@ export default function OutsourcePage() {
                       }}>Complete</button>
                   )}
                   {a.payment_status !== 'paid' && (
-                    <button className="btn btn-sm" style={{ backgroundColor: '#9c27b0', color: '#fff' }}
+                    <button className="btn btn-sm" style={softTone('#9c27b0')}
                       onClick={() => handlePaymentUpdate(a.id)}>Pay</button>
                   )}
                 </td>

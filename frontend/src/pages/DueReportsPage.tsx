@@ -82,9 +82,9 @@ export function DueReportsPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.85rem' }} />
-            <span style={{ color: '#65737d' }}>to</span>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #dfe6ea', borderRadius: 6, fontSize: '0.85rem' }} />
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.85rem' }} />
+            <span style={{ color: '#64748b' }}>to</span>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.85rem' }} />
             <button className="ghost-button" onClick={handleFilter}>Go</button>
             {(startDate || endDate) && <button className="ghost-button" onClick={handleClearFilter}>Clear</button>}
           </div>

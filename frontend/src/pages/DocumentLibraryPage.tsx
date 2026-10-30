@@ -45,7 +45,7 @@ function humanSize(bytes: number) {
 }
 
 function extColor(ext: string | null) {
-  return FILE_ICONS[ext?.toLowerCase() ?? ''] ?? '#65737d'
+  return FILE_ICONS[ext?.toLowerCase() ?? ''] ?? '#64748b'
 }
 
 export function DocumentLibraryPage() {
@@ -105,7 +105,7 @@ export function DocumentLibraryPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px',
             cursor: 'pointer', borderRadius: 6, fontSize: '0.82rem', fontWeight: selectedCategory === node.id ? 700 : 500,
-            background: selectedCategory === node.id ? '#edf6f4' : 'transparent',
+            background: selectedCategory === node.id ? '#eff4ff' : 'transparent',
             marginLeft: depth * 16,
           }}
           onClick={() => setSelectedCategory(selectedCategory === node.id ? null : node.id)}
@@ -115,7 +115,7 @@ export function DocumentLibraryPage() {
               {collapsedCategories.has(node.id) ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             </span>
           ) : <span style={{ width: 14 }} />}
-          <Folder size={16} fill="#e8eef1" stroke="#65737d" />
+          <Folder size={16} fill="#edf0f4" stroke="#64748b" />
           <span style={{ flex: 1 }}>{node.name}</span>
           <span className="sync-pill" style={{ fontSize: '0.68rem', minHeight: 20 }}>{node.documents_count}</span>
         </div>
@@ -198,13 +198,13 @@ export function DocumentLibraryPage() {
         {doc.file_name}
       </span>
     ),
-    size: <span style={{ fontSize: '0.82rem', color: '#65737d' }}>{humanSize(doc.file_size)}</span>,
+    size: <span style={{ fontSize: '0.82rem', color: '#64748b' }}>{humanSize(doc.file_size)}</span>,
     tags: doc.tags ? (
       <span style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         {doc.tags.split(',').slice(0, 3).map((t) => <span key={t} className="sync-pill" style={{ fontSize: '0.68rem', minHeight: 20 }}>{t.trim()}</span>)}
       </span>
     ) : '-',
-    uploaded: <span style={{ fontSize: '0.8rem', color: '#65737d' }}>{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : '-'}</span>,
+    uploaded: <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : '-'}</span>,
     actions: (
       <div className="row-actions">
         <button className="icon-button" onClick={() => void handlePreview(doc)} type="button" title="Preview"><Eye size={15} /></button>
@@ -232,7 +232,7 @@ export function DocumentLibraryPage() {
 
         <div style={{ marginTop: 8 }}>
           {categories.length === 0 ? (
-            <p style={{ color: '#65737d', padding: 16, textAlign: 'center', fontSize: '0.82rem' }}>No folders yet. Upload a document to get started.</p>
+            <p style={{ color: '#64748b', padding: 16, textAlign: 'center', fontSize: '0.82rem' }}>No folders yet. Upload a document to get started.</p>
           ) : renderTree(categories)}
         </div>
       </section>
@@ -258,7 +258,7 @@ export function DocumentLibraryPage() {
         {error ? <div className="error-banner">{error}</div> : null}
 
         {loading ? (
-          <p style={{ padding: 32, textAlign: 'center', color: '#65737d' }}>Loading...</p>
+          <p style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Loading...</p>
         ) : (
           <DataTable columns={columns} rows={rows} pageSize={15} filename="documents" />
         )}
@@ -280,9 +280,9 @@ export function DocumentLibraryPage() {
               onDrop={(e) => { e.preventDefault(); setDragOver(false); setUploadFile(e.dataTransfer.files[0] ?? null) }}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: `2px dashed ${dragOver ? '#138a6b' : '#dfe6ea'}`, borderRadius: 8,
+                border: `2px dashed ${dragOver ? '#138a6b' : '#e2e8f0'}`, borderRadius: 8,
                 padding: 32, textAlign: 'center', cursor: 'pointer', marginBottom: 12,
-                background: dragOver ? '#edf6f4' : '#fbfcfd', transition: 'all 0.15s',
+                background: dragOver ? '#eff4ff' : '#fbfcfd', transition: 'all 0.15s',
               }}
             >
               <input ref={fileInputRef} type="file" hidden onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)} />
@@ -290,14 +290,14 @@ export function DocumentLibraryPage() {
                 <div>
                   <File size={32} color={extColor(uploadFile.name.split('.').pop() ?? null)} />
                   <p style={{ fontWeight: 600, marginTop: 8 }}>{uploadFile.name}</p>
-                  <p style={{ fontSize: '0.78rem', color: '#65737d' }}>{humanSize(uploadFile.size)}</p>
+                  <p style={{ fontSize: '0.78rem', color: '#64748b' }}>{humanSize(uploadFile.size)}</p>
                   <button className="ghost-button" onClick={(e) => { e.stopPropagation(); setUploadFile(null) }} type="button" style={{ marginTop: 8 }}>Remove</button>
                 </div>
               ) : (
                 <div>
-                  <Upload size={32} color="#65737d" />
+                  <Upload size={32} color="#64748b" />
                   <p style={{ fontWeight: 600, marginTop: 8 }}>Drag & drop a file here, or click to browse</p>
-                  <p style={{ fontSize: '0.78rem', color: '#65737d' }}>Max 50MB</p>
+                  <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Max 50MB</p>
                 </div>
               )}
             </div>
@@ -327,7 +327,7 @@ export function DocumentLibraryPage() {
             <div className="surface-heading">
               <div>
                 <h2>{previewDoc.title}</h2>
-                <p style={{ fontSize: '0.78rem', color: '#65737d' }}>{previewDoc.file_name} — {humanSize(previewDoc.file_size)}</p>
+                <p style={{ fontSize: '0.78rem', color: '#64748b' }}>{previewDoc.file_name} — {humanSize(previewDoc.file_size)}</p>
               </div>
               <div className="row-actions">
                 <button className="icon-button" onClick={() => void handleDownload(previewDoc.id)} type="button" title="Download"><Download size={16} /></button>
@@ -340,7 +340,7 @@ export function DocumentLibraryPage() {
               ) : previewDoc.file_type === 'application/pdf' ? (
                 <iframe src={previewUrl} style={{ width: '100%', height: '100%', border: 'none' }} title={previewDoc.title} />
               ) : (
-                <div style={{ textAlign: 'center', color: '#65737d' }}>
+                <div style={{ textAlign: 'center', color: '#64748b' }}>
                   <File size={64} />
                   <p>Preview not available for this file type.</p>
                   <button className="ghost-button" onClick={() => void handleDownload(previewDoc.id)} type="button" style={{ marginTop: 12 }}><Download size={16} /> Download to view</button>

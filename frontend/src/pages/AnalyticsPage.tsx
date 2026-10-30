@@ -56,7 +56,7 @@ export function AnalyticsPage() {
   }
 
   if (loading) {
-    return <div style={{ padding: 48, textAlign: 'center', color: '#65737d' }}><Loader size={32} /><p style={{ marginTop: 12 }}>Loading analytics...</p></div>
+    return <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}><Loader size={32} /><p style={{ marginTop: 12 }}>Loading analytics...</p></div>
   }
   if (!data) return <div className="error-banner">Failed to load analytics</div>
 
@@ -74,7 +74,7 @@ export function AnalyticsPage() {
   return (
     <div>
       {/* Tab navigation */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e8eef1', overflow: 'auto' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #edf0f4', overflow: 'auto' }}>
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -125,7 +125,7 @@ export function AnalyticsPage() {
                 <strong>Monthly Revenue Trend</strong>
                 <TrendingUp size={18} />
               </div>
-              {revenue.monthly_registrations.length === 0 ? <p style={{ color: '#65737d', padding: 16 }}>No data</p> : (
+              {revenue.monthly_registrations.length === 0 ? <p style={{ color: '#64748b', padding: 16 }}>No data</p> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
                   {revenue.monthly_registrations.slice(-6).map((m) => (
                     <div key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}>
@@ -146,7 +146,7 @@ export function AnalyticsPage() {
                 <strong>Test Distribution</strong>
                 <FlaskConical size={18} />
               </div>
-              {tests.by_type.length === 0 ? <p style={{ color: '#65737d', padding: 16 }}>No data</p> : (
+              {tests.by_type.length === 0 ? <p style={{ color: '#64748b', padding: 16 }}>No data</p> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
                   {tests.by_type.sort((a, b) => b.total - a.total).slice(0, 6).map((t) => (
                     <div key={t.type} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}>
@@ -239,7 +239,7 @@ export function AnalyticsPage() {
                   <td>{t.count}</td>
                 </tr>
               ))}
-              {turnaround.by_type.length === 0 ? <tr><td colSpan={6} style={{ textAlign: 'center', color: '#65737d' }}>No completed reports with timing data.</td></tr> : null}
+              {turnaround.by_type.length === 0 ? <tr><td colSpan={6} style={{ textAlign: 'center', color: '#64748b' }}>No completed reports with timing data.</td></tr> : null}
             </tbody>
           </table>
         </section>
@@ -260,7 +260,7 @@ export function AnalyticsPage() {
                   <td>{p.tests_completed}</td>
                 </tr>
               ))}
-              {productivity.length === 0 ? <tr><td colSpan={4} style={{ textAlign: 'center', color: '#65737d' }}>No activity data yet.</td></tr> : null}
+              {productivity.length === 0 ? <tr><td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>No activity data yet.</td></tr> : null}
             </tbody>
           </table>
         </section>
@@ -282,7 +282,7 @@ export function AnalyticsPage() {
                     <td>₹{money(Number(c.total_amount))}</td>
                   </tr>
                 ))}
-                {clients.top_by_volume.length === 0 ? <tr><td colSpan={4} style={{ textAlign: 'center', color: '#65737d' }}>No data</td></tr> : null}
+                {clients.top_by_volume.length === 0 ? <tr><td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>No data</td></tr> : null}
               </tbody>
             </table>
           </section>
@@ -299,7 +299,7 @@ export function AnalyticsPage() {
                     <td>{c.total}</td>
                   </tr>
                 ))}
-                {clients.top_by_revenue.length === 0 ? <tr><td colSpan={4} style={{ textAlign: 'center', color: '#65737d' }}>No data</td></tr> : null}
+                {clients.top_by_revenue.length === 0 ? <tr><td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>No data</td></tr> : null}
               </tbody>
             </table>
           </section>

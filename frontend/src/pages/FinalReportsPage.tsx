@@ -286,17 +286,12 @@ export function FinalReportsPage() {
       <div style={{
         display: 'flex',
         gap: 12,
-        marginBottom: 20,
-        padding: '12px 16px',
-        background: '#f8fafc',
-        borderRadius: 8,
-        border: '1px solid #e2e8f0',
         flexWrap: 'wrap',
         alignItems: 'center'
       }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Calendar size={15} color="#64748b" />
-          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>Start Date:</label>
+          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>Start Date:</label>
           <input
             type="date"
             value={startDate}
@@ -306,7 +301,7 @@ export function FinalReportsPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>End Date:</label>
+          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>End Date:</label>
           <input
             type="date"
             value={endDate}

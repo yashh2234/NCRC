@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { DollarSign, Clock, MessageSquare, Send, Plus, Pencil, Trash2, X, Printer } from 'lucide-react'
+import { IndianRupee, Clock, MessageSquare, Send, Plus, Pencil, Trash2, X, Printer } from 'lucide-react'
 import { api } from '../lib/api'
+import { formatDisplayDate } from '../lib/utils'
 import { DataTable } from '../components/DataTable'
 import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge'
 import type { BillingItem, BillingRecord, SmsLogEntry } from '../lib/types'
@@ -491,7 +492,7 @@ export function BillingPage() {
   }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'all', label: 'All Bills', icon: <DollarSign size={16} /> },
+    { key: 'all', label: 'All Bills', icon: <IndianRupee size={16} /> },
     { key: 'due', label: 'Due Bills', icon: <Clock size={16} /> },
     { key: 'due_attached', label: 'Due Bills Attached Report', icon: <Clock size={16} /> },
     { key: 'not_updated', label: 'Not Update Bills', icon: <Clock size={16} /> },
@@ -500,7 +501,7 @@ export function BillingPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18, overflowX: 'auto', paddingBottom: 2 }}>
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -540,7 +541,6 @@ export function BillingPage() {
               <Plus size={18} />
               New Billing Entry
             </button>
-            <span className="sync-pill">{billings.length} records</span>
           </div>
 
           {loading ? (
@@ -561,7 +561,7 @@ export function BillingPage() {
                 { key: 'actions', label: 'Actions', sortable: false },
               ]}
               rows={billings.map((rec) => ({
-                created_date: rec.created_date ?? '-',
+                created_date: formatDisplayDate(rec.created_date),
                 uid_no: rec.uid_no,
                 workflow: <WorkflowStatusBadge uidNo={rec.uid_no} compact />,
                 agency_name: rec.agency_name ?? '-',
@@ -690,7 +690,7 @@ export function BillingPage() {
                 { key: 'balance_amount', label: 'Balance' },
               ]}
               rows={smsLogs.map((log) => ({
-                sent_date: log.sent_date ?? '-',
+                sent_date: formatDisplayDate(log.sent_date),
                 uid_no: log.uid_no ?? '-',
                 agency_name: log.agency_name ?? '-',
                 mobile_no: log.mobile_no ?? '-',

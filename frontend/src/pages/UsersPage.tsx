@@ -72,7 +72,7 @@ export function UsersPage() {
       <div className="page-header">
         <div>
           <p className="section-label">Administration</p>
-          <h1>User Directory</h1>
+          <h2>User Directory</h2>
         </div>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={beginCreate} type="button"><UserPlus size={16} /> New User</button>
