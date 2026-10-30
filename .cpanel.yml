@@ -14,7 +14,8 @@ deployment:
     - /bin/rm -f $DEPLOYPATH/api
     - /bin/chmod 755 $DEPLOYPATH
     - cd backend && $PHP $COMPOSER_BIN install --no-dev --optimize-autoloader --no-interaction
-    - cd backend && /bin/chmod -R 775 storage bootstrap/cache
+    # Directories only: chmod on tracked files shows up as uncommitted changes and blocks deploys.
+    - cd backend && /usr/bin/find storage bootstrap/cache -type d -exec /bin/chmod 775 {} +
     - cd backend && ($PHP artisan storage:link || true)
     - cd backend && $PHP artisan config:cache
     - cd backend && $PHP artisan route:cache
