@@ -11,6 +11,7 @@ import { RegistrationWizard } from '../components/RegistrationWizard'
 import { api, request } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { getRoleConfig, shouldShowWidget } from '../lib/roleConfig'
+import { loadTenders, tenderUrgency, daysLeft, formatDate, URGENCY_STYLES } from '../lib/tenders'
 import type { TrackerRole, MyQueueItem, Registration } from '../lib/types'
 
 interface TrendsData {
@@ -726,6 +727,63 @@ export function DashboardPage() {
     )
   }
 
+  // ─── TENDER DEADLINES (closing within 7 days) ─────────────────────────
+  const renderTenderDeadlines = () => {
+    const due = loadTenders()
+      .map((t) => ({ tender: t, urgency: tenderUrgency(t), days: daysLeft(t.closingDate) ?? 0 }))
+      .filter((row) => row.urgency !== null)
+      .sort((a, b) => a.days - b.days)
+    if (due.length === 0) return null
+    const redCount = due.filter((row) => row.urgency === 'red').length
+
+    return (
+      <section className="surface">
+        <div className="dash-section-header">
+          <div>
+            <p className="dash-section-label" style={{ color: redCount > 0 ? URGENCY_STYLES.red.color : URGENCY_STYLES.yellow.color }}>
+              Tender Deadlines
+            </p>
+            <h2 className="dash-section-title">
+              {due.length} tender{due.length === 1 ? '' : 's'} closing within 7 days{redCount > 0 ? ` — ${redCount} within 4 days` : ''}
+            </h2>
+          </div>
+          <FileText size={20} style={{ color: redCount > 0 ? URGENCY_STYLES.red.color : URGENCY_STYLES.yellow.color }} />
+        </div>
+        <div className="dash-table-wrap">
+          <table className="dash-table">
+            <thead>
+              <tr>
+                <th>Tender Sr. No.</th>
+                <th>Tender ID</th>
+                <th>Title</th>
+                <th>Department / Client</th>
+                <th>Closing Date</th>
+                <th>Days Left</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {due.map(({ tender, urgency, days }) => {
+                const style = URGENCY_STYLES[urgency!]
+                return (
+                  <tr key={tender.id} style={{ background: style.background }}>
+                    <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{tender.srNo}</td>
+                    <td><span className="uid-link">{tender.tenderId}</span></td>
+                    <td className="work-name">{tender.title}</td>
+                    <td className="agency-name">{tender.department || '—'}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(tender.closingDate)}</td>
+                    <td><strong style={{ color: style.color }}>{days === 0 ? 'Today' : `${days} days`}</strong></td>
+                    <td style={{ fontSize: '0.72rem', color: '#475569' }}>{tender.submissionStatus}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )
+  }
+
   // ─── RENDER ───────────────────────────────────────────────────────────
   void renderMyQueue
   void renderMyTasks
@@ -734,6 +792,7 @@ export function DashboardPage() {
   return (
     <div className="dash-page">
       {renderWelcome()}
+      {renderTenderDeadlines()}
       {renderJobMetrics()}
       {render8StagePipeline()}
       {renderMasterJobsControlTable()}
