@@ -8,7 +8,6 @@ import type { RegistrationFormData } from '../lib/types'
 import { api, request, resolveFileUrl } from '../lib/api'
 import { FormField, DatePicker } from './ui'
 import { SearchableSelect } from './SearchableSelect'
-import { useAuth } from '../lib/auth'
 import { RATE_LIST } from '../data/rateList'
 
 const WORK_TYPES = ['', 'Audit', 'SPT / Outsource', 'Lab', 'Consultancy', 'Survey', 'Field Test']
@@ -96,8 +95,6 @@ export function RegistrationWizard({
   onCancel,
   onGenerateUid
 }: Props) {
-  const { user } = useAuth()
-  const canDelete = Boolean(user?.is_admin || user?.tracker_role === 'admin')
   const [tab, setTab] = useState(0)
   const [form, setForm] = useState<RegistrationFormData>(() => {
     if (editingId) return initial
@@ -1210,7 +1207,7 @@ export function RegistrationWizard({
               Cancel
             </button>
           )}
-          {editingId && canDelete ? (
+          {editingId ? (
             <button
               className="btn btn-outline btn-sm"
               onClick={() => { void handleDelete() }}

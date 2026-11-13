@@ -509,8 +509,6 @@ class RegistrationController extends Controller
 
     public function destroy(Request $request, int $registrationId): JsonResponse
     {
-        abort_unless($request->user()?->isFullAdmin(), 403, 'Only administrators can delete registrations.');
-
         $registration = DB::table('client_registration')->where('iClientId', $registrationId)->first();
         abort_if(!$registration, 404, 'Registration not found');
 
