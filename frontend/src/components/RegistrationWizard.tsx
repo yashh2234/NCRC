@@ -7,12 +7,14 @@ import {
 import type { RegistrationFormData } from '../lib/types'
 import { api, request, resolveFileUrl } from '../lib/api'
 import { FormField, DatePicker } from './ui'
+import { SearchableSelect } from './SearchableSelect'
+import { useAuth } from '../lib/auth'
 import { RATE_LIST } from '../data/rateList'
 
 const WORK_TYPES = ['', 'Audit', 'SPT / Outsource', 'Lab', 'Consultancy', 'Survey', 'Field Test']
 const NEW_BACK_OPTIONS = ['', 'new', 'back']
 const ASSIGN_OPTIONS = ['lab', 'admin']
-const REPORT_STATUS_OPTIONS = ['', 'lab process', 'Report Complete', 'Report Pending', 'Report Dispatched']
+const REPORT_STATUS_OPTIONS = ['', 'Processing', 'lab process', 'Report Complete', 'Report Pending', 'Report Dispatched']
 const PAYMENT_MODES = ['', 'upi', 'cash', 'online banking', 'cheque']
 
 export const WORKFLOW_STAGES = [
@@ -45,7 +47,7 @@ const emptyForm: RegistrationFormData = {
   name_of_work: '', work_order_no: '', reference: '', work: '', report_status: '',
   sample_details: '', sample_details_1: '', sample_details_2: '', sample_details_3: '', sample_details_4: '',
   new_back: '', new_back_1: '', new_back_2: '', new_back_3: '', new_back_4: '',
-  total_payment: '0', advance_payment: '0', balance_dues: '0', payment_followup: '',
+  total_payment: '0', advance_payment: '0', balance_dues: '0', payment_followup: '', payment_received_date: '',
   financial_remark: '', mode_of_payment: '', gst_no: '', sample_nos: '',
   remark: '', qty: '', qty_1: '', qty_2: '', qty_3: '', qty_4: '',
   witness: '', sample_test: '', sample_remark: '',
@@ -94,11 +96,15 @@ export function RegistrationWizard({
   onCancel,
   onGenerateUid
 }: Props) {
+  const { user } = useAuth()
+  const canDelete = Boolean(user?.is_admin || user?.tracker_role === 'admin')
   const [tab, setTab] = useState(0)
   const [form, setForm] = useState<RegistrationFormData>(() => {
     if (editingId) return initial
     const draft = loadDraft()
-    return { ...emptyForm, ...draft, received_date: new Date().toISOString().slice(0, 10) }
+    // Never reuse a UID from an earlier unsaved form: someone may have taken that number since.
+    // A fresh UID is generated on open (see the effect below).
+    return { ...emptyForm, ...draft, uid_no: '', received_date: new Date().toISOString().slice(0, 10) }
   })
   const [usersList, setUsersList] = useState<Array<{ id: number; name: string; firstname?: string; lastname?: string; tracker_role?: string }>>([])
   const [saving, setSaving] = useState(false)
@@ -117,6 +123,12 @@ export function RegistrationWizard({
 
   const handleUploadScan = async (idx: number, file?: File) => {
     if (!file) return
+    const MAX_UPLOAD_MB = 15
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setLocalError(`"${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB. Files must be ${MAX_UPLOAD_MB} MB or smaller.`)
+      return
+    }
+    setLocalError('')
     const field = idx === 0 ? 'scan_copy' : `scan_copy_${idx}`
 
     if (editingId) {
@@ -157,9 +169,11 @@ export function RegistrationWizard({
   }
 
   useEffect(() => {
-    api.users().then((res) => {
+    api.assignableUsers().then((res) => {
       setUsersList(res.data || [])
-    }).catch(() => {})
+    }).catch((err) => {
+      setLocalError(`Could not load staff list for "Currently With": ${err instanceof Error ? err.message : 'unknown error'}`)
+    })
   }, [])
 
   const makeSampleRows = (f: RegistrationFormData): SampleRow[] => {
@@ -378,6 +392,27 @@ export function RegistrationWizard({
       onSaved()
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!editingId) return
+    const label = form.uid_no || `registration #${editingId}`
+    const ok = window.confirm(
+      `Delete ${label}${form.agency_name ? ` (${form.agency_name})` : ''}?\n\n` +
+      'Its lab reports and billing records with this UID will also be deleted ' +
+      '(unless another registration uses the same UID). This cannot be undone.'
+    )
+    if (!ok) return
+    setSaving(true)
+    setLocalError('')
+    try {
+      await request(`/registrations/${editingId}`, { method: 'DELETE' })
+      onSaved()
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : 'Delete failed')
     } finally {
       setSaving(false)
     }
@@ -662,11 +697,15 @@ export function RegistrationWizard({
                     </FormField>
 
                     <FormField label="Rate List Category">
-                      <select value={row.category ?? ''} onChange={(e) => handleCategoryChange(i, e.target.value)}>
-                        <option value="">-- Choose Category --</option>
-                        {RATE_LIST.map((c) => <option key={c.category} value={c.category}>{c.category}</option>)}
-                        <option value="Other">Other / Custom</option>
-                      </select>
+                      <SearchableSelect
+                        value={row.category ?? ''}
+                        onChange={(v) => handleCategoryChange(i, v)}
+                        placeholder="-- Choose Category --"
+                        options={[
+                          ...RATE_LIST.map((c) => ({ value: c.category, label: c.category })),
+                          { value: 'Other', label: 'Other / Custom' },
+                        ]}
+                      />
                     </FormField>
 
                     <FormField label="Test Sub-Type">
@@ -686,18 +725,13 @@ export function RegistrationWizard({
                           placeholder="Type test name"
                         />
                       ) : (
-                        <select
+                        <SearchableSelect
                           value={row.subOption ?? ''}
-                          onChange={(e) => handleSubOptionChange(i, e.target.value)}
+                          onChange={(v) => handleSubOptionChange(i, v)}
                           disabled={!row.category}
-                        >
-                          <option value="">Select test...</option>
-                          {subOptions.map((it) => (
-                            <option key={it.name} value={it.name}>
-                              {it.name} {it.rate ? `(₹${it.rate})` : ''}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Select test..."
+                          options={subOptions.map((it) => ({ value: it.name, label: `${it.name}${it.rate ? ` (₹${it.rate})` : ''}` }))}
+                        />
                       )}
                     </FormField>
                   </div>
@@ -864,12 +898,20 @@ export function RegistrationWizard({
             </div>
 
             <div className="field-row">
+              <DatePicker
+                value={form.payment_received_date ?? ''}
+                onChange={(v) => update({ payment_received_date: v })}
+                label="Payment Received Date"
+              />
+
               <FormField label="Mode of Payment">
                 <select value={form.mode_of_payment ?? ''} onChange={(e) => update({ mode_of_payment: e.target.value })}>
                   {PAYMENT_MODES.map((v) => <option key={v} value={v}>{v ? v.toUpperCase() : 'Select Mode'}</option>)}
                 </select>
               </FormField>
+            </div>
 
+            <div className="field-row">
               <FormField label="Payment Follow-up Note">
                 <input
                   value={form.payment_followup}
@@ -1150,7 +1192,7 @@ export function RegistrationWizard({
 
       {/* Footer Navigation Bar */}
       <div className="wizard-footer-actions">
-        <div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {tab > 0 ? (
             <button
               className="btn btn-outline btn-sm"
@@ -1168,6 +1210,18 @@ export function RegistrationWizard({
               Cancel
             </button>
           )}
+          {editingId && canDelete ? (
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => { void handleDelete() }}
+              type="button"
+              disabled={saving}
+              style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
+              title="Delete this registration"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          ) : null}
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

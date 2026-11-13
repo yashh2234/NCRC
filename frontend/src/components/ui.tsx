@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { X, User, Building2, Layers } from 'lucide-react'
+import { X, User, Building2, Layers, CalendarDays } from 'lucide-react'
 import { request } from '../lib/api'
 
 // ─── StatusBadge ──────────────────────────────────────────
@@ -203,7 +203,55 @@ interface DatePickerProps {
   style?: React.CSSProperties
 }
 
+/** Accepts yyyy-mm-dd or dd/mm/yyyy (as the API returns) and gives yyyy-mm-dd, or '' */
+function toIso(value: string): string {
+  const v = (value || '').trim()
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  return displayToIso(v) ?? ''
+}
+
+/** any accepted value → dd-mm-yyyy */
+function isoToDisplay(value: string) {
+  const m = toIso(value).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : ''
+}
+
+/** dd-mm-yyyy (or dd/mm/yyyy, dd.mm.yyyy) → yyyy-mm-dd, or null when incomplete/invalid */
+function displayToIso(text: string): string | null {
+  const m = text.trim().match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/)
+  if (!m) return null
+  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const date = new Date(y, mo - 1, d)
+  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+/** Date field that always shows dd-mm-yyyy (numeric month) and stores yyyy-mm-dd. */
 export function DatePicker({ value, onChange, label, required, style }: DatePickerProps) {
+  const [text, setText] = useState(() => isoToDisplay(value))
+  const [syncedValue, setSyncedValue] = useState(value)
+  const nativeRef = useRef<HTMLInputElement>(null)
+
+  // Keep the text in sync when the value changes from outside (unless it already shows that date)
+  if (value !== syncedValue) {
+    setSyncedValue(value)
+    if ((displayToIso(text) ?? '') !== toIso(value)) setText(isoToDisplay(value))
+  }
+
+  const handleText = (next: string) => {
+    setText(next)
+    if (next.trim() === '') { onChange(''); return }
+    const iso = displayToIso(next)
+    if (iso) onChange(iso)
+  }
+
+  const openPicker = () => {
+    const el = nativeRef.current
+    if (!el) return
+    try { el.showPicker() } catch { el.focus(); el.click() }
+  }
+
   return (
     <div style={{ marginBottom: 14, ...style }}>
       {label ? (
@@ -211,11 +259,36 @@ export function DatePicker({ value, onChange, label, required, style }: DatePick
           {label} {required ? <span style={{ color: 'var(--color-red)' }}>*</span> : null}
         </span>
       ) : null}
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="dd-mm-yyyy"
+          value={text}
+          required={required}
+          onChange={e => handleText(e.target.value)}
+          onBlur={() => { if (!displayToIso(text)) setText(isoToDisplay(value)) }}
+          style={{ paddingRight: 40 }}
+        />
+        <button
+          type="button"
+          onClick={openPicker}
+          title="Open calendar"
+          aria-label="Open calendar"
+          style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', padding: 6, cursor: 'pointer', color: 'var(--gray-500)', display: 'flex' }}
+        >
+          <CalendarDays size={16} />
+        </button>
+        <input
+          ref={nativeRef}
+          type="date"
+          tabIndex={-1}
+          aria-hidden="true"
+          value={toIso(value)}
+          onChange={e => { onChange(e.target.value); setText(isoToDisplay(e.target.value)) }}
+          style={{ position: 'absolute', right: 0, bottom: 0, width: 1, height: 1, opacity: 0, pointerEvents: 'none', border: 0, padding: 0 }}
+        />
+      </div>
     </div>
   )
 }

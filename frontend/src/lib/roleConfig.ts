@@ -158,6 +158,66 @@ export function isModuleAllowed(role: TrackerRole, moduleKey: string): boolean {
   return config.allowedModules.includes(moduleKey)
 }
 
+// ─── Per-user feature access ────────────────────────────────────────────
+
+/** Features an admin can switch on per user in Manage Users (keys must match backend User::FEATURE_KEYS). */
+export const FEATURES: Array<{ key: string; label: string; group: string }> = [
+  { key: 'tenders', label: 'Tenders', group: 'General' },
+  { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
+  { key: 'quotations', label: 'Quotations', group: 'Clients' },
+  { key: 'work_orders', label: 'Work Orders', group: 'Clients' },
+  { key: 'outsource', label: 'Outsource', group: 'Clients' },
+  { key: 'reports', label: 'Lab Reports', group: 'Reports' },
+  { key: 'ulr_add', label: 'Add ULR', group: 'Reports' },
+  { key: 'ulr_register', label: 'ULR Register', group: 'Reports' },
+  { key: 'final_reports', label: 'Final Reports', group: 'Reports' },
+  { key: 'due_reports', label: 'UID w/o Report', group: 'Reports' },
+  { key: 'billing', label: 'Billing', group: 'Accounts' },
+  { key: 'expenses', label: 'Daily Expenses', group: 'Accounts' },
+  { key: 'purchase_orders', label: 'Purchase Order', group: 'Accounts' },
+  { key: 'admin', label: 'Administration (manage users)', group: 'Admin' },
+]
+
+const FEATURE_KEYS = new Set(FEATURES.map((f) => f.key))
+
+/** Always available to every signed-in user. */
+const ALWAYS_ALLOWED = ['dashboard', 'help_guide']
+
+/** Job roles selectable per user (admin is the separate "Full admin access" switch). */
+export const JOB_ROLES: Array<{ key: Exclude<TrackerRole, 'admin'>; label: string }> = [
+  { key: 'registration', label: 'Registration' },
+  { key: 'lab', label: 'Lab / Field' },
+  { key: 'report_staff', label: 'Report Staff' },
+  { key: 'technical', label: 'Technical' },
+  { key: 'manager', label: 'Manager' },
+  { key: 'staff', label: 'Staff' },
+]
+
+interface AccessUser {
+  is_admin?: boolean
+  tracker_role?: TrackerRole
+  allowed_modules?: string[] | null
+}
+
+/** The feature keys a user starts with if no per-user list has been saved yet (their job role's defaults). */
+export function defaultFeaturesForRole(role: TrackerRole): string[] {
+  return getRoleConfig(role).allowedModules.filter((key) => FEATURE_KEYS.has(key))
+}
+
+/**
+ * Can this user open the given module?
+ * Full admins see everything. If an admin has saved a feature list for the user, that list decides;
+ * otherwise the user keeps the defaults of their job role (the behaviour before per-user access existed).
+ */
+export function canUserAccess(user: AccessUser | null | undefined, moduleKey: string): boolean {
+  if (!user) return false
+  if (ALWAYS_ALLOWED.includes(moduleKey)) return true
+  const role = user.tracker_role ?? 'staff'
+  if (user.is_admin || role === 'admin') return true
+  if (Array.isArray(user.allowed_modules)) return user.allowed_modules.includes(moduleKey)
+  return isModuleAllowed(role, moduleKey)
+}
+
 /**
  * Check if a dashboard widget should be shown for the given role.
  */

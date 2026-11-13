@@ -33,7 +33,21 @@ class User extends Authenticatable
         'is_admin',
         'is_active',
         'tracker_role',
+        'allowed_modules',
     ];
+
+    /** Sidebar features that can be switched on per user (must match the frontend FEATURES list). */
+    public const FEATURE_KEYS = [
+        'tenders', 'registrations', 'quotations', 'work_orders', 'outsource', 'reports',
+        'ulr_add', 'ulr_register', 'final_reports', 'billing', 'due_reports', 'expenses',
+        'purchase_orders', 'admin',
+    ];
+
+    /** Job roles that drive the dashboard and the job queues. */
+    public const JOB_ROLES = ['registration', 'lab', 'report_staff', 'technical', 'manager', 'staff'];
+
+    /** Permissions granted by the "Administration" feature (manage users). */
+    private const USER_ADMIN_PERMISSIONS = ['view_users', 'create_users', 'update_users', 'delete_users', 'view_roles'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -56,7 +70,19 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'is_active' => 'boolean',
+            'allowed_modules' => 'array',
         ];
+    }
+
+    public function isFullAdmin(): bool
+    {
+        return (bool) $this->is_admin || $this->isLegacyAdmin();
+    }
+
+    /** Full admins, or users given the "Administration" feature, can manage users. */
+    public function canManageUsers(): bool
+    {
+        return $this->isFullAdmin() || in_array('admin', $this->allowed_modules ?? [], true);
     }
 
     public function getNameAttribute(): string
@@ -157,6 +183,7 @@ class User extends Authenticatable
     public function hasPermissionTo(string $permission): bool
     {
         if ($this->is_admin || $this->isLegacyAdmin()) return true;
+        if (in_array($permission, self::USER_ADMIN_PERMISSIONS, true) && $this->canManageUsers()) return true;
         return app(PermissionRegistrar::class)->hasPermission($this, $permission);
     }
 

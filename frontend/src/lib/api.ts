@@ -21,8 +21,17 @@ const developmentOrigin = import.meta.env.DEV
   : ''
 export const API_ORIGIN = configuredOrigin || developmentOrigin
 
+/**
+ * The old software's first server (ncrcsw.platinawebservices.com) is offline, but the
+ * same files are kept on software.namotech.in under the same path, so links are rewritten.
+ */
+const MOVED_FILE_HOSTS: Array<[RegExp, string]> = [
+  [/^(https?:)?\/\/ncrcsw\.platinawebservices\.com\//i, 'https://software.namotech.in/'],
+]
+
 export function resolveFileUrl(filePath: string): string {
-  const value = filePath.trim()
+  let value = filePath.trim()
+  for (const [pattern, replacement] of MOVED_FILE_HOSTS) value = value.replace(pattern, replacement)
   if (/^(https?:)?\/\//i.test(value)) return value
 
   const normalized = value.replace(/^\/+/, '')
@@ -122,6 +131,9 @@ export const api = {
 
   users(): Promise<{ data: UserRecord[] }> {
     return request('/users')
+  },
+  assignableUsers(): Promise<{ data: Array<{ id: number; name: string; tracker_role?: string }> }> {
+    return request('/users/assignable')
   },
 
   createUser(data: Record<string, unknown>): Promise<{ message: string; user: UserRecord }> {

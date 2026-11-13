@@ -12,7 +12,7 @@ class UpdateUserRequest extends FormRequest
     {
         $user = $this->user();
 
-        return (bool) ($user && ($user->isLegacyAdmin() || in_array('updateUser', $user->legacyPermissions(), true)));
+        return (bool) ($user && ($user->canManageUsers() || in_array('updateUser', $user->legacyPermissions(), true)));
     }
 
     public function rules(): array
@@ -21,7 +21,11 @@ class UpdateUserRequest extends FormRequest
         $targetUser = $this->route('user');
 
         return [
-            'group_id' => ['required', 'integer', Rule::exists('groups', 'id')],
+            'group_id' => ['nullable', 'integer', Rule::exists('groups', 'id')],
+            'is_admin' => ['nullable', 'boolean'],
+            'tracker_role' => ['nullable', 'string', Rule::in(\App\Models\User::JOB_ROLES)],
+            'allowed_modules' => ['nullable', 'array'],
+            'allowed_modules.*' => ['string', Rule::in(\App\Models\User::FEATURE_KEYS)],
             'username' => [
                 'required',
                 'string',

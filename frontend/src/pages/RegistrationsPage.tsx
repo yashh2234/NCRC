@@ -7,7 +7,6 @@ import { RegistrationWizard } from '../components/RegistrationWizard'
 import { Timeline } from '../components/Timeline'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
 import type { Registration, RegistrationFormData } from '../lib/types'
-import { getUserDefaultRoleTab } from '../lib/roleConfig'
 
 function normalizeDate(value: string | null | undefined) {
   if (!value) return ''
@@ -47,7 +46,7 @@ function exportToCsv(headers: string[], rows: (string | number)[][], filename: s
 }
 
 export function RegistrationsPage() {
-  const { user, registrations, refresh, clearError, setStatus } = useAuth()
+  const { registrations, refresh, clearError, setStatus } = useAuth()
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formVisible, setFormVisible] = useState(false)
@@ -59,7 +58,8 @@ export function RegistrationsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [activeFilter, setActiveFilter] = useState(false)
-  const [roleFilter, setRoleFilter] = useState<string>(() => getUserDefaultRoleTab(user?.tracker_role))
+  // Always open on "All jobs": filtering by the user's stage hid jobs right after they were saved / handed over.
+  const [roleFilter, setRoleFilter] = useState<string>('all')
 
   const filtered = useMemo(() => {
     let list = registrations
@@ -68,7 +68,7 @@ export function RegistrationsPage() {
       if (roleFilter === 'stuck') {
         list = list.filter((r) => (r.days_at_stage ?? 0) >= 2 && r.current_stage !== '8. Closed')
       } else if (roleFilter === 'registration') {
-        list = list.filter((r) => r.current_stage === '1. Registered' || r.current_stage === '6. Report Dispatched')
+        list = list.filter((r) => r.is_draft || r.current_stage === 'Draft' || r.current_stage === '1. Registered' || r.current_stage === '6. Report Dispatched')
       } else if (roleFilter === 'lab') {
         list = list.filter((r) => r.current_stage === '2. Field/Site Work' || r.current_stage === '3. Lab Testing')
       } else if (roleFilter === 'report_staff') {

@@ -228,8 +228,12 @@ class AuthController extends Controller
 
         // Detect tracker role from group names (aligned with Namotech Job Tracker)
         $trackerRole = 'staff';
+        $jobRole = $user->getAttributes()['tracker_role'] ?? null;
         if ($isAdmin) {
             $trackerRole = 'admin';
+        } elseif (! empty($jobRole)) {
+            // Set per user in Manage Users.
+            $trackerRole = $jobRole;
         } else {
             $roleMap = [
                 'technical'    => 'technical',
@@ -263,6 +267,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'is_active' => (bool) ($user->is_active ?? true),
             'tracker_role' => $trackerRole,
+            'allowed_modules' => $user->allowed_modules,
             'groups' => $groups->map(fn (LegacyGroup $group): array => [
                 'id' => $group->id,
                 'group_name' => $group->group_name,

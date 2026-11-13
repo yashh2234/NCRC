@@ -59,6 +59,7 @@ interface NavGroup {
 
 interface AppShellProps {
   groups: NavGroup[]
+  showTenders: boolean
   activeModule: string
   onModuleChange: (key: string) => void
   children: React.ReactNode
@@ -86,7 +87,7 @@ const STANDALONE_TITLES: Record<string, string> = {
   tenders: 'Tenders',
 }
 
-export function AppShell({ groups, activeModule, onModuleChange, children }: AppShellProps) {
+export function AppShell({ groups, showTenders, activeModule, onModuleChange, children }: AppShellProps) {
   const { user, logout, refresh, error } = useAuth()
   useTracking()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -200,14 +201,16 @@ export function AppShell({ groups, activeModule, onModuleChange, children }: App
             <LayoutDashboard size={17} />
             Dashboard
           </button>
-          <button
-            className={activeModule === 'tenders' ? 'active' : ''}
-            onClick={() => navigate('tenders')}
-            type="button"
-          >
-            <FileText size={17} />
-            Tenders
-          </button>
+          {showTenders ? (
+            <button
+              className={activeModule === 'tenders' ? 'active' : ''}
+              onClick={() => navigate('tenders')}
+              type="button"
+            >
+              <FileText size={17} />
+              Tenders
+            </button>
+          ) : null}
 
           {groups.map((group) => {
             const isExpanded = expandedGroups.has(group.label)

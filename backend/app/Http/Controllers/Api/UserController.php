@@ -30,6 +30,32 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Minimal list of active staff (id, name, role) for assignment dropdowns
+     * such as "Currently With". Available to any signed-in user.
+     */
+    public function assignable(): JsonResponse
+    {
+        $users = User::query()
+            ->where(function ($query): void {
+                $query->whereNull('is_active')->orWhere('is_active', true);
+            })
+            ->orderBy('firstname')
+            ->orderBy('lastname')
+            ->get()
+            ->map(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'tracker_role' => $user->tracker_role,
+            ])
+            ->filter(fn (array $user): bool => $user['name'] !== '')
+            ->values();
+
+        return response()->json([
+            'data' => $users,
+        ]);
+    }
+
     public function store(StoreUserRequest $request): JsonResponse
     {
         $this->authorizeLegacy($request, 'createUser');
@@ -44,13 +70,19 @@ class UserController extends Controller
                 'lastname' => $validated['lastname'] ?? '',
                 'phone' => $validated['phone'] ?? '',
                 'gender' => (int) $validated['gender'],
-                'is_admin' => (int) $validated['group_id'] === 1,
+                'is_admin' => array_key_exists('is_admin', $validated)
+                    ? (bool) $validated['is_admin']
+                    : (int) ($validated['group_id'] ?? 0) === 1,
+                'tracker_role' => $validated['tracker_role'] ?? null,
+                'allowed_modules' => $this->normalizeModules($validated['allowed_modules'] ?? null),
             ]);
 
-            DB::table('user_group')->updateOrInsert(
-                ['user_id' => $user->id],
-                ['group_id' => (int) $validated['group_id']],
-            );
+            if (! empty($validated['group_id'])) {
+                DB::table('user_group')->updateOrInsert(
+                    ['user_id' => $user->id],
+                    ['group_id' => (int) $validated['group_id']],
+                );
+            }
 
             return $user->load('groups');
         });
@@ -78,6 +110,12 @@ class UserController extends Controller
 
         $validated = $request->validated();
 
+        // Don't let someone remove their own full-admin access and lock themselves out.
+        if (array_key_exists('is_admin', $validated) && ! $validated['is_admin']
+            && $request->user()?->id === $user->id && $user->isFullAdmin()) {
+            abort(422, 'You cannot remove your own full admin access.');
+        }
+
         $updatedUser = DB::transaction(function () use ($validated, $user): User {
             $payload = [
                 'username' => $validated['username'],
@@ -86,9 +124,20 @@ class UserController extends Controller
                 'lastname' => $validated['lastname'] ?? '',
                 'phone' => $validated['phone'] ?? '',
                 'gender' => (int) $validated['gender'],
-                'is_admin' => (int) $validated['group_id'] === 1,
                 'is_active' => (bool) ($validated['is_active'] ?? true),
             ];
+
+            if (array_key_exists('is_admin', $validated)) {
+                $payload['is_admin'] = (bool) $validated['is_admin'];
+            } elseif (! empty($validated['group_id'])) {
+                $payload['is_admin'] = (int) $validated['group_id'] === 1;
+            }
+            if (array_key_exists('tracker_role', $validated)) {
+                $payload['tracker_role'] = $validated['tracker_role'];
+            }
+            if (array_key_exists('allowed_modules', $validated)) {
+                $payload['allowed_modules'] = $this->normalizeModules($validated['allowed_modules']);
+            }
 
             if (! empty($validated['password'])) {
                 $payload['password'] = $validated['password'];
@@ -96,10 +145,18 @@ class UserController extends Controller
 
             $user->update($payload);
 
-            DB::table('user_group')->updateOrInsert(
-                ['user_id' => $user->id],
-                ['group_id' => (int) $validated['group_id']],
-            );
+            if (! empty($validated['group_id'])) {
+                DB::table('user_group')->updateOrInsert(
+                    ['user_id' => $user->id],
+                    ['group_id' => (int) $validated['group_id']],
+                );
+            }
+
+            // Full admin switched off: also take the user out of the legacy Administrator group,
+            // otherwise that group membership would keep granting full access.
+            if (array_key_exists('is_admin', $validated) && ! $validated['is_admin']) {
+                DB::table('user_group')->where('user_id', $user->id)->where('group_id', 1)->delete();
+            }
 
             return $user->fresh('groups');
         });
@@ -131,7 +188,17 @@ class UserController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user && ($user->isLegacyAdmin() || in_array($permission, $user->legacyPermissions(), true)), 403, 'Unauthorized');
+        abort_unless($user && ($user->canManageUsers() || in_array($permission, $user->legacyPermissions(), true)), 403, 'Unauthorized');
+    }
+
+    /** Keep only known feature keys; null means "not configured, use job-role defaults". */
+    private function normalizeModules(?array $modules): ?array
+    {
+        if ($modules === null) {
+            return null;
+        }
+
+        return array_values(array_intersect(User::FEATURE_KEYS, $modules));
     }
 
     private function presentUser(User $user): array
@@ -147,10 +214,12 @@ class UserController extends Controller
             'lastname' => $user->lastname,
             'phone' => $user->phone,
             'gender' => (int) $user->gender,
-            'is_admin' => (bool) $user->is_admin,
+            'is_admin' => $user->isFullAdmin(),
             'name' => $user->name,
             'is_active' => (bool) ($user->is_active ?? true),
             'tracker_role' => $user->tracker_role,
+            'job_role' => $user->getAttributes()['tracker_role'] ?? null,
+            'allowed_modules' => $user->allowed_modules,
             'group' => $group ? [
                 'id' => $group->id,
                 'group_name' => $group->group_name,

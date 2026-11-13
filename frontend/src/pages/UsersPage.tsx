@@ -4,14 +4,31 @@ import { useAuth } from '../lib/auth'
 import { DataTable } from '../components/DataTable'
 import type { UserFormData, UserRecord } from '../lib/types'
 import { api } from '../lib/api'
+import { FEATURES, JOB_ROLES, defaultFeaturesForRole } from '../lib/roleConfig'
 
 const emptyUserForm: UserFormData = {
   username: '', email: '', password: '', password_confirmation: '',
-  firstname: '', lastname: '', phone: '', gender: '1', group_id: '1', is_active: '1',
+  firstname: '', lastname: '', phone: '', gender: '1', is_active: '1',
+  is_admin: false, tracker_role: 'staff', allowed_modules: defaultFeaturesForRole('staff'),
+}
+
+const FEATURE_GROUPS = [...new Set(FEATURES.map((f) => f.group))]
+
+function jobRoleOf(record: UserRecord): UserFormData['tracker_role'] {
+  if (record.job_role) return record.job_role
+  const derived = record.tracker_role
+  return derived && derived !== 'admin' ? derived : 'staff'
+}
+
+function accessSummary(record: UserRecord): string {
+  if (record.is_admin) return 'Full access'
+  if (!Array.isArray(record.allowed_modules)) return 'Role defaults'
+  const n = record.allowed_modules.length
+  return `${n} feature${n === 1 ? '' : 's'}`
 }
 
 export function UsersPage() {
-  const { users: userRecords, roles, refresh, setStatus, error, clearError } = useAuth()
+  const { users: userRecords, refresh, setStatus, error, clearError } = useAuth()
   const [form, setForm] = useState<UserFormData>(emptyUserForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [localError, setLocalError] = useState('')
@@ -22,24 +39,36 @@ export function UsersPage() {
 
   const displayError = error || localError
   const beginCreate = () => {
-    setEditingId(null); setForm({ ...emptyUserForm, group_id: roles[0]?.id ? String(roles[0].id) : '1', is_active: '1' })
+    setEditingId(null); setForm({ ...emptyUserForm })
     clearError(); setLocalError(''); setStatus('Creating user'); setShowForm(true)
   }
 
   const beginEdit = (record: UserRecord) => {
+    const jobRole = jobRoleOf(record)
     setEditingId(record.id); setForm({
       username: record.username, email: record.email, password: '', password_confirmation: '',
       firstname: record.firstname, lastname: record.lastname ?? '', phone: record.phone ?? '',
-      gender: String(record.gender ?? 1), group_id: String(record.group?.id ?? roles[0]?.id ?? 1), is_active: record.is_active ? '1' : '0',
+      gender: String(record.gender ?? 1), is_active: record.is_active !== false ? '1' : '0',
+      is_admin: Boolean(record.is_admin),
+      tracker_role: jobRole,
+      // Not configured yet → start from what the user can open today (their role's defaults)
+      allowed_modules: Array.isArray(record.allowed_modules) ? record.allowed_modules : defaultFeaturesForRole(jobRole),
     }); clearError(); setLocalError(''); setStatus('Editing user'); setShowForm(true)
   }
+
+  const toggleFeature = (key: string) => setForm((c) => ({
+    ...c,
+    allowed_modules: c.allowed_modules.includes(key) ? c.allowed_modules.filter((k) => k !== key) : [...c.allowed_modules, key],
+  }))
+
+  const setAllFeatures = (on: boolean) => setForm((c) => ({ ...c, allowed_modules: on ? FEATURES.map((f) => f.key) : [] }))
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setLocalError(''); setStatus(editingId ? 'Updating user' : 'Creating user')
     try {
-      const payload = { ...form, gender: Number(form.gender), group_id: Number(form.group_id), is_active: form.is_active === '1' }
+      const payload = { ...form, gender: Number(form.gender), is_active: form.is_active === '1' }
       if (editingId) { await api.updateUser(editingId, payload) } else { await api.createUser(payload) }
-      setForm({ ...emptyUserForm, group_id: roles[0]?.id ? String(roles[0].id) : '1' }); setEditingId(null); setShowForm(false)
+      setForm({ ...emptyUserForm }); setEditingId(null); setShowForm(false)
       await refresh(); setStatus(editingId ? 'User updated' : 'User created')
     } catch (e) { setLocalError(e instanceof Error ? e.message : 'Unable to save user'); setStatus('Needs attention') }
   }
@@ -49,7 +78,7 @@ export function UsersPage() {
     setLocalError(''); setStatus('Removing user')
     try {
       await api.deleteUser(record.id)
-      if (editingId === record.id) { setForm({ ...emptyUserForm, group_id: roles[0]?.id ? String(roles[0].id) : '1' }); setEditingId(null); setShowForm(false) }
+      if (editingId === record.id) { setForm({ ...emptyUserForm }); setEditingId(null); setShowForm(false) }
       await refresh(); setStatus('User removed')
     } catch (e) { setLocalError(e instanceof Error ? e.message : 'Unable to delete user'); setStatus('Needs attention') }
   }
@@ -86,7 +115,7 @@ export function UsersPage() {
           showHeader={false}
           columns={[
             { key: 'name', label: 'Name' }, { key: 'username', label: 'Username' }, { key: 'email', label: 'Email' },
-            { key: 'group', label: 'Job Tracker Role' }, { key: 'is_active', label: 'Active' },
+            { key: 'group', label: 'Job Role' }, { key: 'access', label: 'Access' }, { key: 'is_active', label: 'Active' },
             { key: 'actions', label: '', sortable: false },
           ]}
           rows={userRecords.map((record) => ({
@@ -94,9 +123,12 @@ export function UsersPage() {
             username: record.username, email: record.email,
             group: (
               <span className="badge" style={{ background: '#f1f5f9', color: '#0f172a', fontWeight: 600 }}>
-                {record.group?.group_name ?? 'Staff'}
+                {JOB_ROLES.find((r) => r.key === jobRoleOf(record))?.label ?? 'Staff'}
               </span>
             ),
+            access: record.is_admin
+              ? <span className="badge" style={{ background: '#ede9fe', color: '#6d28d9', fontWeight: 700 }}>Full access</span>
+              : <span style={{ fontSize: '0.8rem', color: '#475569' }}>{accessSummary(record)}</span>,
             is_active: record.is_active !== false ? <span className="badge badge-success">Active</span> : <span className="badge badge-danger">Inactive</span>,
             actions: <div className="row-actions-inline">
               <button className="icon-btn" onClick={() => void showActivity(record)} type="button" title="View activity"><Activity size={15} /></button>
@@ -152,15 +184,49 @@ export function UsersPage() {
                 </label>
               </div>
               <label className="form-field" style={{ marginTop: 12 }}>
-                <span>Job Tracker System Role</span>
-                <select value={form.group_id} onChange={(e) => setForm((c) => ({ ...c, group_id: e.target.value }))}>
-                  {roles.length === 0 && <option value="1">Administrator</option>}
-                  {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                <span>Job role</span>
+                <select value={form.tracker_role} onChange={(e) => setForm((c) => ({ ...c, tracker_role: e.target.value as UserFormData['tracker_role'] }))}>
+                  {JOB_ROLES.map((role) => <option key={role.key} value={role.key}>{role.label}</option>)}
                 </select>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4, display: 'block' }}>
-                  Determines allowed workflow stages, sidebar modules, and dashboard queues based on the Excel Tracker.
+                  Sets this person's dashboard and job queue. It does not change which features they can open.
                 </span>
               </label>
+
+              <div style={{ marginTop: 16, border: '1px solid var(--color-border, #e2e8f0)', borderRadius: 10, padding: 14 }}>
+                <label className="checkbox-label" style={{ fontWeight: 700 }}>
+                  <input type="checkbox" checked={form.is_admin} onChange={(e) => setForm((c) => ({ ...c, is_admin: e.target.checked }))} />
+                  Full admin access (all features)
+                </label>
+
+                {form.is_admin ? (
+                  <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '8px 0 0' }}>This user can open every feature.</p>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '12px 0 6px' }}>
+                      <strong style={{ fontSize: '0.85rem' }}>Features this user can open ({form.allowed_modules.length}/{FEATURES.length})</strong>
+                      <span style={{ display: 'flex', gap: 10 }}>
+                        <button type="button" className="ghost-button" style={{ fontSize: '0.78rem' }} onClick={() => setAllFeatures(true)}>Select all</button>
+                        <button type="button" className="ghost-button" style={{ fontSize: '0.78rem' }} onClick={() => setAllFeatures(false)}>Clear</button>
+                      </span>
+                    </div>
+                    {FEATURE_GROUPS.map((group) => (
+                      <div key={group} style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 4 }}>{group}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '4px 12px' }}>
+                          {FEATURES.filter((f) => f.group === group).map((feature) => (
+                            <label key={feature.key} className="checkbox-label" style={{ fontSize: '0.84rem' }}>
+                              <input type="checkbox" checked={form.allowed_modules.includes(feature.key)} onChange={() => toggleFeature(feature.key)} />
+                              {feature.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '10px 0 0' }}>Dashboard and Help are always available.</p>
+                  </>
+                )}
+              </div>
               <label className="checkbox-label" style={{ marginTop: 12 }}>
                 <input type="checkbox" checked={form.is_active === '1'} onChange={(e) => setForm((c) => ({ ...c, is_active: e.target.checked ? '1' : '0' }))} />
                 Active

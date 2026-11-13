@@ -22,7 +22,7 @@ import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
 import { useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
-import { isModuleAllowed } from './lib/roleConfig'
+import { canUserAccess } from './lib/roleConfig'
 import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
@@ -113,19 +113,20 @@ function AuthenticatedApp() {
     },
   ]
 
-  // Filter nav groups based on role
+  // Filter nav groups by the user's feature access (per-user list, or job-role defaults)
   const groups = useMemo(() => {
     return allGroups
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => isModuleAllowed(trackerRole, item.key)),
+        items: group.items.filter((item) => canUserAccess(user, item.key)),
       }))
       .filter((group) => group.items.length > 0)
-  }, [trackerRole])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, trackerRole])
 
   // When user clicks a module, check they have access
   const handleModuleChange = (key: string) => {
-    if (isModuleAllowed(trackerRole, key) || key === 'dashboard') {
+    if (canUserAccess(user, key)) {
       setActiveModule(key as ModuleKey)
     }
   }
@@ -133,6 +134,7 @@ function AuthenticatedApp() {
   return (
     <AppShell
       groups={groups}
+      showTenders={canUserAccess(user, 'tenders')}
       activeModule={activeModule}
       onModuleChange={handleModuleChange}
     >

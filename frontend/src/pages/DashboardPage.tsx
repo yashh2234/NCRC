@@ -10,7 +10,7 @@ import { DashboardAnalyticsWidget } from '../components/DashboardAnalyticsWidget
 import { RegistrationWizard } from '../components/RegistrationWizard'
 import { api, request } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
-import { getRoleConfig, shouldShowWidget } from '../lib/roleConfig'
+import { getRoleConfig, shouldShowWidget, canUserAccess } from '../lib/roleConfig'
 import { loadTenders, tenderUrgency, daysLeft, formatDate, URGENCY_STYLES } from '../lib/tenders'
 import type { TrackerRole, MyQueueItem, Registration } from '../lib/types'
 
@@ -729,6 +729,7 @@ export function DashboardPage() {
 
   // ─── TENDER DEADLINES (closing within 7 days) ─────────────────────────
   const renderTenderDeadlines = () => {
+    if (!canUserAccess(user, 'tenders')) return null
     const due = loadTenders()
       .map((t) => ({ tender: t, urgency: tenderUrgency(t), days: daysLeft(t.closingDate) ?? 0 }))
       .filter((row) => row.urgency !== null)

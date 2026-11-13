@@ -11,6 +11,8 @@ export interface User {
   is_admin: boolean
   name: string
   tracker_role: TrackerRole
+  /** Features this user can open; null = not configured, use job-role defaults */
+  allowed_modules?: string[] | null
   groups: Array<{ id: number; group_name: string }>
   permissions: string[]
 }
@@ -93,6 +95,10 @@ export interface UserRecord {
   groups: Array<{ id: number; group_name: string }>
   permissions: string[]
   last_login_at: string | null
+  tracker_role?: TrackerRole
+  /** Job role saved on the user (null = derived from legacy group) */
+  job_role?: Exclude<TrackerRole, 'admin'> | null
+  allowed_modules?: string[] | null
 }
 
 export interface UserFormData {
@@ -104,8 +110,10 @@ export interface UserFormData {
   lastname: string
   phone: string
   gender: string
-  group_id: string
   is_active?: string
+  is_admin: boolean
+  tracker_role: Exclude<TrackerRole, 'admin'>
+  allowed_modules: string[]
 }
 
 export interface StageLog {
@@ -145,6 +153,7 @@ export interface Registration {
   advance_payment: number
   balance_dues: number
   payment_followup: string | null
+  payment_received_date?: string
   financial_remark: string | null
   mode_of_payment: string | null
   gst_no?: string
@@ -211,6 +220,7 @@ export interface RegistrationFormData {
   advance_payment: string
   balance_dues: string
   payment_followup: string
+  payment_received_date?: string
   financial_remark?: string
   mode_of_payment?: string
   gst_no?: string

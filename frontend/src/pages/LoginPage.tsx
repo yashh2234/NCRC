@@ -4,8 +4,8 @@ import { useAuth } from "../lib/auth";
 import { ForgotPasswordPage } from "./ForgotPasswordPage";
 
 export function LoginPage() {
-  const [email, setEmail] = useState("admin@admin.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const { login, error, status } = useAuth();
 

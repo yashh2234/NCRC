@@ -117,6 +117,7 @@ class RegistrationController extends Controller
             'advance_payment' => ['nullable', 'numeric'],
             'balance_dues' => ['nullable', 'numeric'],
             'payment_followup' => ['nullable', 'string', 'max:255'],
+            'payment_received_date' => ['nullable', 'string', 'max:255'],
             'financial_remark' => ['nullable', 'string'],
             'mode_of_payment' => ['nullable', 'string', 'max:255'],
             'gst_no' => ['nullable', 'string', 'max:255'],
@@ -152,7 +153,8 @@ class RegistrationController extends Controller
             'name_of_work' => '',
             'sample_details' => '',
         ], $validated);
-        $validated['sample_details'] = $validated['sample_details'] ?? '';
+        $validated = $this->fillRequiredTextColumns($validated);
+        $validated['is_draft'] = (bool) ($validated['is_draft'] ?? false);
 
         $registration = DB::transaction(function () use ($validated, $request) {
             $nextId = ((int) (DB::table('client_registration')->max('iClientId') ?? 0)) + 1;
@@ -174,6 +176,7 @@ class RegistrationController extends Controller
                 'reference' => $validated['reference'] ?? '',
                 'dist' => '',
                 'payment_followup' => $validated['payment_followup'] ?? '',
+                'payment_received_date' => !empty($validated['payment_received_date']) ? $this->normalizeLegacyDate($validated['payment_received_date']) : null,
                 'advance_payment' => (string) ($validated['advance_payment'] ?? 0),
                 'balance_dues' => (string) ($validated['balance_dues'] ?? 0),
                 'total_payment' => (string) ($validated['total_payment'] ?? 0),
@@ -199,9 +202,9 @@ class RegistrationController extends Controller
                 'field_person_name' => $validated['field_person_name'] ?? '',
                 'remark' => $validated['remark'] ?? '',
                 'sample_remark' => $validated['sample_remark'] ?? '',
-                'prepared_date' => $validated['prepared_date'] ? $this->normalizeLegacyDate($validated['prepared_date']) : '',
+                'prepared_date' => !empty($validated['prepared_date']) ? $this->normalizeLegacyDate($validated['prepared_date']) : '',
                 'report_no' => $validated['report_no'] ?? '',
-                'dispatch_date' => $validated['dispatch_date'] ? $this->normalizeLegacyDate($validated['dispatch_date']) : '',
+                'dispatch_date' => !empty($validated['dispatch_date']) ? $this->normalizeLegacyDate($validated['dispatch_date']) : '',
                 'report_status' => $validated['report_status'] ?? 'Pending',
                 'report_copy' => '',
                 'gst_no' => $validated['gst_no'] ?? '',
@@ -289,6 +292,7 @@ class RegistrationController extends Controller
             'advance_payment' => ['nullable', 'numeric'],
             'balance_dues' => ['nullable', 'numeric'],
             'payment_followup' => ['nullable', 'string', 'max:255'],
+            'payment_received_date' => ['nullable', 'string', 'max:255'],
             'financial_remark' => ['nullable', 'string'],
             'mode_of_payment' => ['nullable', 'string', 'max:255'],
             'gst_no' => ['nullable', 'string', 'max:255'],
@@ -320,7 +324,9 @@ class RegistrationController extends Controller
         abort_if(! $existing, 404, 'Registration not found');
 
         $oldStage = $existing->current_stage ?? '1. Registered';
-        $validated['sample_details'] = $validated['sample_details'] ?? '';
+        $validated = $this->fillRequiredTextColumns($validated);
+        $validated['is_draft'] = (bool) ($validated['is_draft'] ?? false);
+        $validated['received_date'] = $validated['received_date'] ?? now()->format('Y-m-d');
         $oldWith = $existing->currently_with ?? '';
         $newStage = ($validated['current_stage'] ?? $oldStage) === 'Draft'
             ? '1. Registered'
@@ -353,6 +359,7 @@ class RegistrationController extends Controller
             'advance_payment' => (string) ($validated['advance_payment'] ?? 0),
             'balance_dues' => (string) ($validated['balance_dues'] ?? 0),
             'payment_followup' => $validated['payment_followup'] ?? '',
+                'payment_received_date' => !empty($validated['payment_received_date']) ? $this->normalizeLegacyDate($validated['payment_received_date']) : null,
             'financial_remark' => $validated['financial_remark'] ?? '',
             'mode_of_payment' => $validated['mode_of_payment'] ?? '',
             'gst_no' => $validated['gst_no'] ?? '',
@@ -368,8 +375,8 @@ class RegistrationController extends Controller
             'remark' => $validated['remark'] ?? '',
             'report_no' => $validated['report_no'] ?? '',
             'field_person_name' => $validated['field_person_name'] ?? '',
-            'prepared_date' => $validated['prepared_date'] ? $this->normalizeLegacyDate($validated['prepared_date']) : '',
-            'dispatch_date' => $validated['dispatch_date'] ? $this->normalizeLegacyDate($validated['dispatch_date']) : '',
+            'prepared_date' => !empty($validated['prepared_date']) ? $this->normalizeLegacyDate($validated['prepared_date']) : '',
+            'dispatch_date' => !empty($validated['dispatch_date']) ? $this->normalizeLegacyDate($validated['dispatch_date']) : '',
             'assign_to' => $validated['assign_to'] ?? 'lab',
             'current_stage' => $validated['is_draft'] ? 'Draft' : $newStage,
             'currently_with' => $newWith,
@@ -449,6 +456,7 @@ class RegistrationController extends Controller
             'advance_payment' => $advancePayment,
             'balance_dues' => $balanceDues,
             'payment_followup' => $registration->payment_followup ?? '',
+            'payment_received_date' => $this->formatLegacyDate($registration->payment_received_date ?? ''),
             'financial_remark' => $registration->financial_remark ?? '',
             'mode_of_payment' => $registration->mode_of_payment ?? '',
             'gst_no' => $registration->gst_no ?? '',
@@ -501,17 +509,27 @@ class RegistrationController extends Controller
 
     public function destroy(Request $request, int $registrationId): JsonResponse
     {
+        abort_unless($request->user()?->isFullAdmin(), 403, 'Only administrators can delete registrations.');
+
         $registration = DB::table('client_registration')->where('iClientId', $registrationId)->first();
         abort_if(!$registration, 404, 'Registration not found');
 
         DB::transaction(function () use ($registration, $registrationId): void {
-            // Delete associated reports
-            Report::query()->where('uid_no', $registration->uid_no)->delete();
+            $uidNo = trim((string) ($registration->uid_no ?? ''));
 
-            // Delete associated billing records
-            DB::table('billing')->where('uid_no', $registration->uid_no)->delete();
+            // Reports and billing are linked by UID only. If another registration shares this UID
+            // (duplicates exist), keep them: they may belong to the other registration.
+            $uidShared = $uidNo === '' || DB::table('client_registration')
+                ->where('uid_no', $uidNo)
+                ->where('iClientId', '!=', $registrationId)
+                ->exists();
 
-            // Delete the registration
+            if (! $uidShared) {
+                Report::query()->where('uid_no', $uidNo)->delete();
+                DB::table('billing')->where('uid_no', $uidNo)->delete();
+            }
+
+            DB::table('stage_logs')->where('registration_id', $registrationId)->delete();
             DB::table('client_registration')->where('iClientId', $registrationId)->delete();
         });
 
@@ -751,6 +769,12 @@ class RegistrationController extends Controller
             throw new \RuntimeException('Unable to create the registration attachment directory.');
         }
 
+        // Read file details BEFORE move(): afterwards the temp file no longer exists.
+        $originalName = $file->getClientOriginalName();
+        $mimeType = $file->getMimeType();
+        $fileSize = $file->getSize();
+        $extension = strtolower($file->getClientOriginalExtension() ?: (string) $file->guessExtension());
+
         $fileName = $file->hashName();
         $file->move($directory, $fileName);
         $path = 'assets/images/scan_copy/' . $fileName;
@@ -787,11 +811,11 @@ class RegistrationController extends Controller
             'category_id' => $category->id,
             'title' => "$uidNo - $slotLabel - $agency",
             'description' => "Registration scan attachment for UID: $uidNo ($agency)",
-            'file_name' => $file->getClientOriginalName(),
+            'file_name' => $originalName,
             'file_path' => $path,
-            'file_type' => $file->getMimeType(),
-            'file_extension' => strtolower($file->getClientOriginalExtension() ?: pathinfo($path, PATHINFO_EXTENSION)),
-            'file_size' => $file->getSize(),
+            'file_type' => $mimeType,
+            'file_extension' => $extension ?: pathinfo($path, PATHINFO_EXTENSION),
+            'file_size' => $fileSize,
             'tags' => "registration,scan,$uidNo,$agency",
             'linked_model_type' => Registration::class,
             'linked_model_id' => $regId,
@@ -802,8 +826,8 @@ class RegistrationController extends Controller
             'document_id' => $doc->id,
             'version_number' => 1,
             'file_path' => $path,
-            'file_name' => $file->getClientOriginalName(),
-            'file_size' => $file->getSize(),
+            'file_name' => $originalName,
+            'file_size' => $fileSize,
             'created_by' => $request->user()?->id,
         ]);
 
@@ -811,7 +835,7 @@ class RegistrationController extends Controller
             'message' => 'File uploaded and archived successfully',
             'field' => $field,
             'path' => $path,
-            'file_name' => $file->getClientOriginalName(),
+            'file_name' => $originalName,
             'url' => asset($path),
             'document_id' => $doc->id,
         ]);
@@ -874,6 +898,19 @@ class RegistrationController extends Controller
         DB::table('client_registration')
             ->where('iClientId', $registration->iClientId)
             ->update(['job_id' => $job->id]);
+    }
+
+    /**
+     * Laravel turns empty strings into null, but these legacy columns are NOT NULL.
+     * Drafts can leave them empty, so store '' instead of null.
+     */
+    private function fillRequiredTextColumns(array $validated): array
+    {
+        foreach (['uid_no', 'agency_name', 'reporting_address', 'mobile_no', 'name_of_work', 'sample_details'] as $column) {
+            $validated[$column] = $validated[$column] ?? '';
+        }
+
+        return $validated;
     }
 
     private function normalizeLegacyDate(mixed $value): string
