@@ -9,3 +9,8 @@
 /Old
 # PHP error logs written by the server
 error_log
+
+# Files uploaded through the app (scans, report copies) live only on each server
+/backend/public/assets/images/scan_copy/*
+/backend/public/assets/images/report_copy/*
+
