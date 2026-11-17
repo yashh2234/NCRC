@@ -1,14 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, Trash2, ExternalLink, Pencil, CalendarDays } from 'lucide-react'
 import {
-  type Tender, TENDER_STORAGE_KEY, DATE_FIELDS, URGENCY_STYLES,
-  loadTenders, nextSrNo, daysLeft, tenderUrgency, formatDate,
+  type Tender, type TenderInput, DATE_FIELDS, URGENCY_STYLES,
+  fetchTenders, nextSrNo, daysLeft, tenderUrgency, formatDate,
 } from '../lib/tenders'
+import { api } from '../lib/api'
 
 type TenderField = Exclude<keyof Tender, 'id' | 'srNo'>
 type ColumnKey = TenderField | 'daysLeft' | 'dates'
 
-const emptyTender: Omit<Tender, 'id' | 'srNo'> = {
+const emptyTender: TenderInput = {
   tenderId: '', title: '', department: '', portal: '', location: '', value: '', emd: '-', fee: '-',
   openDate: '', preBidDate: '', queryDate: '', closingDate: '', openingDate: '', eligibility: 'Pending',
   decision: 'Under Review', submissionStatus: 'Not Started', responsible: '', requirements: '',
@@ -27,7 +28,8 @@ const tableColumns: Array<[ColumnKey, string]> = [
 ]
 
 const TITLE_PREVIEW_CHARS = 120
-const PAST_STATUSES = ['Won', 'Lost']
+/** Tenders with these statuses move straight to the Past tenders table. */
+const PAST_STATUSES = ['Won', 'Lost', 'Not Participated']
 
 const STATUS_BADGE: Record<string, { background: string; color: string }> = {
   'Not Started': { background: '#f1f5f9', color: '#475569' },
@@ -35,6 +37,7 @@ const STATUS_BADGE: Record<string, { background: string; color: string }> = {
   Submitted: { background: '#ede9fe', color: '#6d28d9' },
   Won: { background: '#dcfce7', color: '#15803d' },
   Lost: { background: '#fee2e2', color: '#b91c1c' },
+  'Not Participated': { background: '#e2e8f0', color: '#334155' },
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -65,18 +68,33 @@ const formFields: Array<[TenderField, string]> = [
 ]
 
 export function TenderPage() {
-  const [tenders, setTenders] = useState<Tender[]>(loadTenders)
+  const [tenders, setTenders] = useState<Tender[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyTender)
   const [datesFor, setDatesFor] = useState<Tender | null>(null)
   const [titleFor, setTitleFor] = useState<Tender | null>(null)
 
-  const save = (next: Tender[]) => {
-    setTenders(next)
-    localStorage.setItem(TENDER_STORAGE_KEY, JSON.stringify(next))
+  const reload = () => fetchTenders()
+    .then((list) => { setTenders(list); setError('') })
+    .catch((e: Error) => setError(e.message || 'Could not load tenders'))
+    .finally(() => setLoading(false))
+
+  useEffect(() => { void reload() }, [])
+
+  const deleteTender = async (tender: Tender) => {
+    if (!window.confirm(`Delete tender ${tender.srNo} (${tender.tenderId})?`)) return
+    try {
+      await api.deleteTender(tender.id)
+      setTenders((list) => list.filter((item) => item.id !== tender.id))
+    } catch (e) {
+      window.alert((e as Error).message || 'Could not delete tender')
+    }
   }
   const searched = useMemo(() => tenders.filter((tender) => {
     const text = `${tender.srNo} ${tender.tenderId} ${tender.title} ${tender.department} ${tender.portal}`.toLowerCase()
@@ -103,16 +121,25 @@ export function TenderPage() {
     setShowForm(true)
   }
 
-  const saveTender = (event: React.FormEvent) => {
+  const saveTender = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (editingId) {
-      save(tenders.map((tender) => tender.id === editingId ? { ...tender, ...form } : tender))
-    } else {
-      save([...tenders, { ...form, id: crypto.randomUUID(), srNo: nextSrNo(tenders) }])
+    setSaving(true)
+    try {
+      if (editingId !== null) {
+        const { data } = await api.updateTender(editingId, form)
+        setTenders((list) => list.map((tender) => tender.id === data.id ? data : tender))
+      } else {
+        const { data } = await api.createTender(form)
+        setTenders((list) => [...list, data])
+      }
+      setForm(emptyTender)
+      setEditingId(null)
+      setShowForm(false)
+    } catch (e) {
+      window.alert((e as Error).message || 'Could not save tender')
+    } finally {
+      setSaving(false)
     }
-    setForm(emptyTender)
-    setEditingId(null)
-    setShowForm(false)
   }
 
   const metricCards: Array<{ label: string; value: number; tone?: 'red' | 'yellow' }> = [
@@ -169,7 +196,7 @@ export function TenderPage() {
               <td style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{tender.srNo}</td>
               {tableColumns.map(([key]) => <td key={key} style={cellStyle(key)}>{renderCell(tender, key)}</td>)}
               {statusAt === 'end' ? <td><StatusBadge status={tender.submissionStatus} /></td> : null}
-              <td style={{ whiteSpace: 'nowrap' }}><button className="icon-button" type="button" title="Edit tender" onClick={() => openEditForm(tender)}><Pencil size={16} /></button><button className="icon-button" type="button" title="Delete tender" onClick={() => save(tenders.filter((item) => item.id !== tender.id))}><Trash2 size={16} /></button></td>
+              <td style={{ whiteSpace: 'nowrap' }}><button className="icon-button" type="button" title="Edit tender" onClick={() => openEditForm(tender)}><Pencil size={16} /></button><button className="icon-button" type="button" title="Delete tender" onClick={() => void deleteTender(tender)}><Trash2 size={16} /></button></td>
             </tr>
           )
         })}</tbody>
@@ -229,15 +256,16 @@ export function TenderPage() {
             <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: URGENCY_STYLES.red.background, border: `1px solid ${URGENCY_STYLES.red.border}`, marginRight: 4 }} />≤ 4 days left</span>
           </span>
         </div>
-        {renderTable(activeTenders, tenders.length === 0 ? 'No tenders logged. Add the first tender to start the pipeline.' : 'No active tenders match your filters.', 'end')}
+        {error ? <p style={{ color: '#b91c1c', margin: '0 0 12px' }}>{error} <button type="button" className="ghost-button" onClick={() => { setLoading(true); void reload() }}>Retry</button></p> : null}
+        {renderTable(activeTenders, loading ? 'Loading tenders…' : tenders.length === 0 ? 'No tenders logged. Add the first tender to start the pipeline.' : 'No active tenders match your filters.', 'end')}
       </section>
 
       <section className="surface" style={{ marginTop: 16 }}>
         <div className="surface-heading">
           <div><p className="section-label">Tender Tracker</p><h2>Past tenders ({pastTenders.length})</h2></div>
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Won: <strong style={{ color: '#15803d' }}>{pastTenders.filter((t) => t.submissionStatus === 'Won').length}</strong> · Lost: <strong style={{ color: '#b91c1c' }}>{pastTenders.filter((t) => t.submissionStatus === 'Lost').length}</strong></span>
+          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Won: <strong style={{ color: '#15803d' }}>{pastTenders.filter((t) => t.submissionStatus === 'Won').length}</strong> · Lost: <strong style={{ color: '#b91c1c' }}>{pastTenders.filter((t) => t.submissionStatus === 'Lost').length}</strong> · Not participated: <strong style={{ color: '#334155' }}>{pastTenders.filter((t) => t.submissionStatus === 'Not Participated').length}</strong></span>
         </div>
-        {renderTable(pastTenders, 'No past tenders yet. Tenders marked Won or Lost will appear here.', 'start')}
+        {renderTable(pastTenders, 'No past tenders yet. Tenders marked Won, Lost or Not Participated will appear here.', 'start')}
       </section>
 
       {datesFor ? <div onClick={() => setDatesFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -277,10 +305,10 @@ export function TenderPage() {
 
       {showForm ? <div onClick={() => setShowForm(false)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <form className="surface" onClick={(e) => e.stopPropagation()} onSubmit={saveTender} style={{ width: 900, maxHeight: '90vh', overflowY: 'auto' }}>
-          <div className="surface-heading"><div><p className="section-label">Tender Tracker · {editingId ? tenders.find((t) => t.id === editingId)?.srNo : nextSrNo(tenders)}</p><h2>{editingId ? 'Edit tender' : 'Add tender'}</h2></div><button type="button" className="ghost-button" onClick={() => setShowForm(false)}>Close</button></div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{formFields.map(([key, label]) => <label key={key}>{label}{key.endsWith('Date') ? <input className="input" type="date" value={form[key]} onChange={(e) => update(key, e.target.value)} /> : key === 'eligibility' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></select> : key === 'decision' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></select> : key === 'submissionStatus' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Not Started</option><option>In Progress</option><option>Submitted</option><option>Won</option><option>Lost</option></select> : <input className="input" required={key === 'tenderId' || key === 'title'} value={form[key]} onChange={(e) => update(key, e.target.value)} />}</label>)}</div>
+          <div className="surface-heading"><div><p className="section-label">Tender Tracker · {editingId !== null ? tenders.find((t) => t.id === editingId)?.srNo : nextSrNo(tenders)}</p><h2>{editingId !== null ? 'Edit tender' : 'Add tender'}</h2></div><button type="button" className="ghost-button" onClick={() => setShowForm(false)}>Close</button></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{formFields.map(([key, label]) => <label key={key}>{label}{key.endsWith('Date') ? <input className="input" type="date" value={form[key]} onChange={(e) => update(key, e.target.value)} /> : key === 'eligibility' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></select> : key === 'decision' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></select> : key === 'submissionStatus' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Not Started</option><option>In Progress</option><option>Submitted</option><option>Won</option><option>Lost</option><option>Not Participated</option></select> : <input className="input" required={key === 'tenderId' || key === 'title'} value={form[key]} onChange={(e) => update(key, e.target.value)} />}</label>)}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}><label>Tender Link<input className="input" type="url" value={form.tenderLink} onChange={(e) => update('tenderLink', e.target.value)} /></label><label>Tender Document Drive Link<input className="input" type="url" value={form.driveLink} onChange={(e) => update('driveLink', e.target.value)} /></label></div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }}>{editingId ? 'Update tender' : 'Save tender'}</button>
+          <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }} disabled={saving}>{saving ? 'Saving…' : editingId !== null ? 'Update tender' : 'Save tender'}</button>
         </form>
       </div> : null}
     </div>

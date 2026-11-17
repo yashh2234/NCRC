@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DocumentDownload;
+use App\Services\RegistrationAttachments;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -166,6 +167,9 @@ class DocumentController extends Controller
 
     public function destroy(Document $document)
     {
+        // A registration attachment also disappears from that registration's Files tab.
+        RegistrationAttachments::clearColumns((string) $document->file_path);
+
         // Delete file from storage
         $this->deleteFile($document->file_path);
         foreach ($document->versions as $version) {

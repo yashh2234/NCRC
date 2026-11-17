@@ -35,7 +35,16 @@ export const RATE_LIST: RateListCategory[] = [
     ],
   },
   {
-    category: 'Bricks',
+    category: 'Flyash Bricks',
+    items: [
+      { name: 'Dimension tolerance', time: '2 days', qty: '20 Nos.', rate: 300 },
+      { name: 'Water Absorption', time: '3 days', qty: '6 Nos.', rate: 400 },
+      { name: 'Compressive Strength', time: '5 days', qty: '6 Nos.', rate: 1200 },
+      { name: 'Efflorescence', time: '30 days', qty: '6 Nos.', rate: 400 },
+    ],
+  },
+  {
+    category: 'FPS Bricks',
     items: [
       { name: 'Dimension tolerance', time: '2 days', qty: '20 Nos.', rate: 300 },
       { name: 'Water Absorption', time: '3 days', qty: '6 Nos.', rate: 400 },
@@ -120,37 +129,7 @@ export const RATE_LIST: RateListCategory[] = [
     ],
   },
   {
-    category: 'Admixture',
-    items: [
-      { name: 'pH', time: '1 Day', qty: '-', rate: 150 },
-      { name: 'Relative Density', time: '1 Day', qty: '-', rate: 300 },
-      { name: 'Dry Material Content', time: '3 Days', qty: '-', rate: 500 },
-      { name: 'Ash Content', time: '3 Days', qty: '-', rate: 700 },
-      { name: 'Chloride Content', time: '1 Day', qty: '-', rate: 300 },
-    ],
-  },
-  {
-    category: 'Bentonite',
-    items: [
-      { name: 'Fineness(Dry)', time: '1 Day', qty: '-', rate: 500 },
-      { name: 'Moisture Content', time: '1 Day', qty: '-', rate: 300 },
-      { name: 'Sand Content', time: '1 Day', qty: '-', rate: 300 },
-      { name: 'Swelling Power', time: '2 Days', qty: '-', rate: 700 },
-    ],
-  },
-  {
-    category: 'Cement Concrete',
-    items: [
-      { name: 'Compressive strength (concrete Cubes / Paver Blocks)', time: '7 days /28 days', qty: 'Set of 3 Cubes', rate: 550 },
-      { name: 'Concrete Mix design in normal condition.', time: '15 Days', qty: '1 bag cement, 20mm Agg 3 Bag, 10mm Agg 3 Bag, sand 3 bag', rate: 10000 },
-      { name: 'Concrete Mix design by Accelerated curing', time: '9 Days', qty: '1 bag cement, 20mm Agg 3 Bag, 10mm Agg 3 Bag, sand 3 bag', rate: 12000 },
-      { name: 'Concrete Mix design using Fly ash including lab Testing', time: '15 Days', qty: '1 bag cement, 1 Bag Flyash, 20mm Agg 3 Bag', rate: 10000 },
-      { name: 'Slump test ( After Mix Design )', time: '7 Days', qty: '1 bag cement, 20mm Agg 3 Bag', rate: 2000 },
-      { name: 'Flexural Strength (After Mix Design)', time: '28 days', qty: '1 bag cement, 20mm Agg 3 Bag', rate: 10000 },
-    ],
-  },
-  {
-    category: 'Bitumen',
+    category: 'Bitumen Core',
     items: [
       { name: 'Specific gravity', time: '3 days', qty: '2 Kg', rate: 350 },
       { name: 'Ductility', time: '3 days', qty: '2 Kg', rate: 500 },
@@ -196,6 +175,25 @@ export const RATE_LIST: RateListCategory[] = [
       { name: 'Field Density of Bitumen Core (By Concrete)', qty: 'Per Point', rate: 1000 },
     ],
   },
+  {
+    category: 'CC Cube',
+    items: [
+      { name: 'Compressive strength (concrete Cubes / Paver Blocks)', time: '7 days /28 days', qty: 'Set of 3 Cubes', rate: 550 },
+    ],
+  },
+  {
+    category: 'Mix Design',
+    items: [
+      { name: 'Concrete Mix design in normal condition.', time: '15 Days', qty: '1 bag cement, 20mm Agg 3 Bag, 10mm Agg 3 Bag, sand 3 bag', rate: 10000 },
+      { name: 'Concrete Mix design by Accelerated curing', time: '9 Days', qty: '1 bag cement, 20mm Agg 3 Bag, 10mm Agg 3 Bag, sand 3 bag', rate: 12000 },
+      { name: 'Concrete Mix design using Fly ash including lab Testing', time: '15 Days', qty: '1 bag cement, 1 Bag Flyash, 20mm Agg 3 Bag', rate: 10000 },
+      { name: 'Slump test ( After Mix Design )', time: '7 Days', qty: '1 bag cement, 20mm Agg 3 Bag', rate: 2000 },
+      { name: 'Flexural Strength (After Mix Design)', time: '28 days', qty: '1 bag cement, 20mm Agg 3 Bag', rate: 10000 },
+    ],
+  },
+  { category: 'Water', items: [] },
+  { category: 'Kerb Stone', items: [] },
+  { category: 'Mainhole Core', items: [] },
   {
     category: 'CC Core',
     items: [

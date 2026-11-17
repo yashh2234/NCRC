@@ -11,7 +11,7 @@ import { RegistrationWizard } from '../components/RegistrationWizard'
 import { api, request } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { getRoleConfig, shouldShowWidget, canUserAccess } from '../lib/roleConfig'
-import { loadTenders, tenderUrgency, daysLeft, formatDate, URGENCY_STYLES } from '../lib/tenders'
+import { type Tender, fetchTenders, tenderUrgency, daysLeft, formatDate, URGENCY_STYLES } from '../lib/tenders'
 import type { TrackerRole, MyQueueItem, Registration } from '../lib/types'
 
 interface TrendsData {
@@ -58,6 +58,13 @@ export function DashboardPage() {
     return d.toISOString().substring(0, 10)
   })
   const [toDate, setToDate] = useState<string>(() => new Date().toISOString().substring(0, 10))
+
+  const canSeeTenders = canUserAccess(user, 'tenders')
+  const [tenders, setTenders] = useState<Tender[]>([])
+  useEffect(() => {
+    if (!canSeeTenders) return
+    fetchTenders().then(setTenders).catch(() => setTenders([]))
+  }, [canSeeTenders])
 
   const [trends, setTrends] = useState<TrendsData | null>(null)
   const [assignedCount, setAssignedCount] = useState(0)
@@ -729,8 +736,8 @@ export function DashboardPage() {
 
   // ─── TENDER DEADLINES (closing within 7 days) ─────────────────────────
   const renderTenderDeadlines = () => {
-    if (!canUserAccess(user, 'tenders')) return null
-    const due = loadTenders()
+    if (!canSeeTenders) return null
+    const due = tenders
       .map((t) => ({ tender: t, urgency: tenderUrgency(t), days: daysLeft(t.closingDate) ?? 0 }))
       .filter((row) => row.urgency !== null)
       .sort((a, b) => a.days - b.days)

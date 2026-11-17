@@ -1,3 +1,4 @@
+import type { Tender, TenderInput } from './tenders'
 import type {
   AuditLogEntry,
   BillingItem,
@@ -401,6 +402,26 @@ export const api = {
     return request(`/final-reports/${id}`, { method: 'DELETE' })
   },
 
+  tenders(): Promise<{ data: Tender[] }> {
+    return request('/tenders')
+  },
+
+  createTender(data: TenderInput): Promise<{ data: Tender }> {
+    return request('/tenders', { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  updateTender(id: number, data: TenderInput): Promise<{ data: Tender }> {
+    return request(`/tenders/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  },
+
+  deleteTender(id: number): Promise<{ message: string }> {
+    return request(`/tenders/${id}`, { method: 'DELETE' })
+  },
+
+  importTenders(tenders: Array<Partial<Tender>>): Promise<{ imported: number; skipped: number }> {
+    return request('/tenders/import', { method: 'POST', body: JSON.stringify({ tenders }) })
+  },
+
   ulrLinks(): Promise<{ data: Array<{ id: number; uid_no: string; ulr_no: string; date: string; name_of_department: string; name_of_agency: string; name_of_project: string; sample_details: string; qty: string; parameters: string; testing_period: string; sample_received_date: string | null; report_dispatch_date: string | null; bill_details: string; signature_remark: string }> }> {
     return request('/ulr-links')
   },
@@ -491,6 +512,14 @@ export const api = {
 
   registrationHistory(id: number): Promise<{ data: Array<{ event: string; timestamp: string; icon: string; user?: string }>; uid_no: string }> {
     return request(`/registrations/${id}/history`)
+  },
+
+  deleteDocument(id: number | string): Promise<unknown> {
+    return request(`/documents/${id}`, { method: 'DELETE' })
+  },
+
+  removeRegistrationAttachment(registrationId: number | string, field: string): Promise<{ message: string }> {
+    return request(`/registrations/${registrationId}/attachments/${field}`, { method: 'DELETE' })
   },
 
   uploadRegistrationScan(formData: FormData, onProgress?: (percent: number) => void): Promise<{ message: string; path: string; url: string }> {

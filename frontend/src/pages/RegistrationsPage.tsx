@@ -224,6 +224,17 @@ export function RegistrationsPage() {
       target_date: normalizeDate(reg.target_date),
       payment_status: reg.payment_status ?? 'Not Invoiced',
       handover_note: '',
+      // Saved attachments, so the Files tab shows what is already uploaded.
+      scan_copy: reg.scan_copy ?? '',
+      scan_copy_1: reg.scan_copy_1 ?? '',
+      scan_copy_2: reg.scan_copy_2 ?? '',
+      scan_copy_3: reg.scan_copy_3 ?? '',
+      scan_copy_4: reg.scan_copy_4 ?? '',
+      scan_copy_5: reg.scan_copy_5 ?? '',
+      scan_copy_6: reg.scan_copy_6 ?? '',
+      scan_copy_7: reg.scan_copy_7 ?? '',
+      scan_copy_8: reg.scan_copy_8 ?? '',
+      scan_copy_9: reg.scan_copy_9 ?? '',
     }
   }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { X, FileText, Image as ImageIcon, History, Download, Eye, Folder, ShieldCheck } from 'lucide-react'
-import { resolveFileUrl, request } from '../lib/api'
+import { X, FileText, Image as ImageIcon, History, Download, Eye, Folder, ShieldCheck, Trash2 } from 'lucide-react'
+import { api, resolveFileUrl, request } from '../lib/api'
 
 interface UIDDocumentDrawerProps {
   uidNo: string
@@ -19,10 +19,13 @@ interface DocumentItem {
   created_at: string | null
   category?: { name: string }
   latest_version?: { version_number: number }
+  /** Set for files known only from a registration column (no document record). */
+  registration?: { id: number; field: string }
   versions?: Array<{ id: number; version_number: number; change_notes: string; created_at: string }>
 }
 
 interface RegistrationAttachmentSource {
+  id: number
   uid_no: string
   received_date: string | null
   scan_copy?: string | null
@@ -74,6 +77,7 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
           tags: 'registration',
           created_at: registration?.received_date ?? null,
           category: { name: 'Client Registrations' },
+          registration: registration ? { id: registration.id, field } : undefined,
         }]
       })
       setDocuments([...storedDocuments, ...legacyDocuments])
@@ -82,6 +86,25 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
       setLoading(false)
     }
   }, [uidNo])
+
+  const [deletingId, setDeletingId] = useState<DocumentItem['id'] | null>(null)
+
+  const deleteDocument = async (doc: DocumentItem) => {
+    if (!window.confirm(`Delete "${doc.file_name}"? This removes the file permanently.`)) return
+    setDeletingId(doc.id)
+    try {
+      if (doc.registration) {
+        await api.removeRegistrationAttachment(doc.registration.id, doc.registration.field)
+      } else {
+        await api.deleteDocument(doc.id)
+      }
+      setDocuments((list) => list.filter((item) => item.id !== doc.id))
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Could not delete the document')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   useEffect(() => {
     if (isOpen && uidNo) {
@@ -236,6 +259,18 @@ export function UIDDocumentDrawer({ uidNo, isOpen, onClose }: UIDDocumentDrawerP
                     >
                       <Download size={14} /> Download
                     </a>
+                    {doc.registration || typeof doc.id === 'number' ? (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ color: 'var(--color-red-text)' }}
+                        disabled={deletingId === doc.id}
+                        onClick={() => void deleteDocument(doc)}
+                        title="Delete this document"
+                      >
+                        <Trash2 size={14} /> {deletingId === doc.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}

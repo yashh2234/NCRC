@@ -88,6 +88,21 @@ interface SampleRow {
   newBack: string
 }
 
+/** Rate × quantity when the quantity is a plain number (e.g. "5"); otherwise the rate once ("5 Kg", "Core"). */
+function sampleAmount(row: SampleRow): number {
+  const rate = Number(row.rate) || 0
+  const qty = (row.qty ?? '').trim()
+  return /^\d+(\.\d+)?$/.test(qty) ? rate * Number(qty) : rate
+}
+
+function sampleTotal(rows: SampleRow[]): number {
+  return rows.reduce((sum, row) => sum + sampleAmount(row), 0)
+}
+
+function totalPatch(total: number, advance: string | number | undefined) {
+  return { total_payment: String(total), balance_dues: String(Math.max(0, total - Number(advance || 0))) }
+}
+
 export function RegistrationWizard({
   editingId,
   initial,
@@ -114,7 +129,14 @@ export function RegistrationWizard({
   // Document scan state
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [visibleScanSlots, setVisibleScanSlots] = useState(3)
+  // Show enough slots for the highest attachment already saved (in steps of 3, max 10).
+  const [visibleScanSlots, setVisibleScanSlots] = useState(() => {
+    let last = -1
+    for (let i = 0; i < 10; i++) {
+      if (form[(i === 0 ? 'scan_copy' : `scan_copy_${i}`) as keyof RegistrationFormData]) last = i
+    }
+    return Math.min(10, Math.max(3, Math.ceil((last + 1) / 3) * 3))
+  })
   const [uploadMsg, setUploadMsg] = useState('')
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({})
 
@@ -155,8 +177,18 @@ export function RegistrationWizard({
     }
   }
 
-  const handleRemoveScan = (idx: number) => {
+  const handleRemoveScan = async (idx: number) => {
     const field = idx === 0 ? 'scan_copy' : `scan_copy_${idx}`
+    // A file already saved on the server is deleted there too (also removes it from the Document Repository).
+    if (editingId && !pendingFiles[field] && form[field as keyof RegistrationFormData]) {
+      if (!window.confirm(`Delete Scan Copy #${idx + 1}? It will also be removed from the document repository.`)) return
+      try {
+        await api.removeRegistrationAttachment(editingId, field)
+      } catch (err) {
+        setLocalError(err instanceof Error ? err.message : 'Failed to delete document')
+        return
+      }
+    }
     setPendingFiles((prev) => {
       const next = { ...prev }
       delete next[field]
@@ -239,8 +271,11 @@ export function RegistrationWizard({
   }
 
   const [sampleRows, setSampleRows] = useState<SampleRow[]>(() => makeSampleRows(form))
+  // Once the user types their own Total Payment, sample changes stop overwriting it.
+  const [totalTouched, setTotalTouched] = useState(false)
 
   const syncSampleRows = (rows: SampleRow[]) => {
+    const totals = totalTouched ? {} : totalPatch(sampleTotal(rows), form.advance_payment)
     const overflowRows = rows.slice(4)
     const details4 = overflowRows.map((r) => r.sampleType).filter(Boolean).join('\n')
     const qty4 = overflowRows.map((r) => r.qty).filter(Boolean).join('\n')
@@ -252,6 +287,7 @@ export function RegistrationWizard({
       sample_details_2: rows[2]?.sampleType ?? '', qty_2: rows[2]?.qty ?? '', new_back_2: rows[2]?.newBack ?? '',
       sample_details_3: rows[3]?.sampleType ?? '', qty_3: rows[3]?.qty ?? '', new_back_3: rows[3]?.newBack ?? '',
       sample_details_4: details4, qty_4: qty4, new_back_4: newBack4,
+      ...totals,
     })
   }
 
@@ -291,11 +327,6 @@ export function RegistrationWizard({
     })
     setSampleRows(next)
     syncSampleRows(next)
-
-    const totalRates = next.reduce((sum, row) => sum + (Number(row.rate) || 0), 0)
-    if (totalRates > 0 && (form.total_payment === '0' || form.total_payment === '')) {
-      update({ total_payment: String(totalRates) })
-    }
   }
 
   const addSampleRow = () => {
@@ -312,8 +343,8 @@ export function RegistrationWizard({
   }
 
   const autoCalculateTotal = () => {
-    const total = sampleRows.reduce((sum, row) => sum + (Number(row.rate) || 0), 0)
-    update({ total_payment: String(total) })
+    setTotalTouched(false)
+    update(totalPatch(sampleTotal(sampleRows), form.advance_payment))
   }
 
   useEffect(() => {
@@ -693,7 +724,7 @@ export function RegistrationWizard({
                       </select>
                     </FormField>
 
-                    <FormField label="Rate List Category">
+                    <FormField label="Test Category">
                       <SearchableSelect
                         value={row.category ?? ''}
                         onChange={(v) => handleCategoryChange(i, v)}
@@ -772,9 +803,9 @@ export function RegistrationWizard({
             })}
 
             <div className="rate-summary-pill">
-              <span className="rate-summary-pill__label">Sum of Sample Estimated Rates</span>
+              <span className="rate-summary-pill__label">Total Sample Amount (rate × quantity)</span>
               <span className="rate-summary-pill__value">
-                ₹{sampleRows.reduce((sum, r) => sum + (Number(r.rate) || 0), 0)}
+                ₹{sampleTotal(sampleRows)}
               </span>
             </div>
           </div>
@@ -849,6 +880,7 @@ export function RegistrationWizard({
                   type="number"
                   value={form.total_payment}
                   onChange={(e) => {
+                    setTotalTouched(true)
                     const total = Number(e.target.value || 0)
                     const adv = Number(form.advance_payment || 0)
                     update({
@@ -1046,7 +1078,7 @@ export function RegistrationWizard({
                         <button
                           type="button"
                           className="icon-btn text-danger"
-                          onClick={() => handleRemoveScan(idx)}
+                          onClick={() => void handleRemoveScan(idx)}
                           title="Remove attachment"
                         >
                           <Trash2 size={14} />

@@ -15,6 +15,7 @@ use App\Models\UserActivity;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTemplate;
 use App\Models\WorkflowTransition;
+use App\Services\RegistrationAttachments;
 use App\Services\WorkflowEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -837,6 +838,20 @@ class RegistrationController extends Controller
             'url' => asset($path),
             'document_id' => $doc->id,
         ]);
+    }
+
+    /** Remove one attachment slot from a registration, along with its archived document and file. */
+    public function removeScan(int $registrationId, string $field): JsonResponse
+    {
+        abort_unless(in_array($field, RegistrationAttachments::FIELDS, true), 422, 'Unknown attachment field');
+        $registration = DB::table('client_registration')->where('iClientId', $registrationId)->first();
+        abort_if(! $registration, 404, 'Registration not found');
+
+        $path = (string) ($registration->{$field} ?? '');
+        DB::table('client_registration')->where('iClientId', $registrationId)->update([$field => '']);
+        RegistrationAttachments::removePath($path);
+
+        return response()->json(['message' => 'Attachment removed']);
     }
 
     protected function syncJobFromRegistration(object $registration, Request $request): void

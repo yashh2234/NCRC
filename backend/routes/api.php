@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\DueReportsController;
 use App\Http\Controllers\Api\FinalReportsController;
 use App\Http\Controllers\Api\UlrLinkController;
 use App\Http\Controllers\Api\StoreController;
+use App\Http\Controllers\Api\TenderController;
 use App\Http\Controllers\Api\WorkflowTemplateController;
 use App\Http\Controllers\Api\WorkflowStageController;
 use App\Http\Controllers\Api\WorkflowTransitionController;
@@ -88,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/registrations/generate-uid', [RegistrationController::class, 'generateUid']);
     Route::get('/registrations/export', [RegistrationController::class, 'export']);
     Route::post('/registrations/upload-scan', [RegistrationController::class, 'uploadScan']);
+    Route::delete('/registrations/{registrationId}/attachments/{field}', [RegistrationController::class, 'removeScan']);
     Route::get('/registrations/search-customers', [RegistrationController::class, 'searchCustomers']);
     Route::get('registrations/{registration}/history', [RegistrationController::class, 'history']);
     Route::post('/registrations/{uidNo}/photos', [RegistrationController::class, 'uploadPhotos']);
@@ -168,6 +170,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('ulr-links/client-details', [UlrLinkController::class, 'getClientDetails']);
 
     Route::apiResource('stores', StoreController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    Route::post('tenders/import', [TenderController::class, 'import']);
+    Route::apiResource('tenders', TenderController::class)->only(['index', 'store', 'update', 'destroy']);
 
     Route::get('reports/{type}/export', [ReportController::class, 'export']);
 

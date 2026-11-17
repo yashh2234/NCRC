@@ -1,5 +1,7 @@
+import { api } from './api'
+
 export interface Tender {
-  id: string
+  id: number
   srNo: string
   tenderId: string
   title: string
@@ -24,10 +26,13 @@ export interface Tender {
   remarks: string
 }
 
-export const TENDER_STORAGE_KEY = 'ncrc_tender_tracker'
+export type TenderInput = Omit<Tender, 'id' | 'srNo'>
+
+/** Where tenders used to live before they were stored on the server. */
+const LEGACY_STORAGE_KEY = 'ncrc_tender_tracker'
 const SR_PREFIX = 'NCS/TENDER'
 
-export const DATE_FIELDS: Array<[keyof Tender, string]> = [
+export const DATE_FIELDS: Array<[keyof TenderInput, string]> = [
   ['openDate', 'Published / Open Date'],
   ['preBidDate', 'Pre-bid Meeting Date'],
   ['queryDate', 'Query Submission Deadline'],
@@ -35,7 +40,7 @@ export const DATE_FIELDS: Array<[keyof Tender, string]> = [
   ['openingDate', 'Technical Bid Opening Date'],
 ]
 
-const CLOSED_STATUSES = ['Submitted', 'Won', 'Lost']
+const CLOSED_STATUSES = ['Submitted', 'Won', 'Lost', 'Not Participated']
 
 function srNumber(srNo: string, year: number) {
   const match = srNo.match(/^NCS\/TENDER\/(\d{4})\/(\d+)$/)
@@ -47,21 +52,34 @@ export function nextSrNo(tenders: Array<Pick<Tender, 'srNo'>>, year = new Date()
   return `${SR_PREFIX}/${year}/${String(max + 1).padStart(3, '0')}`
 }
 
-/** Loads tenders from storage and assigns an Sr. No. to any older entries that lack one. */
-export function loadTenders(): Tender[] {
-  let list: Tender[] = []
-  try { list = JSON.parse(localStorage.getItem(TENDER_STORAGE_KEY) || '[]') as Tender[] } catch { return [] }
-  let changed = false
-  const result: Tender[] = []
-  for (const tender of list) {
-    if (tender.srNo) { result.push(tender); continue }
-    changed = true
-    result.push({ ...tender, srNo: nextSrNo([...list, ...result]) })
-  }
-  if (changed) {
-    try { localStorage.setItem(TENDER_STORAGE_KEY, JSON.stringify(result)) } catch { /* ignore */ }
-  }
-  return result
+let legacyUpload: Promise<void> | null = null
+
+/**
+ * Tenders used to be saved only in this browser's localStorage. Upload any that are
+ * still here to the server once, then keep the old copy under a backup key.
+ */
+function uploadLegacyTenders(): Promise<void> {
+  legacyUpload ??= (async () => {
+    let list: Array<Partial<Tender>> = []
+    try { list = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || '[]') } catch { return }
+    if (!Array.isArray(list) || list.length === 0) return
+    await api.importTenders(list.map(({ id: _id, ...rest }) => rest))
+    try {
+      localStorage.setItem(`${LEGACY_STORAGE_KEY}_uploaded`, JSON.stringify(list))
+      localStorage.removeItem(LEGACY_STORAGE_KEY)
+    } catch { /* ignore */ }
+  })().catch((error) => {
+    legacyUpload = null // retry on the next load
+    console.error('Could not upload locally saved tenders', error)
+  })
+  return legacyUpload
+}
+
+/** Loads the shared tender list from the server. */
+export async function fetchTenders(): Promise<Tender[]> {
+  await uploadLegacyTenders()
+  const { data } = await api.tenders()
+  return data
 }
 
 export function daysLeft(date: string): number | null {
