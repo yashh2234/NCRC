@@ -288,7 +288,7 @@ export function RegistrationsPage() {
       </div>
 
       {/* Main Data Table matching Old software Manage Registration table */}
-      <div className="table-card" style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px' }}>
+      <div>
         <DataTable
           showHeader={false}
           columns={[
