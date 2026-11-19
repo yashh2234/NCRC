@@ -3,6 +3,8 @@ import { Plus, Printer, Pencil, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 import type { PurchaseOrder, PurchaseOrderListItem } from '../lib/types'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 interface POForm {
   date: string
@@ -283,18 +285,11 @@ export function PurchaseOrdersPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => { setShowForm(false); setEditingId(null) }}>
-          <div className="modal-content modal-lg" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setShowForm(false); setEditingId(null) }} type="button"><X size={20} /></button>
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 20 }}>
-                <p className="section-label">{editingId ? 'Update' : 'Create'}</p>
-                <h2>{editingId ? 'Edit Purchase Order' : 'New Purchase Order'}</h2>
-              </div>
+        <Modal title={editingId ? 'Edit Purchase Order' : 'New Purchase Order'} subtitle={editingId ? 'Update' : 'Create'} onClose={() => { setShowForm(false); setEditingId(null) }} size="lg" onSubmit={handleSubmit} saveLabel={editingId ? 'Update PO' : 'Create PO'}>
 
               <div className="form-grid-2">
-                <label className="form-field"><span>Date *</span><input type="date" value={form.date} onChange={(e) => handleField('date', e.target.value)} required /></label>
-                <label className="form-field"><span>PO No *</span><input value={form.purchase_order} onChange={(e) => handleField('purchase_order', e.target.value)} required /></label>
+                <label className="form-field"><span>Date<Req /></span><input type="date" value={form.date} onChange={(e) => handleField('date', e.target.value)} required /></label>
+                <label className="form-field"><span>PO No<Req /></span><input value={form.purchase_order} onChange={(e) => handleField('purchase_order', e.target.value)} required /></label>
               </div>
               <label className="form-field" style={{ marginTop: 12 }}><span>Agency Name</span><input value={form.agency_name} onChange={(e) => handleField('agency_name', e.target.value)} /></label>
               <label className="form-field" style={{ marginTop: 12 }}><span>Address</span><textarea value={form.reporting_address} onChange={(e) => handleField('reporting_address', e.target.value)} rows={2} /></label>
@@ -341,13 +336,7 @@ export function PurchaseOrdersPage() {
               <label className="form-field" style={{ marginTop: 12 }}><span>Remark</span><textarea value={form.remark} onChange={(e) => handleField('remark', e.target.value)} rows={2} /></label>
 
               {localError && <div className="error-banner" style={{ marginTop: 12 }}>{localError}</div>}
-              <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button className="btn btn-outline" onClick={() => { setShowForm(false); setEditingId(null) }} type="button">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingId ? 'Update PO' : 'Create PO'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   )

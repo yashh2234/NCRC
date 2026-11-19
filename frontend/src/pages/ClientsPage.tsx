@@ -1,7 +1,9 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
-import { Building2, Plus, Phone, Mail, MapPin, User, MessageSquare, ChevronRight, X, Trash2, Edit3, Users, FileText } from 'lucide-react'
+import { Building2, Plus, Phone, Mail, MapPin, User, MessageSquare, ChevronRight, Trash2, Edit3, Users, FileText } from 'lucide-react'
 import { request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 interface ClientRecord {
   id: number
@@ -302,14 +304,9 @@ export function ClientsPage() {
 
       {/* Client form modal */}
       {showForm ? (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <form className="surface" style={{ width: 560, maxHeight: '85vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-            <div className="surface-heading">
-              <h2>{editingClient ? 'Edit Client' : 'New Client'}</h2>
-              <button className="icon-button" onClick={() => setShowForm(false)} type="button"><X size={18} /></button>
-            </div>
+        <Modal title={editingClient ? 'Edit Client' : 'New Client'} onClose={() => setShowForm(false)} size={560} onSubmit={handleSubmit} saveLabel={editingClient ? 'Update' : 'Create'}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <label>Company Name *<input value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} required /></label>
+              <label><span>Company Name<Req /></span><input value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} required /></label>
               <label>Contact Person<input value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} /></label>
               <label>Mobile<input value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value })} /></label>
               <label>Phone<input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} /></label>
@@ -329,23 +326,13 @@ export function ClientsPage() {
             </div>
             <label style={{ marginTop: 8 }}>Address<textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} /></label>
             <label>Notes<textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={2} /></label>
-            <div className="form-actions">
-              <button className="ghost-button" onClick={() => setShowForm(false)} type="button">Cancel</button>
-              <button type="submit">{editingClient ? 'Update' : 'Create'}</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
 
       {/* Contact form modal */}
       {showContactForm ? (
-        <div className="modal-overlay" onClick={() => setShowContactForm(false)}>
-          <form className="surface" style={{ width: 440 }} onClick={(e) => e.stopPropagation()} onSubmit={handleContactSubmit}>
-            <div className="surface-heading">
-              <h2>Add Contact</h2>
-              <button className="icon-button" onClick={() => setShowContactForm(false)} type="button"><X size={18} /></button>
-            </div>
-            <label>Name *<input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} required /></label>
+        <Modal title={'Add Contact'} onClose={() => setShowContactForm(false)} size={440} onSubmit={handleContactSubmit} saveLabel={'Add Contact'}>
+            <label><span>Name<Req /></span><input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} required /></label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <label>Designation<input value={contactForm.designation} onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })} /></label>
               <label>Mobile<input value={contactForm.mobile} onChange={(e) => setContactForm({ ...contactForm, mobile: e.target.value })} /></label>
@@ -355,22 +342,12 @@ export function ClientsPage() {
               <input type="checkbox" checked={contactForm.is_primary} onChange={(e) => setContactForm({ ...contactForm, is_primary: e.target.checked })} style={{ width: 'auto', minHeight: 'auto' }} />
               Primary Contact
             </label>
-            <div className="form-actions">
-              <button className="ghost-button" onClick={() => setShowContactForm(false)} type="button">Cancel</button>
-              <button type="submit">Add Contact</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
 
       {/* Communication form modal */}
       {showCommForm ? (
-        <div className="modal-overlay" onClick={() => setShowCommForm(false)}>
-          <form className="surface" style={{ width: 480 }} onClick={(e) => e.stopPropagation()} onSubmit={handleCommSubmit}>
-            <div className="surface-heading">
-              <h2>Log Activity</h2>
-              <button className="icon-button" onClick={() => setShowCommForm(false)} type="button"><X size={18} /></button>
-            </div>
+        <Modal title={'Log Activity'} onClose={() => setShowCommForm(false)} size={480} onSubmit={handleCommSubmit} saveLabel={'Log Activity'}>
             <label>Type<select value={commForm.type} onChange={(e) => setCommForm({ ...commForm, type: e.target.value })}>
               <option value="note">Note</option>
               <option value="call">Phone Call</option>
@@ -379,12 +356,7 @@ export function ClientsPage() {
             </select></label>
             <label>Subject<input value={commForm.subject} onChange={(e) => setCommForm({ ...commForm, subject: e.target.value })} /></label>
             <label>Details<textarea value={commForm.body} onChange={(e) => setCommForm({ ...commForm, body: e.target.value })} rows={4} /></label>
-            <div className="form-actions">
-              <button className="ghost-button" onClick={() => setShowCommForm(false)} type="button">Cancel</button>
-              <button type="submit">Log Activity</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
     </div>
   )

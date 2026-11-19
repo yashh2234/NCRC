@@ -665,7 +665,7 @@ export function RegistrationWizard({
               </FormField>
             </div>
 
-            <FormField label="Reporting Address / Department Details">
+            <FormField label="Reporting Address / Department Details" required>
               <textarea
                 rows={2}
                 value={form.reporting_address}
@@ -765,7 +765,7 @@ export function RegistrationWizard({
                   </div>
 
                   <div className="field-row" style={{ marginBottom: 4 }}>
-                    <FormField label="Sample Details (Full Name)">
+                    <FormField label="Sample Details (Full Name)" required={i === 0}>
                       <input
                         value={row.sampleType}
                         onChange={(e) => updateSampleRow(i, 'sampleType', e.target.value)}

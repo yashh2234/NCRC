@@ -1,4 +1,5 @@
 import type { Tender, TenderInput } from './tenders'
+import type { Inquiry, InquiryCallInput, InquiryInput } from './inquiries'
 import type {
   AuditLogEntry,
   BillingItem,
@@ -420,6 +421,30 @@ export const api = {
 
   importTenders(tenders: Array<Partial<Tender>>): Promise<{ imported: number; skipped: number }> {
     return request('/tenders/import', { method: 'POST', body: JSON.stringify({ tenders }) })
+  },
+
+  inquiries(): Promise<{ data: Inquiry[] }> {
+    return request('/inquiries')
+  },
+
+  inquiry(id: number): Promise<{ data: Inquiry }> {
+    return request(`/inquiries/${id}`)
+  },
+
+  createInquiry(data: InquiryInput): Promise<{ data: Inquiry }> {
+    return request('/inquiries', { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  updateInquiry(id: number, data: InquiryInput): Promise<{ data: Inquiry }> {
+    return request(`/inquiries/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  },
+
+  logInquiryCall(id: number, data: InquiryCallInput): Promise<{ data: Inquiry }> {
+    return request(`/inquiries/${id}/activities`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  deleteInquiry(id: number): Promise<{ message: string }> {
+    return request(`/inquiries/${id}`, { method: 'DELETE' })
   },
 
   ulrLinks(): Promise<{ data: Array<{ id: number; uid_no: string; ulr_no: string; date: string; name_of_department: string; name_of_agency: string; name_of_project: string; sample_details: string; qty: string; parameters: string; testing_period: string; sample_received_date: string | null; report_dispatch_date: string | null; bill_details: string; signature_remark: string }> }> {

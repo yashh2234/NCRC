@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { FlaskConical, ArrowRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { ForgotPasswordPage } from "./ForgotPasswordPage";
+import { Req } from '../components/ui'
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -41,12 +42,12 @@ export function LoginPage() {
           <p className="auth-panel__sub">Use your work account to continue.</p>
         </div>
         <label>
-          Email
+          <span>Email<Req /></span>
           <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            Password
+            <span>Password<Req /></span>
             <button type="button" className="link" style={{ fontSize: "0.8rem" }} onClick={() => setShowForgot(true)}>
               Forgot password?
             </button>

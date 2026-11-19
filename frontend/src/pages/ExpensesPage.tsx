@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Plus, Pencil, Trash2, Calendar, Download, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Calendar, Download } from 'lucide-react'
 import { request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 interface ExpenseItem {
   id: number; date: string; date_iso?: string; opening_balance: number; total_income: number; total_expenses: number
@@ -148,17 +150,10 @@ export function ExpensesPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => { setShowForm(false); resetForm() }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => { setShowForm(false); resetForm() }} type="button"><X size={20} /></button>
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 20 }}>
-                <p className="section-label">{editingId ? 'Update' : 'Record'}</p>
-                <h2>{editingId ? 'Edit expense' : 'New expense entry'}</h2>
-              </div>
+        <Modal title={editingId ? 'Edit expense' : 'New expense entry'} subtitle={editingId ? 'Update' : 'Record'} onClose={() => { setShowForm(false); resetForm() }} onSubmit={handleSubmit} saveLabel={editingId ? 'Update' : 'Save'}>
               <div className="form-grid-2">
-                <label className="form-field"><span>Date *</span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
-                <label className="form-field"><span>Category *</span>
+                <label className="form-field"><span>Date<Req /></span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
+                <label className="form-field"><span>Category<Req /></span>
                   <input list="expense-categories" value={category} onChange={(e) => setCategory(e.target.value)} required placeholder="Select or type" />
                   <datalist id="expense-categories">{EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</datalist>
                 </label>
@@ -170,13 +165,7 @@ export function ExpensesPage() {
                 <label className="form-field"><span>Person name</span><input value={personName} onChange={(e) => setPersonName(e.target.value)} /></label>
               </div>
               <label className="form-field" style={{ marginTop: 12 }}><span>Remark</span><input value={remark} onChange={(e) => setRemark(e.target.value)} /></label>
-              <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button className="btn btn-outline" onClick={() => { setShowForm(false); resetForm() }} type="button">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingId ? 'Update' : 'Save'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   )

@@ -8,6 +8,8 @@ import { ReportEditPage } from './ReportEditPage'
 import { EXCEL_TEMPLATE_OPTIONS } from '../components/ExcelLabReportEditor'
 
 import type { CubeReport } from '../lib/types'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 interface ReportTypeInfo {
   key: string
@@ -28,6 +30,9 @@ const STATUS_FLOW: Record<string, { label: string; color: string; next: string[]
   Complete: { label: 'Complete', color: '#22c55e', next: [] },
   Cancel: { label: 'Cancel', color: '#ef4444', next: [] },
 }
+
+/** Fields the create-lab-report form will not submit without. */
+const CREATE_REQUIRED: string[] = ['uid_no', 'customer_details', 'agency_name', 'material_details', 'sample_date', 'sample_tested_date']
 
 export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [types, setTypes] = useState<ReportTypeInfo[]>([])
@@ -442,12 +447,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
         </section>
       </div>
       {showCreate ? (
-        <div onClick={() => setShowCreate(false)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <form className="surface" onClick={(event) => event.stopPropagation()} onSubmit={handleCreate} style={{ width: 680, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="surface-heading">
-              <div><p className="section-label">Laboratory</p><h2>Add lab report</h2></div>
-              <button type="button" className="ghost-button" onClick={() => setShowCreate(false)}>Close</button>
-            </div>
+        <Modal title="Add lab report" subtitle="Laboratory" onClose={() => setShowCreate(false)} size={680} onSubmit={handleCreate} saving={creating} saveLabel="Create pending lab report">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <label>Report type<select className="input" value={createForm.report_type} onChange={(event) => updateCreate('report_type', event.target.value)}>
                 {types.filter((type) => !type.is_template).map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
@@ -460,12 +460,10 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                 ['agency_name', 'Agency name'], ['reference_no', 'Reference no.'], ['material_details', 'Material details'],
                 ['sample_date', 'Sample receipt date'], ['sample_tested_date', 'Sample tested date'],
               ] as const).map(([key, label]) => (
-                <label key={key}>{label}<input className="input" required={['uid_no', 'customer_details', 'agency_name', 'material_details', 'sample_date', 'sample_tested_date'].includes(key)} type={key.includes('date') ? 'date' : 'text'} value={createForm[key]} onChange={(event) => updateCreate(key, event.target.value)} /></label>
+                <label key={key}><span>{label}{CREATE_REQUIRED.includes(key) ? <Req /> : null}</span><input className="input" required={CREATE_REQUIRED.includes(key)} type={key.includes('date') ? 'date' : 'text'} value={createForm[key]} onChange={(event) => updateCreate(key, event.target.value)} /></label>
               ))}
             </div>
-            <button type="submit" className="btn btn-primary" disabled={creating}>{creating ? 'Creating...' : 'Create pending lab report'}</button>
-          </form>
-        </div>
+        </Modal>
       ) : null}
 
       {timelineReportId !== null ? (

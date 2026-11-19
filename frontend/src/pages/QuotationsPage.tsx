@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -216,12 +218,10 @@ export default function QuotationsPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
-            <h2>{editing ? 'Edit Quotation' : 'New Quotation'}</h2>
+        <Modal title={editing ? 'Edit Quotation' : 'New Quotation'} onClose={() => setShowModal(false)} size={800} onSave={handleSave} saveLabel={editing ? 'Update' : 'Create'}>
             <div className="form-grid">
               <div className="form-group">
-                <label>Client Name *</label>
+                <label><span>Client Name<Req /></span></label>
                 <input className="form-input" value={form.client_name}
                   onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
               </div>
@@ -231,7 +231,7 @@ export default function QuotationsPage() {
                   onChange={(e) => setForm({ ...form, agency_name: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Date *</label>
+                <label><span>Date<Req /></span></label>
                 <input className="form-input" type="date" value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })} />
               </div>
@@ -241,7 +241,7 @@ export default function QuotationsPage() {
                   onChange={(e) => setForm({ ...form, valid_until: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Client Location *</label>
+                <label><span>Client Location<Req /></span></label>
                 <select className="form-input" value={form.location} required
                   onChange={(e) => setForm({ ...form, location: e.target.value })}>
                   <option value="">-- Select State --</option>
@@ -254,10 +254,10 @@ export default function QuotationsPage() {
             <table className="data-table" style={{ fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={{ width: '40%' }}>Description</th>
-                  <th>Qty</th>
+                  <th style={{ width: '40%' }}>Description<Req /></th>
+                  <th>Qty<Req /></th>
                   <th>Unit</th>
-                  <th>Rate</th>
+                  <th>Rate<Req /></th>
                   <th>Amount</th>
                   <th></th>
                 </tr>
@@ -312,14 +312,7 @@ export default function QuotationsPage() {
                 onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
 
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                {editing ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

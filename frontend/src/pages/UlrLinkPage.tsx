@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Pencil, Trash2, Download, Link2, Search, CheckCircle2, AlertCircle, X, FileSpreadsheet } from 'lucide-react'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 interface UlrLink {
   id: number
@@ -270,7 +272,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
         <form onSubmit={handleQuickLinkSubmit} style={{ overflow: 'visible' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, overflow: 'visible' }}>
                   <label className="form-field" style={{ overflow: 'visible' }}>
-                    <span>Date</span>
+                    <span>Date<Req /></span>
                     <input
                       type="date"
                       value={quickDate}
@@ -283,7 +285,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
                   </label>
 
                   <label className="form-field" style={{ overflow: 'visible' }}>
-                    <span>UID No <b style={{ color: '#dc2626' }}>*</b></span>
+                    <span>UID No<Req /></span>
                     <div style={{ position: 'relative', display: 'flex', gap: 4, zIndex: uidSuggestions.length > 0 ? 30 : 1 }}>
                       <input
                         type="text"
@@ -330,7 +332,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
                   </label>
 
                   <label className="form-field">
-                    <span>ULR No <b style={{ color: '#dc2626' }}>*</b></span>
+                    <span>ULR No<Req /></span>
                     <select
                       value={quickUlr}
                       onChange={e => setQuickUlr(e.target.value)}
@@ -348,7 +350,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
                     {quickUlr === 'new' && (
                       <input
                         type="text"
-                        placeholder="Enter New ULR No. (Optional)"
+                        placeholder="Enter New ULR No."
                         value={newUlrInput}
                         onChange={e => setNewUlrInput(e.target.value)}
                         style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 6, border: '1px solid #93c5fd', fontSize: '0.84rem', background: '#eff6ff' }}
@@ -368,7 +370,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
                   </label>
 
                   <label className="form-field">
-                    <span>Name of Agency <b style={{ color: '#dc2626' }}>*</b></span>
+                    <span>Name of Agency<Req /></span>
                     <input
                       type="text"
                       placeholder="Agency name"
@@ -531,34 +533,14 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
 
       {/* Edit Modal */}
       {isRegisterMode && editingItem && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: 16
-        }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>
-                Edit ULR: {editingItem.ulr_no}
-              </h3>
-              <button type="button" onClick={() => setEditingItem(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-            </div>
-
+        <Modal title={`Edit ULR: ${editingItem.ulr_no}`} onClose={() => setEditingItem(null)} onSave={() => void handleSaveEdit()} saveLabel="Save Changes">
             <div className="form-grid-2">
               <label className="form-field">
-                <span>UID No</span>
+                <span>UID No<Req /></span>
                 <input value={editForm.uid_no || ''} onChange={e => setEditForm(f => ({ ...f, uid_no: e.target.value }))} />
               </label>
               <label className="form-field">
-                <span>Date</span>
+                <span>Date<Req /></span>
                 <input type="date" value={editForm.date || ''} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} />
               </label>
               <label className="form-field">
@@ -566,7 +548,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
                 <input value={editForm.name_of_department || ''} onChange={e => setEditForm(f => ({ ...f, name_of_department: e.target.value }))} />
               </label>
               <label className="form-field">
-                <span>Agency Name</span>
+                <span>Agency Name<Req /></span>
                 <input value={editForm.name_of_agency || ''} onChange={e => setEditForm(f => ({ ...f, name_of_agency: e.target.value }))} />
               </label>
               <label className="form-field">
@@ -579,12 +561,7 @@ export function UlrLinkPage({ mode }: UlrLinkPageProps) {
               </label>
             </div>
 
-            <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="ghost-button" onClick={() => setEditingItem(null)}>Cancel</button>
-              <button className="primary-button" onClick={() => void handleSaveEdit()}>Save Changes</button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

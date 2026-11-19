@@ -1,7 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Settings, Plus, Trash2, Edit3, ArrowRight, Circle, X } from 'lucide-react'
+import { Settings, Plus, Trash2, Edit3, ArrowRight, Circle } from 'lucide-react'
 import { request } from '../lib/api'
 import type { WorkflowTemplate, WorkflowStage, WorkflowTransition } from '../lib/types'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 const emptyTemplate = { name: '', description: '', is_active: true }
 const emptyStage: { name: string; slug: string; sort_order: number; sla_hours: number | null; is_start: boolean; is_end: boolean; color: string } = { name: '', slug: '', sort_order: 0, sla_hours: null, is_start: false, is_end: false, color: '#6b7280' }
@@ -328,14 +330,9 @@ export function WorkflowTemplatesPage() {
 
       {/* Template form modal */}
       {showTemplateForm ? (
-        <div className="modal-overlay" onClick={() => setShowTemplateForm(false)}>
-          <form className="surface" style={{ width: 480, maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()} onSubmit={handleTemplateSubmit}>
-            <div className="surface-heading">
-              <h2>{editingTemplate ? 'Edit Template' : 'New Template'}</h2>
-              <button className="icon-button" onClick={() => setShowTemplateForm(false)} type="button"><X size={18} /></button>
-            </div>
+        <Modal title={editingTemplate ? 'Edit Template' : 'New Template'} onClose={() => setShowTemplateForm(false)} size={480} onSubmit={handleTemplateSubmit} saveLabel={editingTemplate ? 'Update' : 'Create'}>
             <label>
-              Name *
+              <span>Name<Req /></span>
               <input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} placeholder="e.g. Standard Lab Workflow" required />
             </label>
             <label>
@@ -346,28 +343,18 @@ export function WorkflowTemplatesPage() {
               <input type="checkbox" checked={templateForm.is_active} onChange={(e) => setTemplateForm({ ...templateForm, is_active: e.target.checked })} style={{ width: 'auto', minHeight: 'auto' }} />
               Active
             </label>
-            <div className="form-actions">
-              <button className="ghost-button" onClick={() => setShowTemplateForm(false)} type="button">Cancel</button>
-              <button type="submit">{editingTemplate ? 'Update' : 'Create'}</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
 
       {/* Stage form modal */}
       {showStageForm ? (
-        <div className="modal-overlay" onClick={() => setShowStageForm(false)}>
-          <form className="surface" style={{ width: 480 }} onClick={(e) => e.stopPropagation()} onSubmit={handleStageSubmit}>
-            <div className="surface-heading">
-              <h2>{editingStage ? 'Edit Stage' : 'New Stage'}</h2>
-              <button className="icon-button" onClick={() => setShowStageForm(false)} type="button"><X size={18} /></button>
-            </div>
+        <Modal title={editingStage ? 'Edit Stage' : 'New Stage'} onClose={() => setShowStageForm(false)} size={480} onSubmit={handleStageSubmit} saveLabel={editingStage ? 'Update' : 'Create'}>
             <label>
-              Name *
+              <span>Name<Req /></span>
               <input value={stageForm.name} onChange={(e) => setStageForm({ ...stageForm, name: e.target.value })} placeholder="e.g. Lab Testing" required />
             </label>
             <label>
-              Slug *
+              <span>Slug<Req /></span>
               <input value={stageForm.slug} onChange={(e) => setStageForm({ ...stageForm, slug: e.target.value.replace(/\s+/g, '-').toLowerCase() })} placeholder="e.g. lab-testing" required />
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -390,50 +377,35 @@ export function WorkflowTemplatesPage() {
                 End Stage
               </label>
             </div>
-            <div className="form-actions">
-              <button className="ghost-button" onClick={() => setShowStageForm(false)} type="button">Cancel</button>
-              <button type="submit">{editingStage ? 'Update' : 'Create'}</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
 
       {/* Transition form modal */}
       {showTransitionForm ? (
-        <div className="modal-overlay" onClick={() => setShowTransitionForm(false)}>
-          <form className="surface" style={{ width: 480 }} onClick={(e) => e.stopPropagation()} onSubmit={handleTransitionSubmit}>
-            <div className="surface-heading">
-              <h2>{editingTransition ? 'Edit Transition' : 'New Transition'}</h2>
-              <button className="icon-button" onClick={() => setShowTransitionForm(false)} type="button"><X size={18} /></button>
-            </div>
+        <Modal title={editingTransition ? 'Edit Transition' : 'New Transition'} onClose={() => setShowTransitionForm(false)} size={480} onSubmit={handleTransitionSubmit} saveLabel={editingTransition ? 'Update' : 'Create'}>
             <label>
-              From Stage *
+              <span>From Stage<Req /></span>
               <select value={transitionForm.from_stage_id} onChange={(e) => setTransitionForm({ ...transitionForm, from_stage_id: Number(e.target.value) })} required>
                 <option value={0}>Select stage</option>
                 {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
             <label>
-              To Stage *
+              <span>To Stage<Req /></span>
               <select value={transitionForm.to_stage_id} onChange={(e) => setTransitionForm({ ...transitionForm, to_stage_id: Number(e.target.value) })} required>
                 <option value={0}>Select stage</option>
                 {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
             <label>
-              Transition Name *
+              <span>Transition Name<Req /></span>
               <input value={transitionForm.name} onChange={(e) => setTransitionForm({ ...transitionForm, name: e.target.value })} placeholder="e.g. Start Testing" required />
             </label>
             <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={transitionForm.requires_approval} onChange={(e) => setTransitionForm({ ...transitionForm, requires_approval: e.target.checked })} style={{ width: 'auto', minHeight: 'auto' }} />
               Requires Approval
             </label>
-            <div className="form-actions">
-              <button className="ghost-button" onClick={() => setShowTransitionForm(false)} type="button">Cancel</button>
-              <button type="submit">{editingTransition ? 'Update' : 'Create'}</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
     </div>
   )

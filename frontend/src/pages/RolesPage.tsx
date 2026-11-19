@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Check, Edit3, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
+import { Check, Edit3, Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { request } from '../lib/api'
 import type { RoleSummary } from '../lib/types'
+import { Modal } from '../components/Modal'
 
 interface PermissionGroup {
   module: string
@@ -222,18 +223,9 @@ export function RolesPage() {
       </div>
 
       {showForm ? (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <form className="modal-content" onClick={(event) => event.stopPropagation()} onSubmit={saveRole}>
-            <button className="modal-close" onClick={() => setShowForm(false)} type="button"><X size={20} /></button>
-            <p className="section-label">{selectedRole ? 'Rename group' : 'New group'}</p>
-            <h2 style={{ marginBottom: 18 }}>{selectedRole ? 'Group name' : 'Create a group'}</h2>
+        <Modal title={selectedRole ? 'Group name' : 'Create a group'} subtitle={selectedRole ? 'Rename group' : 'New group'} onClose={() => setShowForm(false)} size="sm" onSubmit={saveRole} saving={saving} saveDisabled={!name.trim()} saveLabel="Save Group">
             <label className="form-field"><span>Group name</span><input value={name} onChange={(event) => setName(event.target.value)} autoFocus /></label>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-              <button className="btn btn-outline" onClick={() => setShowForm(false)} type="button">Cancel</button>
-              <button className="btn btn-primary" disabled={saving || !name.trim()} type="submit">{saving ? 'Saving...' : 'Save Group'}</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
     </>
   )

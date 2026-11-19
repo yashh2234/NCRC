@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, FlaskConical, RefreshCcw, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, X } from 'lucide-react'
+import { Bell, FlaskConical, RefreshCcw, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, X, PhoneCall } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -32,7 +32,7 @@ const iconMap: Record<string, LucideIcon> = {
   audit: History,
   user_tracking: Activity,
   settings: Settings,
-  inquiries: ClipboardList,
+  inquiries: PhoneCall,
   quotations: ReceiptText,
   work_orders: FileText,
   dispatches: FileText,
@@ -59,6 +59,7 @@ interface NavGroup {
 
 interface AppShellProps {
   groups: NavGroup[]
+  showInquiries: boolean
   showTenders: boolean
   activeModule: string
   onModuleChange: (key: string) => void
@@ -84,10 +85,11 @@ function isCompactViewport() {
 
 const STANDALONE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
+  inquiries: 'Inquiries',
   tenders: 'Tenders',
 }
 
-export function AppShell({ groups, showTenders, activeModule, onModuleChange, children }: AppShellProps) {
+export function AppShell({ groups, showInquiries, showTenders, activeModule, onModuleChange, children }: AppShellProps) {
   const { user, logout, refresh, error } = useAuth()
   useTracking()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -201,6 +203,16 @@ export function AppShell({ groups, showTenders, activeModule, onModuleChange, ch
             <LayoutDashboard size={17} />
             Dashboard
           </button>
+          {showInquiries ? (
+            <button
+              className={activeModule === 'inquiries' ? 'active' : ''}
+              onClick={() => navigate('inquiries')}
+              type="button"
+            >
+              <PhoneCall size={17} />
+              Inquiries
+            </button>
+          ) : null}
           {showTenders ? (
             <button
               className={activeModule === 'tenders' ? 'active' : ''}

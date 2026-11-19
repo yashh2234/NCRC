@@ -38,7 +38,7 @@ class User extends Authenticatable
 
     /** Sidebar features that can be switched on per user (must match the frontend FEATURES list). */
     public const FEATURE_KEYS = [
-        'tenders', 'registrations', 'quotations', 'work_orders', 'outsource', 'reports',
+        'tenders', 'inquiries', 'registrations', 'quotations', 'work_orders', 'outsource', 'reports',
         'ulr_add', 'ulr_register', 'final_reports', 'billing', 'due_reports', 'expenses',
         'purchase_orders', 'admin',
     ];

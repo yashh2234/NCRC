@@ -19,6 +19,11 @@ const BADGE_COLORS: Record<string, string> = {
   low: '#6b7280', normal: '#3b82f6', high: '#f59e0b', urgent: '#ef4444',
 }
 
+/** Red asterisk shown after the label of every mandatory field. */
+export function Req() {
+  return <span className="req" aria-hidden="true">*</span>
+}
+
 export function StatusBadge({ status, size = 'md', color, children, priority }: StatusBadgeProps) {
   const finalColor = color ?? (priority ? BADGE_COLORS[priority] : (status ? BADGE_COLORS[status] : '#6b7280'))
   const display = children ?? (status ? status.replace(/_/g, ' ') : (priority ?? ''))
@@ -45,7 +50,7 @@ export function FormField({ label, error, children, required, style, description
   return (
     <label style={{ display: 'block', marginBottom: 14, ...style }}>
       <span style={{ display: 'block', fontWeight: 500, fontSize: '0.8rem', color: 'var(--gray-700)', marginBottom: 6 }}>
-        {label} {required ? <span style={{ color: 'var(--color-red)', marginLeft: 2 }}>*</span> : null}
+        {label}{required ? <Req /> : null}
       </span>
       {children}
       {description ? <span style={{ fontSize: '0.72rem', color: 'var(--gray-500)', marginTop: 4, display: 'block' }}>{description}</span> : null}
@@ -256,7 +261,7 @@ export function DatePicker({ value, onChange, label, required, style }: DatePick
     <div style={{ marginBottom: 14, ...style }}>
       {label ? (
         <span style={{ display: 'block', fontWeight: 500, fontSize: '0.8rem', color: 'var(--gray-700)', marginBottom: 6 }}>
-          {label} {required ? <span style={{ color: 'var(--color-red)' }}>*</span> : null}
+          {label}{required ? <Req /> : null}
         </span>
       ) : null}
       <div style={{ position: 'relative' }}>

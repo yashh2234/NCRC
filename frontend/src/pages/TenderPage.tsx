@@ -5,6 +5,8 @@ import {
   fetchTenders, nextSrNo, daysLeft, tenderUrgency, formatDate,
 } from '../lib/tenders'
 import { api } from '../lib/api'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 type TenderField = Exclude<keyof Tender, 'id' | 'srNo'>
 type ColumnKey = TenderField | 'daysLeft' | 'dates'
@@ -268,12 +270,7 @@ export function TenderPage() {
         {renderTable(pastTenders, 'No past tenders yet. Tenders marked Won, Lost or Not Participated will appear here.', 'start')}
       </section>
 
-      {datesFor ? <div onClick={() => setDatesFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div className="surface" onClick={(e) => e.stopPropagation()} style={{ width: 480, maxWidth: '100%' }}>
-          <div className="surface-heading">
-            <div><p className="section-label">{datesFor.srNo} · {datesFor.tenderId}</p><h2>Tender dates</h2></div>
-            <button type="button" className="ghost-button" onClick={() => setDatesFor(null)}>Close</button>
-          </div>
+      {datesFor ? <Modal title="Tender dates" subtitle={`${datesFor.srNo} · ${datesFor.tenderId}`} onClose={() => setDatesFor(null)} size="sm">
           <p style={{ margin: '0 0 12px', color: '#475569', fontSize: '0.85rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{datesFor.title}</p>
           <div>
             {DATE_FIELDS.map(([key, label]) => {
@@ -290,27 +287,16 @@ export function TenderPage() {
               )
             })}
           </div>
-        </div>
-      </div> : null}
+      </Modal> : null}
 
-      {titleFor ? <div onClick={() => setTitleFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div className="surface" onClick={(e) => e.stopPropagation()} style={{ width: 600, maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-          <div className="surface-heading">
-            <div><p className="section-label">{titleFor.srNo} · {titleFor.tenderId}</p><h2>Tender title / work description</h2></div>
-            <button type="button" className="ghost-button" onClick={() => setTitleFor(null)}>Close</button>
-          </div>
+      {titleFor ? <Modal title="Tender title / work description" subtitle={`${titleFor.srNo} · ${titleFor.tenderId}`} onClose={() => setTitleFor(null)} size={600}>
           <p style={{ margin: 0, color: '#1e293b', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{titleFor.title}</p>
-        </div>
-      </div> : null}
+      </Modal> : null}
 
-      {showForm ? <div onClick={() => setShowForm(false)} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <form className="surface" onClick={(e) => e.stopPropagation()} onSubmit={saveTender} style={{ width: 900, maxHeight: '90vh', overflowY: 'auto' }}>
-          <div className="surface-heading"><div><p className="section-label">Tender Tracker · {editingId !== null ? tenders.find((t) => t.id === editingId)?.srNo : nextSrNo(tenders)}</p><h2>{editingId !== null ? 'Edit tender' : 'Add tender'}</h2></div><button type="button" className="ghost-button" onClick={() => setShowForm(false)}>Close</button></div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{formFields.map(([key, label]) => <label key={key}>{label}{key.endsWith('Date') ? <input className="input" type="date" value={form[key]} onChange={(e) => update(key, e.target.value)} /> : key === 'eligibility' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></select> : key === 'decision' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></select> : key === 'submissionStatus' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Not Started</option><option>In Progress</option><option>Submitted</option><option>Won</option><option>Lost</option><option>Not Participated</option></select> : <input className="input" required={key === 'tenderId' || key === 'title'} value={form[key]} onChange={(e) => update(key, e.target.value)} />}</label>)}</div>
+      {showForm ? <Modal title={editingId !== null ? 'Edit tender' : 'Add tender'} subtitle={`Tender Tracker · ${editingId !== null ? tenders.find((t) => t.id === editingId)?.srNo ?? '' : nextSrNo(tenders)}`} onClose={() => setShowForm(false)} size="lg" onSubmit={saveTender} saving={saving} saveLabel={editingId !== null ? 'Update tender' : 'Save tender'}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{formFields.map(([key, label]) => <label key={key}><span>{label}{key === 'tenderId' || key === 'title' ? <Req /> : null}</span>{key.endsWith('Date') ? <input className="input" type="date" value={form[key]} onChange={(e) => update(key, e.target.value)} /> : key === 'eligibility' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></select> : key === 'decision' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></select> : key === 'submissionStatus' ? <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Not Started</option><option>In Progress</option><option>Submitted</option><option>Won</option><option>Lost</option><option>Not Participated</option></select> : <input className="input" required={key === 'tenderId' || key === 'title'} value={form[key]} onChange={(e) => update(key, e.target.value)} />}</label>)}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}><label>Tender Link<input className="input" type="url" value={form.tenderLink} onChange={(e) => update('tenderLink', e.target.value)} /></label><label>Tender Document Drive Link<input className="input" type="url" value={form.driveLink} onChange={(e) => update('driveLink', e.target.value)} /></label></div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }} disabled={saving}>{saving ? 'Saving…' : editingId !== null ? 'Update tender' : 'Save tender'}</button>
-        </form>
-      </div> : null}
+      </Modal> : null}
     </div>
   )
 }

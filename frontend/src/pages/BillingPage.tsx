@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { IndianRupee, Clock, MessageSquare, Send, Plus, Pencil, Trash2, X, Printer } from 'lucide-react'
+import { IndianRupee, Clock, MessageSquare, Send, Plus, Pencil, Trash2, Printer } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatDisplayDate } from '../lib/utils'
 import { DataTable } from '../components/DataTable'
 import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge'
 import type { BillingItem, BillingRecord, SmsLogEntry } from '../lib/types'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 type Tab = 'all' | 'due' | 'due_attached' | 'not_updated' | 'sms'
 
@@ -706,37 +708,22 @@ export function BillingPage() {
       )}
 
       {showBillingForm ? (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <form className="surface" onSubmit={handleBillingSubmit} style={{
-            width: 'min(90vw, 600px)', maxHeight: '90vh', overflowY: 'auto',
-          }}>
-            <div className="surface-heading">
-              <div>
-                <p className="section-label">{editingBillingId ? 'Update' : 'Create'}</p>
-                <h2>{editingBillingId ? 'Edit Billing' : 'New Billing Entry'}</h2>
-              </div>
-              <button className="icon-button" onClick={() => { setShowBillingForm(false); setEditingBillingId(null) }} type="button">
-                <X size={18} />
-              </button>
-            </div>
+        <Modal title={editingBillingId ? 'Edit Billing' : 'New Billing Entry'} subtitle={editingBillingId ? 'Update' : 'Create'} onClose={() => { setShowBillingForm(false); setEditingBillingId(null) }} size={600} onSubmit={handleBillingSubmit} saveLabel={editingBillingId ? 'Update' : 'Create'}>
 
             <div className="field-row">
               <label>
-                UID No
+                <span>UID No<Req /></span>
                 <input value={billingForm.uid_no} onChange={(e) => setBillingForm({ ...billingForm, uid_no: e.target.value })} required />
               </label>
               <label>
-                Bill No
+                <span>Bill No<Req /></span>
                 <input value={billingForm.bill_no} onChange={(e) => setBillingForm({ ...billingForm, bill_no: e.target.value })} required />
               </label>
             </div>
 
             <div className="field-row">
               <label>
-                Bill Amount
+                <span>Bill Amount<Req /></span>
                 <input type="number" step="0.01" value={billingForm.bill_amount} onChange={(e) => setBillingForm({ ...billingForm, bill_amount: e.target.value })} required />
               </label>
               <label>
@@ -783,31 +770,11 @@ export function BillingPage() {
               <textarea value={billingForm.remark} onChange={(e) => setBillingForm({ ...billingForm, remark: e.target.value })} rows={2} />
             </label>
 
-            <div className="form-actions" style={{ marginTop: 16 }}>
-              <button className="ghost-button" onClick={() => { setShowBillingForm(false); setEditingBillingId(null) }} type="button">Cancel</button>
-              <button type="submit">{editingBillingId ? 'Update' : 'Create'}</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
 
       {showRegForm ? (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <form className="surface" onSubmit={handleRegSubmit} style={{
-            width: 'min(90vw, 500px)', maxHeight: '90vh', overflowY: 'auto',
-          }}>
-            <div className="surface-heading">
-              <div>
-                <p className="section-label">Update</p>
-                <h2>Edit Registration Billing</h2>
-              </div>
-              <button className="icon-button" onClick={() => { setShowRegForm(false); setEditingRegId(null) }} type="button">
-                <X size={18} />
-              </button>
-            </div>
+        <Modal title="Edit Registration Billing" subtitle="Update" onClose={() => { setShowRegForm(false); setEditingRegId(null) }} size="sm" onSubmit={handleRegSubmit} saveLabel="Update">
 
             <div className="field-row">
               <label>
@@ -841,12 +808,7 @@ export function BillingPage() {
               <textarea value={regForm.financial_remark} onChange={(e) => setRegForm({ ...regForm, financial_remark: e.target.value })} rows={2} />
             </label>
 
-            <div className="form-actions" style={{ marginTop: 16 }}>
-              <button className="ghost-button" onClick={() => { setShowRegForm(false); setEditingRegId(null) }} type="button">Cancel</button>
-              <button type="submit">Update</button>
-            </div>
-          </form>
-        </div>
+        </Modal>
       ) : null}
     </div>
   )

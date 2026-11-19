@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 type WorkOrderOption = {
   id: number;
@@ -242,12 +244,10 @@ export default function OutsourcePage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editing ? 'Edit Assignment' : 'New Outsource Assignment'}</h2>
+        <Modal title={editing ? 'Edit Assignment' : 'New Outsource Assignment'} onClose={() => setShowModal(false)} onSave={handleSave} saveLabel={editing ? 'Update' : 'Create'}>
             <div className="form-grid">
               <div className="form-group">
-                <label>Work Order *</label>
+                <label><span>Work Order<Req /></span></label>
                 <select className="form-input" value={form.work_order_id}
                   onChange={(e) => setForm({ ...form, work_order_id: parseInt(e.target.value) || 0 })}>
                   <option value={0}>-- Select Work Order --</option>
@@ -259,7 +259,7 @@ export default function OutsourcePage() {
                 </select>
               </div>
               <div className="form-group">
-                <label>Party Name *</label>
+                <label><span>Party Name<Req /></span></label>
                 <input className="form-input" value={form.party_name}
                   onChange={(e) => setForm({ ...form, party_name: e.target.value })} />
               </div>
@@ -274,7 +274,7 @@ export default function OutsourcePage() {
                   onChange={(e) => setForm({ ...form, party_email: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Agreed Amount *</label>
+                <label><span>Agreed Amount<Req /></span></label>
                 <input className="form-input" type="number" value={form.agreed_amount}
                   onChange={(e) => setForm({ ...form, agreed_amount: parseFloat(e.target.value) || 0 })} />
               </div>
@@ -299,14 +299,7 @@ export default function OutsourcePage() {
                   onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                {editing ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

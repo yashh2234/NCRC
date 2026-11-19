@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { UserPlus, UserCog, Trash2, X, Activity, Clock } from 'lucide-react'
+import { UserPlus, UserCog, Trash2, Activity, Clock } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { DataTable } from '../components/DataTable'
 import type { UserFormData, UserRecord } from '../lib/types'
 import { api } from '../lib/api'
 import { FEATURES, JOB_ROLES, defaultFeaturesForRole } from '../lib/roleConfig'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 const emptyUserForm: UserFormData = {
   username: '', email: '', password: '', password_confirmation: '',
@@ -140,13 +142,7 @@ export function UsersPage() {
       </div>
 
       {activityUser && (
-        <div className="modal-overlay" onClick={() => setActivityUser(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
-            <button className="modal-close" onClick={() => setActivityUser(null)} type="button"><X size={20} /></button>
-            <div style={{ marginBottom: 18 }}>
-              <p className="section-label">User activity</p>
-              <h2>{activityUser.name || activityUser.username}</h2>
-            </div>
+        <Modal title={activityUser.name || activityUser.username} subtitle="User activity" onClose={() => setActivityUser(null)} size={560}>
             {activityLoading ? <p className="empty-state">Loading activity...</p> : activities.length === 0 ? <p className="empty-state">No activity recorded.</p> : (
               <div className="session-stack" style={{ maxHeight: 420, overflowY: 'auto' }}>
                 {activities.map((entry) => (
@@ -160,26 +156,18 @@ export function UsersPage() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowForm(false)} type="button"><X size={20} /></button>
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 20 }}>
-                <p className="section-label">{editingId ? 'Update' : 'Create'}</p>
-                <h2>{editingId ? 'Edit user' : 'New user'}</h2>
-              </div>
+        <Modal title={editingId ? 'Edit user' : 'New user'} subtitle={editingId ? 'Update' : 'Create'} onClose={() => setShowForm(false)} onSubmit={handleSubmit} saveLabel={editingId ? 'Update User' : 'Create User'}>
               <div className="form-grid-2">
-                <label className="form-field"><span>Username</span><input value={form.username} onChange={(e) => setForm((c) => ({ ...c, username: e.target.value }))} /></label>
-                <label className="form-field"><span>Email</span><input type="email" value={form.email} onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))} /></label>
-                <label className="form-field"><span>First name</span><input value={form.firstname} onChange={(e) => setForm((c) => ({ ...c, firstname: e.target.value }))} /></label>
+                <label className="form-field"><span>Username<Req /></span><input value={form.username} onChange={(e) => setForm((c) => ({ ...c, username: e.target.value }))} /></label>
+                <label className="form-field"><span>Email<Req /></span><input type="email" value={form.email} onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))} /></label>
+                <label className="form-field"><span>First name<Req /></span><input value={form.firstname} onChange={(e) => setForm((c) => ({ ...c, firstname: e.target.value }))} /></label>
                 <label className="form-field"><span>Last name</span><input value={form.lastname} onChange={(e) => setForm((c) => ({ ...c, lastname: e.target.value }))} /></label>
                 <label className="form-field"><span>Phone</span><input value={form.phone} onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))} /></label>
-                <label className="form-field"><span>Gender</span>
+                <label className="form-field"><span>Gender<Req /></span>
                   <select value={form.gender} onChange={(e) => setForm((c) => ({ ...c, gender: e.target.value }))}><option value="1">Male</option><option value="2">Female</option></select>
                 </label>
               </div>
@@ -232,21 +220,15 @@ export function UsersPage() {
                 Active
               </label>
               <div className="form-grid-2" style={{ marginTop: 12 }}>
-                <label className="form-field"><span>Password</span>
+                <label className="form-field"><span>Password{editingId ? null : <Req />}</span>
                   <input type="password" value={form.password} onChange={(e) => setForm((c) => ({ ...c, password: e.target.value }))} placeholder={editingId ? 'Leave blank to keep' : 'Enter password'} />
                 </label>
-                <label className="form-field"><span>Confirm password</span>
+                <label className="form-field"><span>Confirm password{editingId ? null : <Req />}</span>
                   <input type="password" value={form.password_confirmation} onChange={(e) => setForm((c) => ({ ...c, password_confirmation: e.target.value }))} />
                 </label>
               </div>
               {displayError && <div className="error-banner" style={{ marginTop: 12 }}>{displayError}</div>}
-              <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button className="btn btn-outline" onClick={() => setShowForm(false)} type="button">Cancel</button>
-                <button type="submit" className="btn btn-primary">{editingId ? 'Update User' : 'Create User'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   )

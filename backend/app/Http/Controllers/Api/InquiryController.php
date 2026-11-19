@@ -4,175 +4,221 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inquiry;
-use App\Models\Jobs;
-use App\Models\WorkflowTemplate;
-use App\Models\WorkflowStage;
-use App\Services\WorkflowEngine;
+use App\Models\InquiryActivity;
+use App\Models\Notification;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
+/**
+ * Inquiry menu: client leads that are called, followed up and handed over between users.
+ * Every status change / handover is written to inquiry_activities as the call log.
+ */
 class InquiryController extends Controller
 {
-    protected WorkflowEngine $workflowEngine;
-
-    public function __construct(WorkflowEngine $workflowEngine)
+    public function index(): JsonResponse
     {
-        $this->workflowEngine = $workflowEngine;
+        $inquiries = Inquiry::with(['assignedUser', 'createdByUser'])
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (Inquiry $inquiry): array => $this->present($inquiry));
+
+        return response()->json(['data' => $inquiries]);
     }
 
-    public function index(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        $query = Inquiry::with(['assignedUser', 'createdByUser']);
+        $validated = $this->validateInquiry($request);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-        if ($request->filled('inquiry_type')) {
-            $query->where('inquiry_type', $request->inquiry_type);
-        }
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('inquiry_no', 'like', "%{$search}%")
-                  ->orWhere('client_name', 'like', "%{$search}%")
-                  ->orWhere('agency_name', 'like', "%{$search}%")
-                  ->orWhere('contact_person', 'like', "%{$search}%")
-                  ->orWhere('mobile_no', 'like', "%{$search}%");
-            });
-        }
-        if ($request->filled('date_from')) {
-            $query->where('received_date', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $query->where('received_date', '<=', $request->date_to);
-        }
-
-        $inquiries = $query->orderByDesc('id')->paginate($request->get('per_page', 25));
-        return response()->json($inquiries);
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'client_name' => 'required|string|max:222',
-            'agency_name' => 'nullable|string|max:222',
-            'contact_person' => 'nullable|string|max:222',
-            'mobile_no' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:222',
-            'inquiry_type' => 'required|in:letter,email,phone,walk_in,reference',
-            'scope_of_work' => 'nullable|string',
-            'source_location' => 'nullable|string|max:222',
-            'priority' => 'required|in:low,normal,high,urgent',
-            'notes' => 'nullable|string',
-            'received_date' => 'required|date',
-            'assigned_to' => 'nullable|integer',
+        $inquiry = Inquiry::create([
+            ...$this->toColumns($validated),
+            'inquiry_no' => Inquiry::generateInquiryNo(),
+            'status' => $validated['status'] ?? 'new',
+            'inquiry_type' => 'phone',
+            'priority' => 'normal',
+            'received_date' => now()->toDateString(),
+            'created_by' => auth()->id(),
         ]);
 
-        $validated['inquiry_no'] = Inquiry::generateInquiryNo();
-        $validated['status'] = 'new';
-        $validated['created_by'] = auth()->id();
+        $this->log($inquiry, [
+            'status' => $inquiry->status,
+            'assigned_to' => $inquiry->assigned_to,
+            'next_follow_up' => $inquiry->next_follow_up,
+            'remark' => 'Inquiry created',
+        ]);
+        $this->notifyHandover($inquiry);
 
-        $inquiry = Inquiry::create($validated);
-
-        // Create a linked job at Inquiry stage
-        $this->createJobFromInquiry($inquiry, $request);
-
-        return response()->json($inquiry->load(['assignedUser', 'createdByUser']), 201);
+        return response()->json(['data' => $this->present($inquiry->load(['assignedUser', 'createdByUser']))], 201);
     }
 
-    public function show(Inquiry $inquiry)
+    public function show(Inquiry $inquiry): JsonResponse
     {
-        return response()->json($inquiry->load([
-            'quotations', 'workOrders', 'assignedUser', 'createdByUser',
-        ]));
+        $inquiry->load(['assignedUser', 'createdByUser', 'activities.user', 'activities.assignedUser']);
+
+        return response()->json(['data' => $this->present($inquiry, true)]);
     }
 
-    public function update(Request $request, Inquiry $inquiry)
+    public function update(Request $request, Inquiry $inquiry): JsonResponse
+    {
+        $validated = $this->validateInquiry($request);
+        $before = $inquiry->only(['status', 'assigned_to']);
+
+        $inquiry->update($this->toColumns($validated) + (isset($validated['status']) ? ['status' => $validated['status']] : []));
+
+        $statusChanged = $before['status'] !== $inquiry->status;
+        $handedOver = (int) $before['assigned_to'] !== (int) $inquiry->assigned_to;
+        if ($statusChanged || $handedOver) {
+            $this->log($inquiry, [
+                'status' => $statusChanged ? $inquiry->status : null,
+                'assigned_to' => $handedOver ? $inquiry->assigned_to : null,
+                'remark' => 'Details edited',
+            ]);
+        }
+        if ($handedOver) {
+            $this->notifyHandover($inquiry);
+        }
+
+        return response()->json(['data' => $this->present($inquiry->load(['assignedUser', 'createdByUser']))]);
+    }
+
+    /** Log a call: new status, remark, next follow-up date and optional handover in one step. */
+    public function logActivity(Request $request, Inquiry $inquiry): JsonResponse
     {
         $validated = $request->validate([
-            'client_name' => 'sometimes|string|max:222',
-            'agency_name' => 'nullable|string|max:222',
-            'contact_person' => 'nullable|string|max:222',
-            'mobile_no' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:222',
-            'inquiry_type' => 'sometimes|in:letter,email,phone,walk_in,reference',
-            'scope_of_work' => 'nullable|string',
-            'source_location' => 'nullable|string|max:222',
-            'priority' => 'sometimes|in:low,normal,high,urgent',
-            'status' => 'sometimes|in:new,contacted,quoted,converted,cancelled',
-            'notes' => 'nullable|string',
-            'received_date' => 'sometimes|date',
-            'contacted_at' => 'nullable|date',
-            'assigned_to' => 'nullable|integer',
+            'status' => ['required', Rule::in(Inquiry::STATUSES)],
+            'remark' => 'nullable|string|max:2000',
+            'next_follow_up' => 'nullable|date',
+            'assigned_to' => 'nullable|integer|exists:users,id',
         ]);
 
-        $inquiry->update($validated);
+        $handedOver = array_key_exists('assigned_to', $validated)
+            && (int) $validated['assigned_to'] !== (int) $inquiry->assigned_to;
 
-        return response()->json($inquiry->load(['assignedUser', 'createdByUser']));
+        $inquiry->update([
+            'status' => $validated['status'],
+            'next_follow_up' => $validated['next_follow_up'] ?? null,
+            'contacted_at' => $validated['status'] === 'new' ? $inquiry->contacted_at : now(),
+            ...($handedOver ? ['assigned_to' => $validated['assigned_to']] : []),
+        ]);
+
+        $this->log($inquiry, [
+            'status' => $validated['status'],
+            'assigned_to' => $handedOver ? $inquiry->assigned_to : null,
+            'next_follow_up' => $validated['next_follow_up'] ?? null,
+            'remark' => $validated['remark'] ?? null,
+        ]);
+        if ($handedOver) {
+            $this->notifyHandover($inquiry);
+        }
+
+        return $this->show($inquiry->fresh());
     }
 
-    public function destroy(Inquiry $inquiry)
+    public function destroy(Inquiry $inquiry): JsonResponse
     {
+        InquiryActivity::where('inquiry_id', $inquiry->id)->delete();
         $inquiry->delete();
+
         return response()->json(['message' => 'Inquiry deleted']);
     }
 
-    public function convertToQuotation(Inquiry $inquiry)
+    private function validateInquiry(Request $request): array
     {
-        $inquiry->update(['status' => 'quoted']);
-
-        // Move linked job to Quotation stage
-        $job = Jobs::where('uid_no', $inquiry->inquiry_no)->first();
-        if ($job) {
-            $quotationStage = WorkflowStage::whereHas('template', fn ($q) => $q->where('slug', 'standard-lab-workflow'))
-                ->where('slug', 'quotation')->first();
-            if ($quotationStage && $quotationStage->id !== $job->current_stage_id) {
-                $transition = \App\Models\WorkflowTransition::where('template_id', $job->workflow_template_id)
-                    ->where('from_stage_id', $job->current_stage_id)
-                    ->where('to_stage_id', $quotationStage->id)
-                    ->first();
-                if ($transition) {
-                    $this->workflowEngine->transition($job, $transition, auth()->user(), 'Converted from inquiry');
-                }
-            }
-        }
-
-        return response()->json($inquiry->fresh());
+        return $request->validate([
+            'client_name' => 'required|string|max:222',
+            'mobile_no' => 'nullable|string|max:50',
+            'location' => 'nullable|string|max:222',
+            'budget' => 'nullable|string|max:100',
+            'work_categories' => 'nullable|array',
+            'work_categories.*' => 'string|max:100',
+            'notes' => 'nullable|string',
+            'assigned_to' => 'nullable|integer|exists:users,id',
+            'status' => ['nullable', Rule::in(Inquiry::STATUSES)],
+            'next_follow_up' => 'nullable|date',
+        ]);
     }
 
-    protected function createJobFromInquiry(Inquiry $inquiry, Request $request): void
+    /** Map request fields to table columns (location is stored in source_location). */
+    private function toColumns(array $validated): array
     {
-        $template = WorkflowTemplate::where('is_active', true)->first();
-        if (!$template) return;
+        return [
+            'client_name' => trim($validated['client_name']),
+            'mobile_no' => $validated['mobile_no'] ?? null,
+            'source_location' => $validated['location'] ?? null,
+            'budget' => $validated['budget'] ?? null,
+            'work_categories' => array_values(array_unique($validated['work_categories'] ?? [])),
+            'notes' => $validated['notes'] ?? null,
+            'assigned_to' => $validated['assigned_to'] ?? null,
+            'next_follow_up' => $validated['next_follow_up'] ?? null,
+        ];
+    }
 
-        $existingJob = Jobs::where('uid_no', $inquiry->inquiry_no)->first();
-        if ($existingJob) return;
-
-        $job = Jobs::create([
-            'uid_no' => $inquiry->inquiry_no,
-            'title' => $inquiry->client_name . ($inquiry->scope_of_work ? ' - ' . $inquiry->scope_of_work : ''),
-            'description' => $inquiry->notes,
-            'priority' => $inquiry->priority,
-            'workflow_template_id' => $template->id,
-            'assigned_to' => $inquiry->assigned_to,
-            'created_by' => auth()->id(),
-            'status' => 'pending',
+    private function log(Inquiry $inquiry, array $values): void
+    {
+        InquiryActivity::create([
+            'inquiry_id' => $inquiry->id,
+            'user_id' => auth()->id(),
+            ...$values,
+            'created_at' => now(),
         ]);
+    }
 
-        // Move through stages to reach Inquiry
-        $inquiryStage = WorkflowStage::where('template_id', $template->id)
-            ->where('slug', 'inquiry')->first();
-        if ($inquiryStage) {
-            $this->workflowEngine->startJob($job, auth()->user());
-
-            if ($job->current_stage_id !== $inquiryStage->id) {
-                $transition = \App\Models\WorkflowTransition::where('template_id', $template->id)
-                    ->where('from_stage_id', $job->current_stage_id)
-                    ->where('to_stage_id', $inquiryStage->id)
-                    ->first();
-                if ($transition) {
-                    $this->workflowEngine->transition($job, $transition, auth()->user(), 'Inquiry created');
-                }
-            }
+    private function notifyHandover(Inquiry $inquiry): void
+    {
+        if (!$inquiry->assigned_to || (int) $inquiry->assigned_to === (int) auth()->id()) {
+            return;
         }
+
+        $from = auth()->user()?->name ?: 'A user';
+        Notification::create([
+            'user_id' => $inquiry->assigned_to,
+            'type' => 'inquiry_handover',
+            'title' => "Inquiry {$inquiry->inquiry_no} handed over to you",
+            'message' => "{$from} handed over the inquiry from {$inquiry->client_name}"
+                .($inquiry->mobile_no ? " ({$inquiry->mobile_no})" : '').'.',
+            'data' => ['inquiry_id' => $inquiry->id],
+        ]);
+    }
+
+    private function present(Inquiry $inquiry, bool $withActivities = false): array
+    {
+        $data = [
+            'id' => $inquiry->id,
+            'inquiry_no' => $inquiry->inquiry_no,
+            'client_name' => $inquiry->client_name,
+            'mobile_no' => $inquiry->mobile_no ?? '',
+            'location' => $inquiry->source_location ?? '',
+            'budget' => $inquiry->budget ?? '',
+            'work_categories' => $inquiry->work_categories ?? [],
+            'notes' => $inquiry->notes ?? '',
+            'status' => in_array($inquiry->status, Inquiry::STATUSES, true) ? $inquiry->status : 'new',
+            'next_follow_up' => $inquiry->next_follow_up?->toDateString(),
+            'received_date' => $inquiry->received_date?->toDateString(),
+            'assigned_to' => $inquiry->assigned_to,
+            'assigned_to_name' => $this->userName($inquiry->assignedUser),
+            'created_by_name' => $this->userName($inquiry->createdByUser),
+            'created_at' => $inquiry->created_at?->toIso8601String(),
+            'updated_at' => $inquiry->updated_at?->toIso8601String(),
+        ];
+
+        if ($withActivities) {
+            $data['activities'] = $inquiry->activities->map(fn (InquiryActivity $activity): array => [
+                'id' => $activity->id,
+                'status' => $activity->status,
+                'remark' => $activity->remark,
+                'next_follow_up' => $activity->next_follow_up?->toDateString(),
+                'assigned_to_name' => $this->userName($activity->assignedUser),
+                'user_name' => $this->userName($activity->user),
+                'created_at' => $activity->created_at?->toIso8601String(),
+            ])->values();
+        }
+
+        return $data;
+    }
+
+    private function userName(?User $user): ?string
+    {
+        return $user ? ($user->name ?: null) : null;
     }
 }

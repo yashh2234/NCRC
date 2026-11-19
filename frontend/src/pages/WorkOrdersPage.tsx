@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
+import { Req } from '../components/ui'
+import { Modal } from '../components/Modal'
 
 type Registration = {
   iClientId?: number;
@@ -241,9 +243,7 @@ export default function WorkOrdersPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editing ? 'Edit Work Order' : 'New Work Order'}</h2>
+        <Modal title={editing ? 'Edit Work Order' : 'New Work Order'} onClose={() => setShowModal(false)} onSave={handleSave} saveLabel={editing ? 'Update' : 'Create'}>
             <div className="form-grid">
               <div className="form-group" style={{ gridColumn: '1 / -1', position: 'relative' }}>
                 <label>Link to UID (optional)</label>
@@ -296,7 +296,7 @@ export default function WorkOrdersPage() {
                 )}
               </div>
               <div className="form-group">
-                <label>Client Name *</label>
+                <label><span>Client Name<Req /></span></label>
                 <input className="form-input" value={form.client_name}
                   onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
               </div>
@@ -354,14 +354,7 @@ export default function WorkOrdersPage() {
                   onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                {editing ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

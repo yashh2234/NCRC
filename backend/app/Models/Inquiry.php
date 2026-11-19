@@ -13,13 +13,26 @@ class Inquiry extends Model
     protected $fillable = [
         'inquiry_no', 'client_name', 'agency_name', 'contact_person',
         'mobile_no', 'email', 'inquiry_type', 'scope_of_work',
-        'source_location', 'priority', 'status', 'notes',
-        'received_date', 'contacted_at', 'assigned_to', 'created_by',
+        'source_location', 'budget', 'work_categories', 'priority', 'status', 'notes',
+        'received_date', 'contacted_at', 'next_follow_up', 'assigned_to', 'created_by',
+    ];
+
+    /** Call pipeline, in order. Keep in sync with INQUIRY_STATUSES in frontend/src/lib/inquiries.ts. */
+    public const STATUSES = [
+        'new', 'no_answer', 'interested', 'follow_up', 'quotation_sent', 'won', 'lost',
     ];
 
     protected $casts = [
         'contacted_at' => 'datetime',
+        'work_categories' => 'array',
+        'received_date' => 'date:Y-m-d',
+        'next_follow_up' => 'date:Y-m-d',
     ];
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(InquiryActivity::class)->orderByDesc('id');
+    }
 
     public function quotations(): HasMany
     {

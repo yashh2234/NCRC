@@ -18,6 +18,7 @@ import WorkOrdersPage from './pages/WorkOrdersPage'
 import OutsourcePage from './pages/OutsourcePage'
 import { JobTypesPage } from './pages/JobTypesPage'
 import { TenderPage } from './pages/TenderPage'
+import { InquiriesPage } from './pages/InquiriesPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
 import { useState, useMemo } from 'react'
@@ -134,6 +135,7 @@ function AuthenticatedApp() {
   return (
     <AppShell
       groups={groups}
+      showInquiries={canUserAccess(user, 'inquiries')}
       showTenders={canUserAccess(user, 'tenders')}
       activeModule={activeModule}
       onModuleChange={handleModuleChange}
@@ -161,6 +163,9 @@ function AuthenticatedApp() {
       </div>
       <div className={`view ${activeModule === 'work_orders' ? 'visible' : ''}`}>
         {activeModule === 'work_orders' && <WorkOrdersPage />}
+      </div>
+      <div className={`view ${activeModule === 'inquiries' ? 'visible' : ''}`}>
+        {activeModule === 'inquiries' && <InquiriesPage />}
       </div>
       <div className={`view ${activeModule === 'registrations' ? 'visible' : ''}`}>
         {activeModule === 'registrations' && <RegistrationsPage />}

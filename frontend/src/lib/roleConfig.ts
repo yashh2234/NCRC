@@ -40,7 +40,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ede9fe',
     description: 'Full access to all modules and all dashboard data',
     allowedModules: [
-      'dashboard', 'tenders', 'jobs', 'registrations', 'quotations', 'work_orders', 'outsource',
+      'dashboard', 'tenders', 'jobs', 'inquiries', 'registrations', 'quotations', 'work_orders', 'outsource',
       'reports', 'ulr_add', 'ulr_register', 'ulr_links', 'final_reports', 'billing', 'due_reports',
       'admin', 'users', 'user_tracking', 'expenses', 'purchase_orders',
       'lab', 'documents', 'roles', 'permissions', 'settings', 'analytics',
@@ -59,7 +59,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ecfeff',
     description: 'Stages 1 (Registered) & 6 (Report Dispatched) — Job intake, UID generation, dispatch',
     allowedModules: [
-      'dashboard', 'tenders', 'jobs', 'registrations', 'quotations', 'work_orders',
+      'dashboard', 'tenders', 'jobs', 'inquiries', 'registrations', 'quotations', 'work_orders',
       'billing', 'clients', 'due_reports', 'help_guide',
     ],
     dashboardWidgets: [
@@ -117,7 +117,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#fef2f2',
     description: 'Stage 7 (Payment Pending) — Payment follow-up, financial oversight',
     allowedModules: [
-      'dashboard', 'tenders', 'jobs', 'registrations', 'billing', 'expenses',
+      'dashboard', 'tenders', 'jobs', 'inquiries', 'registrations', 'billing', 'expenses',
       'purchase_orders', 'clients', 'analytics', 'due_reports', 'quotations',
       'work_orders', 'help_guide',
     ],
@@ -163,6 +163,7 @@ export function isModuleAllowed(role: TrackerRole, moduleKey: string): boolean {
 /** Features an admin can switch on per user in Manage Users (keys must match backend User::FEATURE_KEYS). */
 export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'tenders', label: 'Tenders', group: 'General' },
+  { key: 'inquiries', label: 'Inquiries', group: 'Clients' },
   { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
   { key: 'quotations', label: 'Quotations', group: 'Clients' },
   { key: 'work_orders', label: 'Work Orders', group: 'Clients' },

@@ -348,7 +348,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('{inquiry}', [InquiryController::class, 'show']);
         Route::put('{inquiry}', [InquiryController::class, 'update']);
         Route::delete('{inquiry}', [InquiryController::class, 'destroy']);
-        Route::post('{inquiry}/convert', [InquiryController::class, 'convertToQuotation']);
+        Route::post('{inquiry}/activities', [InquiryController::class, 'logActivity']);
     });
 
     Route::prefix('quotations')->group(function (): void {
