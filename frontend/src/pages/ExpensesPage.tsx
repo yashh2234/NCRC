@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Plus, Pencil, Trash2, Calendar, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 import { Req } from '../components/ui'
@@ -37,7 +38,6 @@ export function ExpensesPage() {
   const [localError, setLocalError] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -46,13 +46,12 @@ export function ExpensesPage() {
       const params: Record<string, string> = {}
       if (startDate) params.start_date = startDate
       if (endDate) params.end_date = endDate
-      if (categoryFilter) params.category = categoryFilter
       const qs = new URLSearchParams(params).toString()
       const data = await request<{ data: ExpenseItem[]; summary: ExpenseSummary }>(`/expenses${qs ? '?' + qs : ''}`)
       setItems(data.data); setSummary(data.summary)
     } catch { setLocalError('Unable to load expenses') }
     finally { setLoading(false) }
-  }, [startDate, endDate, categoryFilter])
+  }, [startDate, endDate])
 
   useEffect(() => { void load() }, [load])
 
@@ -102,28 +101,10 @@ export function ExpensesPage() {
 
       </div>
 
-      <div className="filter-bar">
-        <div className="date-filter" style={{ marginRight: 'auto' }}>
-          <Calendar size={28} />
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          <span>to</span>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="">All Categories</option>
-            {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-                <div className="page-actions">
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true) }} type="button"><Plus size={16} /> Add Entry</button>
-          <button className="btn btn-outline" onClick={handleExport} type="button"><Download size={16} /> Export</button>
-        </div>
-      </div>
-
       {localError && <div className="error-banner">{localError}</div>}
 
-      <div className="table-card">
-        {loading ? <p className="empty-state">Loading...</p> : (
-          <DataTable
+      <DataTable
+            filename="expenses"
             columns={[
               { key: 'date', label: 'Date' }, { key: 'category', label: 'Category' },
               { key: 'income', label: 'Income' }, { key: 'expenses', label: 'Expenses' },
@@ -131,7 +112,7 @@ export function ExpensesPage() {
               { key: 'person', label: 'Person' }, { key: 'remark', label: 'Remark' },
               { key: 'actions', label: '', sortable: false },
             ]}
-            rows={items.map((item) => ({
+            rows={loading ? [] : items.map((item) => ({
               date: <span className="mono">{item.date}</span>,
               category: item.category,
               income: <span className="mono">{money(item.total_income)}</span>,
@@ -145,9 +126,21 @@ export function ExpensesPage() {
                 <button className="icon-btn" onClick={() => void handleDelete(item.id)} type="button" title="Delete"><Trash2 size={15} /></button>
               </div>,
             }))}
+            exportable={false}
+            showCount={false}
+            emptyText={loading ? 'Loading...' : 'No records found.'}
+            toolbarTop={
+              <>
+                <div className="dt-toolbar__start">
+                  <DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />
+                </div>
+                <div className="dt-toolbar__meta">
+                  <button className="btn btn-outline btn-sm" onClick={handleExport} type="button" style={{ minWidth: 132, justifyContent: 'center' }}><Download size={14} /> Export</button>
+                </div>
+              </>
+            }
+            toolbarEnd={<button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowForm(true) }} type="button" style={{ minWidth: 132, justifyContent: 'center' }}><Plus size={14} /> Add Entry</button>}
           />
-        )}
-      </div>
 
       {showForm && (
         <Modal title={editingId ? 'Edit expense' : 'New expense entry'} subtitle={editingId ? 'Update' : 'Record'} onClose={() => { setShowForm(false); resetForm() }} onSubmit={handleSubmit} saveLabel={editingId ? 'Update' : 'Save'}>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Pencil, Trash2, Search } from 'lucide-react';
 import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
 import { Req } from '../components/ui'
@@ -163,21 +164,27 @@ export default function WorkOrdersPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <button className="btn btn-primary" onClick={openCreate}>+ New Work Order</button>
-      </div>
 
-      <div className="filters-bar">
-        <input type="text" className="form-input" placeholder="Search work orders..." value={search}
-          onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-        <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+      {/* Search, status and New in one box */}
+      <div className="dt-toolbar dt-toolbar--box" style={{ marginBottom: 16 }}>
+        <div className="dt-toolbar__start">
+          <div className="search-field dt-search">
+            <Search size={15} />
+            <input type="search" placeholder="Search work orders..." value={search} aria-label="Search work orders"
+              onChange={(e) => setSearch(e.target.value)} />
+          </div>
+            <select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+        </div>
+        <div className="dt-toolbar__meta">
+          <button className="btn btn-primary btn-sm" type="button" onClick={openCreate}>+ New Work Order</button>
+        </div>
       </div>
 
       <div className="table-container">
@@ -220,9 +227,9 @@ export default function WorkOrdersPage() {
                   </span>
                 </td>
                 <td>{wo.due_date || '-'}</td>
-                <td>
-                  <button className="btn btn-sm" onClick={() => openEdit(wo)}>Edit</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(wo.id)}>Del</button>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className="icon-button" type="button" title="Edit" aria-label="Edit" onClick={() => openEdit(wo)}><Pencil size={16} /></button>
+                  <button className="icon-button" type="button" title="Delete" aria-label="Delete" onClick={() => handleDelete(wo.id)}><Trash2 size={16} /></button>
                   {wo.status === 'draft' && (
                     <button className="btn btn-sm" style={softTone('#2196f3')}
                       onClick={() => handleStatusChange(wo.id, 'active')}>Activate</button>
@@ -230,10 +237,6 @@ export default function WorkOrdersPage() {
                   {wo.status === 'active' && (
                     <button className="btn btn-sm" style={softTone('#ff9800')}
                       onClick={() => handleStatusChange(wo.id, 'in_progress')}>Start</button>
-                  )}
-                  {wo.status === 'in_progress' && (
-                    <button className="btn btn-sm" style={softTone('#4caf50')}
-                      onClick={() => handleStatusChange(wo.id, 'completed')}>Complete</button>
                   )}
                 </td>
               </tr>
@@ -312,8 +315,8 @@ export default function WorkOrdersPage() {
               </div>
               <div className="form-group">
                 <label>Mobile No</label>
-                <input className="form-input" value={form.mobile_no}
-                  onChange={(e) => setForm({ ...form, mobile_no: e.target.value })} />
+                <input className="form-input" inputMode="numeric" value={form.mobile_no}
+                  onChange={(e) => setForm({ ...form, mobile_no: e.target.value.replace(/\D/g, '') })} />
               </div>
               <div className="form-group">
                 <label>Due Date</label>

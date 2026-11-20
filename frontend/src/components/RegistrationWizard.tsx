@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ClipboardList, ArrowLeft, ArrowRight, Save, Plus, X, Building2,
   FlaskConical, Paperclip, IndianRupee, Briefcase, Calculator,
@@ -12,7 +13,6 @@ import { RATE_LIST } from '../data/rateList'
 
 const WORK_TYPES = ['', 'Audit', 'SPT / Outsource', 'Lab', 'Consultancy', 'Survey', 'Field Test']
 const NEW_BACK_OPTIONS = ['', 'new', 'back']
-const ASSIGN_OPTIONS = ['lab', 'admin']
 const REPORT_STATUS_OPTIONS = ['', 'Processing', 'lab process', 'Report Complete', 'Report Pending', 'Report Dispatched']
 const PAYMENT_MODES = ['', 'upi', 'cash', 'online banking', 'cheque']
 
@@ -45,6 +45,7 @@ const emptyForm: RegistrationFormData = {
   agency_name: '', reporting_address: '', mobile_no: '',
   name_of_work: '', work_order_no: '', reference: '', work: '', report_status: '',
   sample_details: '', sample_details_1: '', sample_details_2: '', sample_details_3: '', sample_details_4: '',
+  sample_items: '',
   new_back: '', new_back_1: '', new_back_2: '', new_back_3: '', new_back_4: '',
   total_payment: '0', advance_payment: '0', balance_dues: '0', payment_followup: '', payment_received_date: '',
   financial_remark: '', mode_of_payment: '', gst_no: '', sample_nos: '',
@@ -79,28 +80,238 @@ interface Props {
   generatingUid: boolean
 }
 
-interface SampleRow {
-  category?: string
-  subOption?: string
-  sampleType: string
+/** One test line inside a sample: a sub-type from the rate list, or a custom test typed by the user. */
+interface SubItem {
+  name: string
+  /** Custom tests only: their own qty and rate. List tests keep qty 1 and their list rate (used to fill the sample's Rate). */
   qty: string
-  rate?: number | string
-  newBack: string
+  rate: string
+  custom?: boolean
 }
 
-/** Rate × quantity when the quantity is a plain number (e.g. "5"); otherwise the rate once ("5 Kg", "Core"). */
-function sampleAmount(row: SampleRow): number {
-  const rate = Number(row.rate) || 0
-  const qty = (row.qty ?? '').trim()
-  return /^\d+(\.\d+)?$/.test(qty) ? rate * Number(qty) : rate
+/**
+ * One sample card: a category, the selected test sub-types, and ONE qty + rate for the
+ * whole sample (rate defaults to the sum of the selected tests' list rates).
+ * Custom tests are added on top with their own qty × rate. Saved as JSON in `sample_items`.
+ */
+interface SampleRow {
+  category: string
+  newBack: string
+  qty: string
+  rate: string
+  items: SubItem[]
+}
+
+/** The legacy sample_details / qty columns are varchar(222). */
+const LEGACY_TEXT_MAX = 222
+const OTHER_CATEGORY = 'Other'
+
+const emptySampleRow = (): SampleRow => ({ category: '', newBack: '', qty: '1', rate: '', items: [] })
+const newCustomItem = (): SubItem => ({ name: '', qty: '1', rate: '', custom: true })
+
+function itemAmount(item: SubItem): number {
+  return (Number(item.qty) || 0) * (Number(item.rate) || 0)
+}
+
+/** Sum of the list rates of the selected (non-custom) tests: the default Rate for the sample. */
+function listRateSum(items: SubItem[]): string {
+  const list = items.filter((it) => !it.custom)
+  return list.length ? String(list.reduce((s, it) => s + (Number(it.rate) || 0), 0)) : ''
+}
+
+/** Qty × Rate for the selected list tests (0 when none are selected). */
+function listAmount(row: SampleRow): number {
+  if (!row.items.some((it) => !it.custom)) return 0
+  return (Number(row.qty) || 0) * (Number(row.rate) || 0)
+}
+
+function rowAmount(row: SampleRow): number {
+  return listAmount(row) + row.items.filter((it) => it.custom).reduce((s, it) => s + itemAmount(it), 0)
 }
 
 function sampleTotal(rows: SampleRow[]): number {
-  return rows.reduce((sum, row) => sum + sampleAmount(row), 0)
+  return rows.reduce((sum, row) => sum + rowAmount(row), 0)
 }
 
 function totalPatch(total: number, advance: string | number | undefined) {
   return { total_payment: String(total), balance_dues: String(Math.max(0, total - Number(advance || 0))) }
+}
+
+function sameText(a: string, b: string) {
+  return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
+function findRateCategory(name: string) {
+  return name ? RATE_LIST.find((c) => sameText(c.category, name)) : undefined
+}
+
+/** Text written to the old sample_details column, e.g. "Bricks - Efflorescence, Water Absorption". */
+function sampleLabel(row: SampleRow): string {
+  const names = row.items.map((it) => it.name.trim()).filter(Boolean)
+  const category = row.category && row.category !== OTHER_CATEGORY ? row.category : ''
+  if (names.length === 0) return category
+  return category ? `${category} - ${names.join(', ')}` : names.join(', ')
+}
+
+/** Text written to the old qty column: the sample qty, or the custom tests' qty when there are no list tests. */
+function sampleQtyText(row: SampleRow): string {
+  if (row.items.some((it) => !it.custom)) return row.qty
+  const custom = row.items.filter((it) => it.custom)
+  return custom.length ? String(custom.reduce((s, it) => s + (Number(it.qty) || 0), 0)) : ''
+}
+
+function clipLegacy(text: string): string {
+  return text.length > LEGACY_TEXT_MAX ? `${text.slice(0, LEGACY_TEXT_MAX - 3)}...` : text
+}
+
+/** Reads the saved JSON in `sample_items`; null when missing or unreadable. */
+function parseSampleItems(json?: string | null): SampleRow[] | null {
+  if (!json) return null
+  try {
+    const data = JSON.parse(json)
+    if (!Array.isArray(data) || data.length === 0) return null
+    return data.map((r) => {
+      const items: SubItem[] = Array.isArray(r?.items)
+        ? r.items.map((it: Partial<SubItem>) => ({
+            name: String(it?.name ?? ''),
+            qty: String(it?.qty ?? '1'),
+            rate: String(it?.rate ?? ''),
+            custom: Boolean(it?.custom),
+          }))
+        : []
+      return {
+        category: String(r?.category ?? ''),
+        newBack: String(r?.newBack ?? ''),
+        qty: r?.qty !== undefined && r?.qty !== null ? String(r.qty) : '1',
+        rate: r?.rate !== undefined && r?.rate !== null ? String(r.rate) : listRateSum(items),
+        items,
+      }
+    })
+  } catch {
+    return null
+  }
+}
+
+/** Turns an old free-text sample ("Bricks - Efflorescence") into a card. Old quantities reset to 1. */
+function legacySampleRow(text?: string, newBack?: string): SampleRow | null {
+  const raw = (text ?? '').trim()
+  if (!raw && !newBack) return null
+  const base = { newBack: newBack ?? '', qty: '1' }
+  if (!raw) return { ...base, category: '', rate: '', items: [] }
+
+  const dash = raw.match(/^(.+?)\s*[-—–]\s*(.+)$/)
+  let category = dash ? findRateCategory(dash[1]) : undefined
+  let rest = dash && category ? dash[2].trim() : raw
+
+  if (!category) {
+    const wholeCategory = findRateCategory(raw)
+    if (wholeCategory) return { ...base, category: wholeCategory.category, rate: '', items: [] }
+    category = RATE_LIST.find((c) => c.items.some((it) => sameText(it.name, raw)))
+    rest = raw
+  }
+  if (!category) {
+    return { ...base, category: OTHER_CATEGORY, rate: '', items: [{ name: raw, qty: '1', rate: '', custom: true }] }
+  }
+
+  const findItem = (name: string) => category?.items.find((it) => sameText(it.name, name))
+  const parts = findItem(rest) || !rest.includes(',') ? [rest] : rest.split(/\s*,\s*/).filter(Boolean)
+  const items: SubItem[] = parts.map((part) => {
+    const item = findItem(part)
+    return item
+      ? { name: item.name, qty: '1', rate: item.rate !== undefined ? String(item.rate) : '' }
+      : { name: part, qty: '1', rate: '', custom: true }
+  })
+  return { ...base, category: category.category, rate: listRateSum(items), items }
+}
+
+/** Multi-select dropdown (checkboxes) of a category's test sub-types. */
+function SubTypeMultiSelect({ options, selected, onToggle, disabled }: {
+  options: Array<{ name: string; rate?: number }>
+  selected: string[]
+  onToggle: (name: string) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  // The list is drawn on <body> with fixed position so the popup's scroll area can't clip it;
+  // it opens below the box, or above it when there isn't enough room below.
+  const [menuPos, setMenuPos] = useState<React.CSSProperties>({})
+
+  useEffect(() => {
+    if (!open) return
+    const place = () => {
+      const rect = boxRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const margin = 8
+      const below = window.innerHeight - rect.bottom - margin
+      const above = rect.top - margin
+      const openUp = below < 260 && above > below
+      const maxHeight = Math.max(160, Math.min(380, (openUp ? above : below) - 4))
+      setMenuPos({
+        left: rect.left,
+        width: Math.max(rect.width, 280),
+        maxHeight,
+        ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      })
+    }
+    place()
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (boxRef.current?.contains(target) || menuRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    // Close when the page/popup scrolls (but not when the list itself scrolls)
+    const onScroll = (e: Event) => {
+      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', onScroll, true)
+    }
+  }, [open])
+
+  const visible = options
+  const chosen = options.filter((o) => selected.some((s) => sameText(s, o.name))).map((o) => o.name)
+
+  return (
+    <div ref={boxRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        title={chosen.join(', ')}
+        style={{ width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--color-input-border, #cbd5e1)', background: disabled ? '#f1f5f9' : '#fff', color: chosen.length ? '#0f172a' : '#94a3b8', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.88rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {disabled ? 'Choose a category first' : chosen.length ? chosen.join(', ') : 'Select tests...'}
+        </span>
+        <span style={{ color: '#64748b', flexShrink: 0 }}>{chosen.length > 1 ? `${chosen.length} ▾` : '▾'}</span>
+      </button>
+      {open && !disabled ? createPortal(
+        <div ref={menuRef} style={{ position: 'fixed', zIndex: 10000, ...menuPos, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, boxShadow: '0 10px 24px rgba(15,23,42,0.18)', padding: 6 }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {visible.map((o) => {
+              const checked = selected.some((s) => sameText(s, o.name))
+              return (
+                <label key={o.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: '0.84rem', background: checked ? '#eff6ff' : undefined }}>
+                  <input type="checkbox" checked={checked} onChange={() => onToggle(o.name)} style={{ width: 'auto', minHeight: 'auto', marginTop: 2 }} />
+                  <span>{o.name}{o.rate !== undefined ? <span style={{ color: '#64748b' }}> (₹{o.rate})</span> : null}</span>
+                </label>
+              )
+            })}
+            {visible.length === 0 ? <p style={{ margin: 0, padding: '6px 8px', fontSize: '0.82rem', color: '#94a3b8' }}>No tests in this category</p> : null}
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </div>
+  )
 }
 
 export function RegistrationWizard({
@@ -206,67 +417,26 @@ export function RegistrationWizard({
   }, [])
 
   const makeSampleRows = (f: RegistrationFormData): SampleRow[] => {
+    const saved = parseSampleItems(f.sample_items)
+    if (saved) return saved
+
+    // Older registrations only have the free-text columns
     const rows: SampleRow[] = []
-    const createRowObj = (st?: string, q?: string, nb?: string): SampleRow | null => {
-      if (!st && !q && !nb) return null
-      let category = ''
-      let subOption = ''
-      const rawStr = (st ?? '').trim()
+    const pairs: Array<[string | undefined, string | undefined]> = [
+      [f.sample_details, f.new_back],
+      [f.sample_details_1, f.new_back_1],
+      [f.sample_details_2, f.new_back_2],
+      [f.sample_details_3, f.new_back_3],
+    ]
+    const overflow = (f.sample_details_4 ?? '').split('\n').filter(Boolean)
+    const overflowNewBack = (f.new_back_4 ?? '').split('\n').filter(Boolean)
+    overflow.forEach((text, i) => pairs.push([text, overflowNewBack[i]]))
 
-      const dashMatch = rawStr.match(/^(.+?)\s*[\-\—\–]\s*(.+)$/)
-      if (dashMatch) {
-        category = dashMatch[1].trim()
-        subOption = dashMatch[2].trim()
-      } else if (rawStr) {
-        const matchedCat = RATE_LIST.find(
-          (c) => c.category.toLowerCase() === rawStr.toLowerCase() || c.items.some((it) => it.name.toLowerCase() === rawStr.toLowerCase())
-        )
-        if (matchedCat) {
-          category = matchedCat.category
-          const matchedItem = matchedCat.items.find((it) => it.name.toLowerCase() === rawStr.toLowerCase())
-          if (matchedItem) subOption = matchedItem.name
-        } else {
-          category = rawStr
-        }
-      }
-
-      let rate: number | string = ''
-      if (category && subOption) {
-        const catObj = RATE_LIST.find((c) => c.category.toLowerCase() === category.toLowerCase())
-        const itemObj = catObj?.items.find((it) => it.name.toLowerCase() === subOption.toLowerCase())
-        if (itemObj?.rate !== undefined) rate = itemObj.rate
-      }
-
-      return { category, subOption, sampleType: rawStr, qty: q ?? '', rate, newBack: nb ?? '' }
+    for (const [text, newBack] of pairs) {
+      const row = legacySampleRow(text, newBack)
+      if (row) rows.push(row)
     }
-
-    const r0 = createRowObj(f.sample_details, f.qty, f.new_back)
-    if (r0) rows.push(r0)
-    const r1 = createRowObj(f.sample_details_1, f.qty_1, f.new_back_1)
-    if (r1) rows.push(r1)
-    const r2 = createRowObj(f.sample_details_2, f.qty_2, f.new_back_2)
-    if (r2) rows.push(r2)
-    const r3 = createRowObj(f.sample_details_3, f.qty_3, f.new_back_3)
-    if (r3) rows.push(r3)
-
-    if (f.sample_details_4 || f.qty_4 || f.new_back_4) {
-      const detailsArr = (f.sample_details_4 ?? '').split('\n').filter(Boolean)
-      const qtyArr = (f.qty_4 ?? '').split('\n').filter(Boolean)
-      const newBackArr = (f.new_back_4 ?? '').split('\n').filter(Boolean)
-
-      if (detailsArr.length > 1 || qtyArr.length > 1 || newBackArr.length > 1) {
-        const maxLen = Math.max(detailsArr.length, qtyArr.length, newBackArr.length)
-        for (let i = 0; i < maxLen; i++) {
-          const item = createRowObj(detailsArr[i], qtyArr[i], newBackArr[i])
-          if (item) rows.push(item)
-        }
-      } else {
-        const item = createRowObj(f.sample_details_4, f.qty_4, f.new_back_4)
-        if (item) rows.push(item)
-      }
-    }
-
-    if (rows.length === 0) rows.push({ category: '', subOption: '', sampleType: '', qty: '', rate: '', newBack: '' })
+    if (rows.length === 0) rows.push(emptySampleRow())
     return rows
   }
 
@@ -277,60 +447,79 @@ export function RegistrationWizard({
   const syncSampleRows = (rows: SampleRow[]) => {
     const totals = totalTouched ? {} : totalPatch(sampleTotal(rows), form.advance_payment)
     const overflowRows = rows.slice(4)
-    const details4 = overflowRows.map((r) => r.sampleType).filter(Boolean).join('\n')
-    const qty4 = overflowRows.map((r) => r.qty).filter(Boolean).join('\n')
-    const newBack4 = overflowRows.map((r) => r.newBack).filter(Boolean).join('\n')
+    const field = (i: number) => ({
+      details: clipLegacy(rows[i] ? sampleLabel(rows[i]) : ''),
+      qty: rows[i] ? sampleQtyText(rows[i]) : '',
+      newBack: rows[i]?.newBack ?? '',
+    })
+    const [r0, r1, r2, r3] = [field(0), field(1), field(2), field(3)]
 
     update({
-      sample_details: rows[0]?.sampleType ?? '', qty: rows[0]?.qty ?? '', new_back: rows[0]?.newBack ?? '',
-      sample_details_1: rows[1]?.sampleType ?? '', qty_1: rows[1]?.qty ?? '', new_back_1: rows[1]?.newBack ?? '',
-      sample_details_2: rows[2]?.sampleType ?? '', qty_2: rows[2]?.qty ?? '', new_back_2: rows[2]?.newBack ?? '',
-      sample_details_3: rows[3]?.sampleType ?? '', qty_3: rows[3]?.qty ?? '', new_back_3: rows[3]?.newBack ?? '',
-      sample_details_4: details4, qty_4: qty4, new_back_4: newBack4,
+      sample_details: r0.details, qty: r0.qty, new_back: r0.newBack,
+      sample_details_1: r1.details, qty_1: r1.qty, new_back_1: r1.newBack,
+      sample_details_2: r2.details, qty_2: r2.qty, new_back_2: r2.newBack,
+      sample_details_3: r3.details, qty_3: r3.qty, new_back_3: r3.newBack,
+      sample_details_4: clipLegacy(overflowRows.map(sampleLabel).filter(Boolean).join('\n')),
+      qty_4: clipLegacy(overflowRows.map(sampleQtyText).filter(Boolean).join('\n')),
+      new_back_4: clipLegacy(overflowRows.map((r) => r.newBack).filter(Boolean).join('\n')),
+      sample_items: JSON.stringify(rows),
       ...totals,
     })
   }
 
-  const updateSampleRow = (index: number, field: keyof SampleRow, value: string | number) => {
-    const next = sampleRows.map((r, i) => (i === index ? { ...r, [field]: value } : r))
+  const changeRow = (index: number, change: (row: SampleRow) => SampleRow) => {
+    const next = sampleRows.map((r, i) => (i === index ? change(r) : r))
     setSampleRows(next)
     syncSampleRows(next)
   }
 
   const handleCategoryChange = (index: number, category: string) => {
-    const next = sampleRows.map((r, i) => {
-      if (i !== index) return r
-      return {
-        ...r,
-        category,
-        subOption: '',
-        sampleType: category ? category : r.sampleType,
-      }
-    })
-    setSampleRows(next)
-    syncSampleRows(next)
+    changeRow(index, (r) => ({
+      ...r,
+      category,
+      qty: '1',
+      rate: '',
+      // "Other / Custom" category starts with one blank custom test line
+      items: category === OTHER_CATEGORY ? [newCustomItem()] : [],
+    }))
   }
 
-  const handleSubOptionChange = (index: number, subOption: string) => {
-    const next = sampleRows.map((r, i) => {
-      if (i !== index) return r
-      const catObj = RATE_LIST.find((c) => c.category === r.category)
-      const item = catObj?.items.find((it) => it.name === subOption)
-      const formattedDetail = (r.category && subOption ? `${r.category} - ${subOption}` : subOption || r.sampleType) || ''
-      return {
-        ...r,
-        subOption,
-        sampleType: formattedDetail,
-        qty: item?.qty ? item.qty : r.qty,
-        rate: item?.rate !== undefined ? item.rate : r.rate,
+  const toggleSubType = (index: number, name: string) => {
+    changeRow(index, (r) => {
+      let items: SubItem[]
+      if (r.items.some((it) => !it.custom && sameText(it.name, name))) {
+        items = r.items.filter((it) => it.custom || !sameText(it.name, name))
+      } else {
+        const item = findRateCategory(r.category)?.items.find((it) => sameText(it.name, name))
+        items = [...r.items, { name: item?.name ?? name, qty: '1', rate: item?.rate !== undefined ? String(item.rate) : '' }]
       }
+      // Rate follows the selected tests' list prices (it can still be edited afterwards)
+      return { ...r, items, rate: listRateSum(items) }
     })
-    setSampleRows(next)
-    syncSampleRows(next)
+  }
+
+  const addCustomItem = (index: number) => {
+    changeRow(index, (r) => ({ ...r, items: [...r.items, newCustomItem()] }))
+  }
+
+  const updateItem = (index: number, itemIndex: number, field: 'name' | 'qty' | 'rate', value: string) => {
+    changeRow(index, (r) => ({ ...r, items: r.items.map((it, j) => (j === itemIndex ? { ...it, [field]: value } : it)) }))
+  }
+
+  const removeItem = (index: number, itemIndex: number) => {
+    changeRow(index, (r) => ({ ...r, items: r.items.filter((_, j) => j !== itemIndex) }))
+  }
+
+  const updateRowField = (index: number, field: 'qty' | 'rate', value: string) => {
+    changeRow(index, (r) => ({ ...r, [field]: value }))
+  }
+
+  const updateNewBack = (index: number, newBack: string) => {
+    changeRow(index, (r) => ({ ...r, newBack }))
   }
 
   const addSampleRow = () => {
-    const next = [...sampleRows, { category: '', subOption: '', sampleType: '', qty: '', rate: '', newBack: '' }]
+    const next = [...sampleRows, emptySampleRow()]
     setSampleRows(next)
     syncSampleRows(next)
   }
@@ -379,6 +568,14 @@ export function RegistrationWizard({
       setCurrentlyWithError('Please assign a staff member in "Currently With"')
       setLocalError('Currently With (Assigned User) is mandatory. Please select a user in the Handover tab.')
       setTab(6) // Switch to Handover tab
+      setSaving(false)
+      return
+    }
+
+    // Sample #1 needs at least one named test (this fills Sample Details)
+    if (!sampleRows[0]?.items.some((it) => it.name.trim())) {
+      setLocalError('Sample #1 needs a Test Category and at least one Test Sub-Type (or a named custom test).')
+      setTab(2) // Switch to Samples tab
       setSaving(false)
       return
     }
@@ -659,8 +856,9 @@ export function RegistrationWizard({
               <FormField label="Mobile Number" required>
                 <input
                   value={form.mobile_no}
-                  onChange={(e) => update({ mobile_no: e.target.value })}
-                  placeholder="10-digit mobile number"
+                  onChange={(e) => update({ mobile_no: e.target.value.replace(/\D/g, '') })}
+                  inputMode="numeric"
+                  placeholder="Mobile number (digits only)"
                 />
               </FormField>
             </div>
@@ -695,15 +893,18 @@ export function RegistrationWizard({
             </div>
 
             {sampleRows.map((row, i) => {
-              const currentCatObj = RATE_LIST.find((c) => c.category === row.category)
+              const currentCatObj = findRateCategory(row.category)
               const subOptions = currentCatObj?.items ?? []
-              const selectedItem = subOptions.find((it) => it.name === row.subOption)
+              const isOther = row.category === OTHER_CATEGORY
+              const label = sampleLabel(row)
+              const listItems = row.items.filter((it) => !it.custom)
+              const customItems = row.items.filter((it) => it.custom)
 
               return (
                 <div key={i} className="sample-row-card">
                   <div className="sample-row-card__header">
                     <strong style={{ fontSize: '0.82rem', color: 'var(--gray-900)' }}>
-                      Sample #{i + 1} {row.sampleType ? `— ${row.sampleType}` : ''}
+                      Sample #{i + 1} {label ? `— ${label}` : ''}
                     </strong>
                     {sampleRows.length > 1 ? (
                       <button
@@ -719,83 +920,76 @@ export function RegistrationWizard({
 
                   <div className="field-row" style={{ marginBottom: 8 }}>
                     <FormField label="Type">
-                      <select value={row.newBack} onChange={(e) => updateSampleRow(i, 'newBack', e.target.value)}>
+                      <select value={row.newBack} onChange={(e) => updateNewBack(i, e.target.value)}>
                         {NEW_BACK_OPTIONS.map((v) => <option key={v} value={v}>{v || 'New'}</option>)}
                       </select>
                     </FormField>
 
-                    <FormField label="Test Category">
+                    <FormField label="Test Category" required={i === 0}>
                       <SearchableSelect
                         value={row.category ?? ''}
                         onChange={(v) => handleCategoryChange(i, v)}
                         placeholder="-- Choose Category --"
                         options={[
                           ...RATE_LIST.map((c) => ({ value: c.category, label: c.category })),
-                          { value: 'Other', label: 'Other / Custom' },
+                          { value: OTHER_CATEGORY, label: 'Other / Custom' },
                         ]}
                       />
                     </FormField>
+                  </div>
 
-                    <FormField label="Test Sub-Type">
-                      {row.category === 'Other' || subOptions.length === 0 ? (
-                        <input
-                          value={row.subOption ?? ''}
-                          onChange={(e) => {
-                            const customSub = e.target.value
-                            const next = sampleRows.map((r, idx) => {
-                              if (idx !== i) return r
-                              const formatted = (r.category && customSub ? `${r.category} - ${customSub}` : customSub || r.category) || ''
-                              return { ...r, subOption: customSub, sampleType: formatted }
-                            })
-                            setSampleRows(next)
-                            syncSampleRows(next)
-                          }}
-                          placeholder="Type test name"
-                        />
-                      ) : (
-                        <SearchableSelect
-                          value={row.subOption ?? ''}
-                          onChange={(v) => handleSubOptionChange(i, v)}
-                          disabled={!row.category}
-                          placeholder="Select test..."
-                          options={subOptions.map((it) => ({ value: it.name, label: `${it.name}${it.rate ? ` (₹${it.rate})` : ''}` }))}
-                        />
+                  <FormField label="Test Sub-Types" required={i === 0}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', minWidth: 0 }}>
+                      {isOther ? null : (
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <SubTypeMultiSelect
+                            options={subOptions}
+                            selected={listItems.map((it) => it.name)}
+                            onToggle={(name) => toggleSubType(i, name)}
+                            disabled={!row.category}
+                          />
+                        </div>
                       )}
-                    </FormField>
-                  </div>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => addCustomItem(i)}
+                        disabled={!row.category}
+                        title={row.category ? 'Add a custom test with its own name, qty and rate' : 'Choose a Test Category first'}
+                        style={{ whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <Plus size={14} /> Other / Custom
+                      </button>
+                    </div>
+                  </FormField>
 
-                  <div className="field-row" style={{ marginBottom: 4 }}>
-                    <FormField label="Sample Details (Full Name)" required={i === 0}>
-                      <input
-                        value={row.sampleType}
-                        onChange={(e) => updateSampleRow(i, 'sampleType', e.target.value)}
-                        placeholder="e.g. Concrete Cube 150mm"
-                      />
-                    </FormField>
+                  {listItems.length > 0 ? (
+                    <div className="field-row" style={{ marginTop: 8, marginBottom: 4 }}>
+                      <FormField label="Quantity">
+                        <input type="number" min="0" step="any" value={row.qty} onChange={(e) => updateRowField(i, 'qty', e.target.value)} />
+                      </FormField>
+                      <FormField label="Rate (₹)">
+                        <input type="number" min="0" step="any" value={row.rate} onChange={(e) => updateRowField(i, 'rate', e.target.value)} placeholder="0" />
+                      </FormField>
+                    </div>
+                  ) : null}
 
-                    <FormField label="Quantity">
-                      <input
-                        value={row.qty}
-                        onChange={(e) => updateSampleRow(i, 'qty', e.target.value)}
-                        placeholder="e.g. 3 Nos, 10 Kg"
-                      />
-                    </FormField>
-
-                    <FormField label="Standard Rate (₹)">
-                      <input
-                        type="number"
-                        value={row.rate ?? ''}
-                        onChange={(e) => updateSampleRow(i, 'rate', e.target.value)}
-                        placeholder="Rate"
-                      />
-                    </FormField>
-                  </div>
-
-                  {selectedItem ? (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-green-text)', marginTop: 4, display: 'flex', gap: 14 }}>
-                      {selectedItem.time ? <span>⏱ Time: <strong>{selectedItem.time}</strong></span> : null}
-                      {selectedItem.qty ? <span>📦 Req Qty: <strong>{selectedItem.qty}</strong></span> : null}
-                      {selectedItem.rate !== undefined ? <span>💰 Standard Rate: <strong>₹{selectedItem.rate}</strong></span> : null}
+                  {customItems.length > 0 ? (
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', marginTop: 6 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 70px 95px 90px 30px', gap: 8, padding: '7px 10px', background: '#f8fafc', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        <span>Custom test</span><span>Qty</span><span>Rate (₹)</span><span style={{ textAlign: 'right' }}>Amount</span><span />
+                      </div>
+                      {row.items.map((item, j) => item.custom ? (
+                        <div key={j} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 70px 95px 90px 30px', gap: 8, padding: '7px 10px', alignItems: 'center', borderTop: '1px solid #f1f5f9' }}>
+                          <input value={item.name} onChange={(e) => updateItem(i, j, 'name', e.target.value)} placeholder="Name of test sub-type" style={{ width: '100%', padding: '6px 8px', fontSize: '0.84rem' }} />
+                          <input type="number" min="0" step="any" value={item.qty} onChange={(e) => updateItem(i, j, 'qty', e.target.value)} aria-label="Quantity" style={{ width: '100%', padding: '6px 8px', fontSize: '0.84rem' }} />
+                          <input type="number" min="0" step="any" value={item.rate} onChange={(e) => updateItem(i, j, 'rate', e.target.value)} aria-label="Rate" placeholder="0" style={{ width: '100%', padding: '6px 8px', fontSize: '0.84rem' }} />
+                          <span style={{ textAlign: 'right', fontWeight: 700, fontSize: '0.84rem', color: '#0f172a' }}>₹{itemAmount(item)}</span>
+                          <button type="button" className="icon-btn text-danger" onClick={() => removeItem(i, j)} title="Remove test">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : null)}
                     </div>
                   ) : null}
                 </div>
@@ -803,7 +997,7 @@ export function RegistrationWizard({
             })}
 
             <div className="rate-summary-pill">
-              <span className="rate-summary-pill__label">Total Sample Amount (rate × quantity)</span>
+              <span className="rate-summary-pill__label">Total Sample Amount (qty × rate)</span>
               <span className="rate-summary-pill__value">
                 ₹{sampleTotal(sampleRows)}
               </span>
@@ -851,12 +1045,6 @@ export function RegistrationWizard({
             </div>
 
             <div className="field-row">
-              <FormField label="Assign Role">
-                <select value={form.assign_to} onChange={(e) => update({ assign_to: e.target.value })}>
-                  {ASSIGN_OPTIONS.map((v) => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
-                </select>
-              </FormField>
-
               <FormField label="Report Status">
                 <select value={form.report_status ?? ''} onChange={(e) => update({ report_status: e.target.value })}>
                   {REPORT_STATUS_OPTIONS.map((v) => <option key={v} value={v}>{v || 'Select Report Status'}</option>)}

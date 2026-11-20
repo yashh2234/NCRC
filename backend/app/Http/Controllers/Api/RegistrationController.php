@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class RegistrationController extends Controller
@@ -109,6 +110,7 @@ class RegistrationController extends Controller
             'sample_details_2' => ['nullable', 'string'],
             'sample_details_3' => ['nullable', 'string'],
             'sample_details_4' => ['nullable', 'string'],
+            'sample_items' => ['nullable', 'string'],
             'new_back' => ['nullable', 'string', 'max:255'],
             'new_back_1' => ['nullable', 'string', 'max:255'],
             'new_back_2' => ['nullable', 'string', 'max:255'],
@@ -193,6 +195,7 @@ class RegistrationController extends Controller
                 'sample_details_2' => $validated['sample_details_2'] ?? '',
                 'sample_details_3' => $validated['sample_details_3'] ?? '',
                 'sample_details_4' => $validated['sample_details_4'] ?? '',
+                ...$this->sampleItemsColumn($validated),
                 'qty_1' => $validated['qty_1'] ?? '',
                 'qty_2' => $validated['qty_2'] ?? '',
                 'qty_3' => $validated['qty_3'] ?? '',
@@ -284,6 +287,7 @@ class RegistrationController extends Controller
             'sample_details_2' => ['nullable', 'string'],
             'sample_details_3' => ['nullable', 'string'],
             'sample_details_4' => ['nullable', 'string'],
+            'sample_items' => ['nullable', 'string'],
             'new_back' => ['nullable', 'string', 'max:255'],
             'new_back_1' => ['nullable', 'string', 'max:255'],
             'new_back_2' => ['nullable', 'string', 'max:255'],
@@ -351,6 +355,7 @@ class RegistrationController extends Controller
             'sample_details_2' => $validated['sample_details_2'] ?? '',
             'sample_details_3' => $validated['sample_details_3'] ?? '',
             'sample_details_4' => $validated['sample_details_4'] ?? '',
+            ...$this->sampleItemsColumn($validated),
             'new_back' => $validated['new_back'] ?? '',
             'new_back_1' => $validated['new_back_1'] ?? '',
             'new_back_2' => $validated['new_back_2'] ?? '',
@@ -448,6 +453,7 @@ class RegistrationController extends Controller
             'sample_details_2' => $registration->sample_details_2 ?? '',
             'sample_details_3' => $registration->sample_details_3 ?? '',
             'sample_details_4' => $registration->sample_details_4 ?? '',
+            'sample_items' => $registration->sample_items ?? '',
             'new_back' => $registration->new_back ?? '',
             'new_back_1' => $registration->new_back_1 ?? '',
             'new_back_2' => $registration->new_back_2 ?? '',
@@ -917,6 +923,22 @@ class RegistrationController extends Controller
      * Laravel turns empty strings into null, but these legacy columns are NOT NULL.
      * Drafts can leave them empty, so store '' instead of null.
      */
+    /**
+     * The sample_items column is added by a migration that must be run by hand on the live
+     * server; until then, skip it so saving a registration keeps working.
+     */
+    private function sampleItemsColumn(array $validated): array
+    {
+        static $hasColumn = null;
+        $hasColumn ??= Schema::hasColumn('client_registration', 'sample_items');
+
+        if (! $hasColumn || ! array_key_exists('sample_items', $validated)) {
+            return [];
+        }
+
+        return ['sample_items' => $validated['sample_items'] ?: null];
+    }
+
     private function fillRequiredTextColumns(array $validated): array
     {
         foreach (['uid_no', 'agency_name', 'reporting_address', 'mobile_no', 'name_of_work', 'sample_details'] as $column) {

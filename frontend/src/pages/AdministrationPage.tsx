@@ -1,4 +1,5 @@
 import { UsersPage } from './UsersPage'
+import { MailAccessPanel } from '../components/MailAccessPanel'
 
 /** Administration: users and their per-user feature access (groups are no longer used). */
 export function AdministrationPage() {
@@ -10,6 +11,7 @@ export function AdministrationPage() {
           <p className="text-muted">Add users and choose exactly which features each person can open.</p>
         </div>
       </div>
+      <MailAccessPanel />
       <UsersPage />
     </div>
   )

@@ -308,7 +308,7 @@ export function ClientsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <label><span>Company Name<Req /></span><input value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} required /></label>
               <label>Contact Person<input value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} /></label>
-              <label>Mobile<input value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value })} /></label>
+              <label>Mobile<input inputMode="numeric" value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '') })} /></label>
               <label>Phone<input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} /></label>
               <label>Email<input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></label>
               <label>Category<select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
@@ -335,7 +335,7 @@ export function ClientsPage() {
             <label><span>Name<Req /></span><input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} required /></label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <label>Designation<input value={contactForm.designation} onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })} /></label>
-              <label>Mobile<input value={contactForm.mobile} onChange={(e) => setContactForm({ ...contactForm, mobile: e.target.value })} /></label>
+              <label>Mobile<input inputMode="numeric" value={contactForm.mobile} onChange={(e) => setContactForm({ ...contactForm, mobile: e.target.value.replace(/\D/g, '') })} /></label>
             </div>
             <label>Email<input type="email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} /></label>
             <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

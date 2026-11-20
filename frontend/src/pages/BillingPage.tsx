@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { IndianRupee, Clock, MessageSquare, Send, Plus, Pencil, Trash2, Printer } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
 import { formatDisplayDate } from '../lib/utils'
 import { DataTable } from '../components/DataTable'
@@ -265,9 +266,12 @@ function printBill(rec: BillingRecord) {
   }
 }
 
-export function BillingPage() {
+export function BillingPage({ uidFilter = '', onClearUidFilter }: { uidFilter?: string; onClearUidFilter?: () => void } = {}) {
   const [tab, setTab] = useState<Tab>('all')
-  const [billings, setBillings] = useState<BillingRecord[]>([])
+  const [allBillings, setBillings] = useState<BillingRecord[]>([])
+  const billings = uidFilter
+    ? allBillings.filter((b) => (b.uid_no ?? '').trim().toLowerCase() === uidFilter.trim().toLowerCase())
+    : allBillings
   const [dueItems, setDueItems] = useState<BillingItem[]>([])
   const [smsLogs, setSmsLogs] = useState<SmsLogEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -526,29 +530,7 @@ export function BillingPage() {
       {localError ? <div className="error-banner" style={{ marginBottom: 12 }}>{localError}</div> : null}
 
       {tab === 'all' && (
-        <section className="surface">
-          <div className="surface-heading">
-            <div>
-              <p className="section-label">Billing</p>
-              <h2>All Billing Records</h2>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: '6px 8px', border: '1px solid var(--color-input-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem' }} />
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: '6px 8px', border: '1px solid var(--color-input-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem' }} />
-            </div>
-          </div>
-
-          <div className="user-toolbar" style={{ marginBottom: 12 }}>
-            <button className="ghost-button" onClick={beginCreateBilling} type="button">
-              <Plus size={18} />
-              New Billing Entry
-            </button>
-          </div>
-
-          {loading ? (
-            <p className="empty-state">Loading...</p>
-          ) : (
-            <DataTable
+        <DataTable
               columns={[
                 { key: 'created_date', label: 'Date' },
                 { key: 'uid_no', label: 'UID' },
@@ -562,7 +544,7 @@ export function BillingPage() {
                 { key: 'payment_followup', label: 'Payment Followup' },
                 { key: 'actions', label: 'Actions', sortable: false },
               ]}
-              rows={billings.map((rec) => ({
+              rows={loading ? [] : billings.map((rec) => ({
                 created_date: formatDisplayDate(rec.created_date),
                 uid_no: rec.uid_no,
                 workflow: <WorkflowStatusBadge uidNo={rec.uid_no} compact />,
@@ -589,9 +571,29 @@ export function BillingPage() {
               }))}
               exportable={true}
               filename="billing"
+              showCount={false}
+              emptyText={loading ? 'Loading...' : 'No records found.'}
+              toolbarStart={uidFilter ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 6, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: '0.82rem', fontWeight: 600 }}>
+                  Showing bills for UID {uidFilter}
+                  <button type="button" onClick={onClearUidFilter} title="Show all bills" style={{ border: 'none', background: 'transparent', color: '#1d4ed8', cursor: 'pointer', fontWeight: 700, padding: 0 }}>
+                    ✕ Show all
+                  </button>
+                </span>
+              ) : null}
+              toolbarEnd={<DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />}
+              tableHeader={
+                <>
+                  <div>
+                    <p className="section-label">Billing</p>
+                    <h2 style={{ margin: 0 }}>All Billing Records</h2>
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={beginCreateBilling} type="button">
+                    <Plus size={14} /> New Billing Entry
+                  </button>
+                </>
+              }
             />
-          )}
-        </section>
       )}
 
       {tab === 'due' && (

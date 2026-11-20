@@ -334,7 +334,7 @@ export function InquiriesPage() {
         >
             <div className="inq-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <label><span>Client Name<Req /></span><input className="input" required value={form.client_name} onChange={(e) => updateForm('client_name', e.target.value)} /></label>
-              <label>Client Number<input className="input" type="tel" value={form.mobile_no} onChange={(e) => updateForm('mobile_no', e.target.value)} placeholder="Mobile / phone" /></label>
+              <label>Client Number<input className="input" type="tel" inputMode="numeric" value={form.mobile_no} onChange={(e) => updateForm('mobile_no', e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (digits only)" /></label>
               <label>Location<input className="input" value={form.location} onChange={(e) => updateForm('location', e.target.value)} /></label>
               <label>Rate / Price / Budget<input className="input" value={form.budget} onChange={(e) => updateForm('budget', e.target.value)} placeholder="e.g. ₹25,000" /></label>
               <div style={{ gridColumn: '1 / -1' }}>

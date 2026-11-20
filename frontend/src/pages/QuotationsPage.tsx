@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
@@ -152,21 +153,27 @@ export default function QuotationsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <button className="btn btn-primary" onClick={openCreate}>+ New Quotation</button>
-      </div>
 
-      <div className="filters-bar">
-        <input type="text" className="form-input" placeholder="Search quotations..." value={search}
-          onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-        <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="draft">Draft</option>
-          <option value="sent">Sent</option>
-          <option value="accepted">Accepted</option>
-          <option value="rejected">Rejected</option>
-          <option value="expired">Expired</option>
-        </select>
+      {/* Search, status and New in one box */}
+      <div className="dt-toolbar dt-toolbar--box" style={{ marginBottom: 16 }}>
+        <div className="dt-toolbar__start">
+          <div className="search-field dt-search">
+            <Search size={15} />
+            <input type="search" placeholder="Search quotations..." value={search} aria-label="Search quotations"
+              onChange={(e) => setSearch(e.target.value)} />
+          </div>
+            <select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+              <option value="expired">Expired</option>
+            </select>
+        </div>
+        <div className="dt-toolbar__meta">
+          <button className="btn btn-primary btn-sm" type="button" onClick={openCreate}>+ New Quotation</button>
+        </div>
       </div>
 
       <div className="table-container">

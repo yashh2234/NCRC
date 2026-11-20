@@ -14,7 +14,11 @@ class Tender extends Model
         'portal' => 'portal',
         'location' => 'location',
         'value' => 'value',
+        'bidValue' => 'bid_value',
+        'bidType' => 'bid_type',
         'emd' => 'emd',
+        'emdDeposited' => 'emd_deposited',
+        'emdMode' => 'emd_mode',
         'fee' => 'fee',
         'openDate' => 'open_date',
         'preBidDate' => 'pre_bid_date',
@@ -34,10 +38,16 @@ class Tender extends Model
     public const SR_PREFIX = 'NCS/TENDER';
 
     protected $fillable = [
-        'sr_no', 'tender_id', 'title', 'department', 'portal', 'location', 'value', 'emd', 'fee',
+        'sr_no', 'tender_id', 'title', 'department', 'portal', 'location', 'value', 'bid_value', 'bid_type', 'emd', 'emd_deposited', 'emd_mode', 'fee',
         'open_date', 'pre_bid_date', 'query_date', 'closing_date', 'opening_date',
         'eligibility', 'decision', 'submission_status', 'responsible', 'requirements',
         'tender_link', 'drive_link', 'remarks', 'created_by', 'updated_by',
+        'ai_summary', 'ai_summary_file', 'ai_summary_model', 'ai_summary_at', 'ai_summary_by',
+    ];
+
+    protected $casts = [
+        'ai_summary' => 'array',
+        'ai_summary_at' => 'datetime',
     ];
 
     /** Next free Sr. No. for the given year, e.g. NCS/TENDER/2026/007. */
@@ -60,6 +70,7 @@ class Tender extends Model
         foreach (self::FIELD_MAP as $key => $column) {
             $data[$key] = (string) ($this->{$column} ?? '');
         }
+        $data['hasSummary'] = ! empty($this->ai_summary);
 
         return $data;
     }

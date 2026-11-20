@@ -244,6 +244,10 @@ export const api = {
     return request(`/reports/${type}/create`, { method: 'POST', body: JSON.stringify(data) })
   },
 
+  deleteReport(type: string, reportId: number): Promise<{ message: string }> {
+    return request(`/reports/${type}/${reportId}`, { method: 'DELETE' })
+  },
+
   approveReport(reportId: number): Promise<{ message: string }> {
     return request(`/reports/${reportId}/approve`, { method: 'POST' })
   },
@@ -473,7 +477,7 @@ export const api = {
     return request(`/ulr-links/${id}`, { method: 'DELETE' })
   },
 
-  ulrClientDetails(uid_no: string): Promise<{ data: { uid_no: string; agency_name: string; reporting_address?: string; name_of_work: string; sample_details: string } | null }> {
+  ulrClientDetails(uid_no: string): Promise<{ data: { uid_no: string; agency_name: string; reporting_address?: string; name_of_work: string; sample_details: string; work_order_no?: string; test_categories?: string } | null }> {
     return request('/ulr-links/client-details', { method: 'POST', body: JSON.stringify({ uid_no }) })
   },
 
@@ -486,7 +490,11 @@ export const api = {
     return request(`/ulr-links/dropdown${qs}`)
   },
 
-  ulrRegister(params?: Record<string, string>): Promise<{ data: any[] }> {
+  ulrRegister(params?: Record<string, string>): Promise<{
+    data: Array<{ id: number; date: string; ulr_no: string; uid_no: string; name_of_department: string; name_of_agency: string; name_of_project: string; sample_details: string }>
+    total: number
+    filtered: number
+  }> {
     const qs = params ? '?' + new URLSearchParams(params).toString() : ''
     return request(`/ulr-links/register${qs}`)
   },
@@ -580,4 +588,4 @@ export const api = {
   },
 }
 
-export { getToken, setToken, request }
+export { getToken, setToken, request, BASE_URL }

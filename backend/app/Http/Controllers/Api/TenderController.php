@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tender;
+use App\Models\User;
+use App\Services\TenderDocumentAnalyzer;
+use RuntimeException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +38,58 @@ class TenderController extends Controller
         $tender->update($this->validated($request) + ['updated_by' => $request->user()?->id]);
 
         return response()->json(['data' => $tender->toApi()]);
+    }
+
+    /** Saved AI summary of the tender document. */
+    public function summary(Tender $tender): JsonResponse
+    {
+        return response()->json(['data' => $this->presentSummary($tender)]);
+    }
+
+    /** Reads an uploaded tender PDF with Gemini and saves the summary on the tender. */
+    public function analyze(Request $request, Tender $tender, TenderDocumentAnalyzer $analyzer): JsonResponse
+    {
+        $request->validate([
+            'document' => ['required', 'file', 'mimes:pdf', 'max:51200'],
+        ], [
+            'document.mimes' => 'Upload the tender document as a PDF.',
+            'document.max' => 'The PDF is larger than 50 MB.',
+        ]);
+
+        // Big tenders can take a minute or two to read.
+        @set_time_limit(600);
+
+        $file = $request->file('document');
+        try {
+            $summary = $analyzer->analyze($file->getRealPath());
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $tender->forceFill([
+            'ai_summary' => $summary,
+            'ai_summary_file' => mb_substr($file->getClientOriginalName(), 0, 255),
+            'ai_summary_model' => $analyzer->model(),
+            'ai_summary_at' => now(),
+            'ai_summary_by' => $request->user()?->id,
+        ])->save();
+
+        return response()->json(['data' => $this->presentSummary($tender)]);
+    }
+
+    private function presentSummary(Tender $tender): ?array
+    {
+        if (empty($tender->ai_summary)) {
+            return null;
+        }
+
+        return [
+            'summary' => $tender->ai_summary,
+            'file' => $tender->ai_summary_file,
+            'model' => $tender->ai_summary_model,
+            'analysed_at' => $tender->ai_summary_at?->toIso8601String(),
+            'analysed_by' => $tender->ai_summary_by ? User::find($tender->ai_summary_by)?->name : null,
+        ];
     }
 
     public function destroy(Tender $tender): JsonResponse
@@ -98,6 +153,9 @@ class TenderController extends Controller
         }
         $rules['title'] = ['required', 'string'];
         $rules['tenderId'] = ['required', 'string', 'max:255'];
+        $rules['bidType'] = ['nullable', 'in:amount,percent'];
+        $rules['emdDeposited'] = ['nullable', 'in:Yes,No'];
+        $rules['emdMode'] = ['nullable', 'in:Online,Offline'];
 
         return $this->mapFields($request->validate($rules));
     }

@@ -10,6 +10,7 @@ import { PurchaseOrdersPage } from './pages/PurchaseOrdersPage'
 import { DueReportsPage } from './pages/DueReportsPage'
 import { FinalReportsPage } from './pages/FinalReportsPage'
 import { UlrLinkPage } from './pages/UlrLinkPage'
+import { UlrRegisterPage } from './pages/UlrRegisterPage'
 import { WorkflowTemplatesPage } from './pages/WorkflowTemplatesPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
@@ -21,6 +22,7 @@ import { TenderPage } from './pages/TenderPage'
 import { InquiriesPage } from './pages/InquiriesPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
+import { MailPage } from './pages/MailPage'
 import { useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
 import { canUserAccess } from './lib/roleConfig'
@@ -40,6 +42,9 @@ interface NavGroup {
 function AuthenticatedApp() {
   const { user } = useAuth()
   const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard')
+  // Mail opens full-screen on top of NCRC, so Back returns to the same page untouched
+  const [mailOpen, setMailOpen] = useState(false)
+  const canUseMail = canUserAccess(user, 'mail')
 
   const trackerRole = user?.tracker_role ?? 'staff'
 
@@ -128,15 +133,28 @@ function AuthenticatedApp() {
   // When user clicks a module, check they have access
   const handleModuleChange = (key: string) => {
     if (canUserAccess(user, key)) {
+      setBillingUid('')
       setActiveModule(key as ModuleKey)
     }
   }
 
+  // "View" in the registration table's Bill column opens Billing filtered to that UID
+  const [billingUid, setBillingUid] = useState('')
+  const canViewBilling = canUserAccess(user, 'billing')
+  const openBillingForUid = (uid: string) => {
+    if (!canViewBilling) return
+    setBillingUid(uid)
+    setActiveModule('billing' as ModuleKey)
+  }
+
   return (
+    <>
     <AppShell
       groups={groups}
       showInquiries={canUserAccess(user, 'inquiries')}
       showTenders={canUserAccess(user, 'tenders')}
+      onOpenMail={canUseMail ? () => setMailOpen(true) : undefined}
+      mailOpen={mailOpen}
       activeModule={activeModule}
       onModuleChange={handleModuleChange}
     >
@@ -168,10 +186,10 @@ function AuthenticatedApp() {
         {activeModule === 'inquiries' && <InquiriesPage />}
       </div>
       <div className={`view ${activeModule === 'registrations' ? 'visible' : ''}`}>
-        {activeModule === 'registrations' && <RegistrationsPage />}
+        {activeModule === 'registrations' && <RegistrationsPage onViewBill={canViewBilling ? openBillingForUid : undefined} />}
       </div>
       <div className={`view ${activeModule === 'billing' ? 'visible' : ''}`}>
-        {activeModule === 'billing' && <BillingPage />}
+        {activeModule === 'billing' && <BillingPage uidFilter={billingUid} onClearUidFilter={() => setBillingUid('')} />}
       </div>
       <div className={`view ${activeModule.startsWith('report') ? 'visible' : ''}`}>
         {activeModule.startsWith('report') && <ReportsPage defaultType={activeModule.startsWith('report_') ? activeModule.replace('report_', '') : undefined} />}
@@ -192,10 +210,10 @@ function AuthenticatedApp() {
         {activeModule === 'outsource' && <OutsourcePage />}
       </div>
       <div className={`view ${activeModule === 'ulr_add' ? 'visible' : ''}`}>
-        {activeModule === 'ulr_add' && <UlrLinkPage mode="add" />}
+        {activeModule === 'ulr_add' && <UlrLinkPage />}
       </div>
       <div className={`view ${activeModule === 'ulr_register' ? 'visible' : ''}`}>
-        {activeModule === 'ulr_register' && <UlrLinkPage mode="register" />}
+        {activeModule === 'ulr_register' && <UlrRegisterPage />}
       </div>
       <div className={`view ${activeModule === 'analytics' ? 'visible' : ''}`}>
         {activeModule === 'analytics' && <AnalyticsPage />}
@@ -207,6 +225,8 @@ function AuthenticatedApp() {
         {activeModule === 'job_types' && <JobTypesPage />}
       </div>
     </AppShell>
+    {mailOpen && canUseMail ? <MailPage onBack={() => setMailOpen(false)} /> : null}
+    </>
   )
 }
 

@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api, BASE_URL, getToken, request } from './api'
 
 export interface Tender {
   id: number
@@ -9,7 +9,12 @@ export interface Tender {
   portal: string
   location: string
   value: string
+  /** Our bid: an amount, or a percentage of the tender value when bidType is 'percent'. */
+  bidValue: string
+  bidType: string
   emd: string
+  emdDeposited: string
+  emdMode: string
   fee: string
   openDate: string
   preBidDate: string
@@ -24,9 +29,11 @@ export interface Tender {
   tenderLink: string
   driveLink: string
   remarks: string
+  /** Set by the server when an AI summary of the tender document is saved. */
+  hasSummary?: boolean
 }
 
-export type TenderInput = Omit<Tender, 'id' | 'srNo'>
+export type TenderInput = Omit<Tender, 'id' | 'srNo' | 'hasSummary'>
 
 /** Where tenders used to live before they were stored on the server. */
 const LEGACY_STORAGE_KEY = 'ncrc_tender_tracker'
@@ -107,4 +114,91 @@ export const URGENCY_STYLES = {
 export function formatDate(date: string) {
   if (!date) return '-'
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+/**
+ * Reads a rupee figure typed in free text: "Rs. 12,50,000", "12.5 Lakh", "1.2 Cr".
+ * Returns null when there is no number in it.
+ */
+export function parseAmount(text: string): number | null {
+  const t = (text || '').toLowerCase().replace(/,/g, '')
+  const match = t.match(/\d+(?:\.\d+)?/)
+  if (!match) return null
+  let amount = parseFloat(match[0])
+  if (/\b(cr|crs|crore|crores)\b/.test(t)) amount *= 1e7
+  else if (/\b(l|lac|lacs|lakh|lakhs)\b/.test(t)) amount *= 1e5
+  return amount
+}
+
+/** Our bid in rupees: the amount entered, or that percentage of the tender value. */
+export function bidAmount(tender: Pick<Tender, 'value' | 'bidValue' | 'bidType'>): number | null {
+  if (!tender.bidValue?.trim()) return null
+  if (tender.bidType === 'percent') {
+    const percent = parseFloat(tender.bidValue)
+    const value = parseAmount(tender.value)
+    return Number.isFinite(percent) && value !== null ? (value * percent) / 100 : null
+  }
+  return parseAmount(tender.bidValue)
+}
+
+export function formatRupees(amount: number) {
+  return `Rs. ${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+}
+
+// ---------------------------------------------------------------- AI summary of the tender document
+
+export interface TenderSummary {
+  overview: string
+  tender_id: string
+  title: string
+  department: string
+  location: string
+  portal: string
+  tender_value: string
+  emd: string
+  emd_exemption: string
+  tender_fee: string
+  contract_period: string
+  bid_validity: string
+  contact: string
+  dates: Array<{ label: string; date: string; time: string }>
+  scope_of_work: string[]
+  eligibility: string[]
+  documents_required: string[]
+  technical_requirements: string[]
+  payment_terms: string[]
+  penalties: string[]
+  points_to_watch: string[]
+  /** Places where the document contradicts itself (missing on summaries made before this was added). */
+  conflicts?: string[]
+}
+
+export interface SavedTenderSummary {
+  summary: TenderSummary
+  file: string | null
+  model: string | null
+  analysed_at: string | null
+  analysed_by: string | null
+}
+
+export function fetchTenderSummary(id: number) {
+  return request<{ data: SavedTenderSummary | null }>(`/tenders/${id}/summary`).then((r) => r.data)
+}
+
+/** Uploads the tender PDF for analysis (multipart, so not the JSON request helper). */
+export async function analyseTenderDocument(id: number, file: File): Promise<SavedTenderSummary> {
+  const form = new FormData()
+  form.append('document', file)
+  const token = getToken()
+  const response = await fetch(`${BASE_URL}/tenders/${id}/analyze`, {
+    method: 'POST',
+    body: form,
+    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    if (response.status === 413) throw new Error('The PDF is too large for the server upload limit.')
+    throw new Error(payload.message ?? 'Could not analyse the document')
+  }
+  return payload.data as SavedTenderSummary
 }

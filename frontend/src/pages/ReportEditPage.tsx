@@ -3,6 +3,8 @@ import { api } from '../lib/api'
 import { formatDateForInput } from '../lib/utils'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
+import { Timeline } from '../components/Timeline'
+import type { UserRecord } from '../lib/types'
 
 interface DetailRow {
   set_count?: number
@@ -30,6 +32,9 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
   const [showDrawer, setShowDrawer] = useState(false)
   const [labData, setLabData] = useState<Record<string, string>>({})
   const [templateKey, setTemplateKey] = useState('')
+  const [users, setUsers] = useState<UserRecord[]>([])
+  const [assignTo, setAssignTo] = useState('')
+  const [timeline, setTimeline] = useState<Array<{ event: string; timestamp: string | null; icon: string; user?: string }> | null>(null)
 
   // State for core fields
   const [coreFields, setCoreFields] = useState<any>({})
@@ -113,6 +118,40 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
     }
   }
 
+  // Workflow steps (moved here from the Reports list, which now matches the old software)
+  const refreshStatus = async () => {
+    try {
+      const data: any = await api.reportDetail(type, reportId)
+      setReport(data.report)
+    } catch { /* keep current */ }
+  }
+
+  const runStep = async (step: () => Promise<unknown>, done: string, failed: string) => {
+    setError('')
+    setMessage('')
+    try {
+      await step()
+      setMessage(done)
+      await refreshStatus()
+    } catch {
+      setError(failed)
+    }
+  }
+
+  const openTimeline = async () => {
+    try {
+      const d = await api.reportTimeline(reportId)
+      setTimeline(d.data)
+    } catch {
+      setError('Could not load timeline')
+    }
+  }
+
+  useEffect(() => {
+    if (report?.status !== 'Pending' || users.length) return
+    api.users().then((d) => setUsers(d.data)).catch(() => {})
+  }, [report?.status, users.length])
+
   const handlePrint = async () => {
     try {
       await api.downloadReportPdf(type, reportId)
@@ -154,7 +193,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
           <input type="text" className="input" value={report?.ulr_no || ''} disabled style={{ background: '#f5f7f9' }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
-          <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Name & Address of Costumer</span>
+          <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Name & Address of Customer</span>
           <input type="text" className="input" value={coreFields.customer_details} onChange={(e) => updateCore('customer_details', e.target.value)} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
@@ -220,9 +259,38 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         updateLabData={updateLabData}
       />
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 24, padding: '16px 0', borderTop: '1px solid #e2e8f0', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24, padding: '16px 0', borderTop: '1px solid #e2e8f0', alignItems: 'center' }}>
         <button type="button" onClick={() => void handlePrint()} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
           Print
+        </button>
+        {report?.status === 'Pending' && (
+          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+            <select value={assignTo} onChange={(e) => setAssignTo(e.target.value)} aria-label="Assign to lab tech" style={{ minHeight: 36, padding: '6px 32px 6px 10px', fontSize: '0.88rem', width: 'auto' }}>
+              <option value="">Assign to…</option>
+              {users.map((u) => <option key={u.id} value={u.id}>{u.firstname} {u.lastname}</option>)}
+            </select>
+            <button type="button" disabled={!assignTo} onClick={() => void runStep(() => api.assignReport(reportId, Number(assignTo)), 'Report assigned', 'Assign failed')} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: assignTo ? 'pointer' : 'not-allowed', fontSize: '0.9rem' }}>
+              Assign
+            </button>
+          </span>
+        )}
+        {report?.status === 'Testing' && (
+          <>
+            <button type="button" onClick={() => void runStep(() => api.startTesting(reportId), 'Testing started', 'Start testing failed')} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
+              Start Testing
+            </button>
+            <button type="button" onClick={() => void runStep(() => api.generateReport(reportId), 'Report generated', 'Generate report failed')} style={{ padding: '8px 16px', background: '#8b5cf6', color: '#fff', border: '1px solid #7c3aed', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
+              Generate Report
+            </button>
+          </>
+        )}
+        {report?.status === 'Cancel' && (
+          <button type="button" onClick={() => void runStep(() => api.reapproveReport(reportId), 'Report reapproved', 'Reapprove failed')} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
+            Reapprove
+          </button>
+        )}
+        <button type="button" onClick={() => void openTimeline()} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
+          Timeline
         </button>
         {report?.status === 'Report Generated' && (
           <button type="button" onClick={() => void handleApprove()} style={{ padding: '8px 16px', background: '#00a65a', color: '#fff', border: '1px solid #008d4c', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
@@ -241,6 +309,8 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
           Back
         </button>
       </div>
+
+      {timeline ? <Timeline entries={timeline} uidNo={report?.uid_no} onClose={() => setTimeline(null)} /> : null}
 
       <UIDDocumentDrawer
         uidNo={report?.uid_no || ''}

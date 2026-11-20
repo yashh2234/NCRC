@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Download } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
 import { WorkflowStatusBadge } from '../components/WorkflowStatusBadge'
 
@@ -54,8 +55,6 @@ export function DueReportsPage() {
 
   useEffect(() => { void load() }, [load])
 
-  const handleFilter = () => { void load() }
-  const handleClearFilter = () => { setStartDate(''); setEndDate('') }
 
   const handleExport = () => {
     const header = 'UID No,Date,Agency,Address,Mobile,Work,Sample,Total,Advance,Balance\n'
@@ -82,11 +81,7 @@ export function DueReportsPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.85rem' }} />
-            <span style={{ color: '#64748b' }}>to</span>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.85rem' }} />
-            <button className="ghost-button" onClick={handleFilter}>Go</button>
-            {(startDate || endDate) && <button className="ghost-button" onClick={handleClearFilter}>Clear</button>}
+            <DateRangeFilter start={startDate} end={endDate} requireBoth onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />
           </div>
           <button className="ghost-button" onClick={handleExport}><Download size={14} /> Export CSV</button>
         </div>

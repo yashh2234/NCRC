@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\FinalReportsController;
 use App\Http\Controllers\Api\UlrLinkController;
 use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\TenderController;
+use App\Http\Controllers\Api\MailController;
 use App\Http\Controllers\Api\WorkflowTemplateController;
 use App\Http\Controllers\Api\WorkflowStageController;
 use App\Http\Controllers\Api\WorkflowTransitionController;
@@ -171,7 +172,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::apiResource('stores', StoreController::class)->only(['index', 'store', 'update', 'destroy']);
 
+    Route::prefix('mail')->group(function (): void {
+        Route::get('status', [MailController::class, 'status']);
+        Route::get('unread', [MailController::class, 'unread']);
+        Route::get('access', [MailController::class, 'access']);
+        Route::put('access/{user}', [MailController::class, 'setAccess'])->whereNumber('user');
+        Route::get('settings', [MailController::class, 'settings']);
+        Route::put('settings', [MailController::class, 'saveSettings']);
+        Route::get('folders', [MailController::class, 'folders']);
+        Route::get('messages', [MailController::class, 'messages']);
+        Route::get('messages/{uid}', [MailController::class, 'show'])->whereNumber('uid');
+        Route::get('messages/{uid}/attachments/{index}', [MailController::class, 'attachment'])->whereNumber(['uid', 'index']);
+        Route::delete('messages/{uid}', [MailController::class, 'destroy'])->whereNumber('uid');
+        Route::post('messages/{uid}/flags', [MailController::class, 'flags'])->whereNumber('uid');
+        Route::post('messages/{uid}/move', [MailController::class, 'move'])->whereNumber('uid');
+        Route::post('send', [MailController::class, 'send']);
+    });
     Route::post('tenders/import', [TenderController::class, 'import']);
+    Route::get('tenders/{tender}/summary', [TenderController::class, 'summary']);
+    Route::post('tenders/{tender}/analyze', [TenderController::class, 'analyze']);
     Route::apiResource('tenders', TenderController::class)->only(['index', 'store', 'update', 'destroy']);
 
     Route::get('reports/{type}/export', [ReportController::class, 'export']);
@@ -320,6 +339,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/', [VendorController::class, 'index']); Route::post('/', [VendorController::class, 'store']);
         Route::get('list', [VendorController::class, 'list']); Route::get('{vendor}', [VendorController::class, 'show']);
         Route::put('{vendor}', [VendorController::class, 'update']); Route::delete('{vendor}', [VendorController::class, 'destroy']);
+        Route::post('{vendor}/approve', [VendorController::class, 'approve']);
     });
     Route::prefix('vendor-contacts')->group(function (): void {
         Route::get('/', [VendorContactController::class, 'index']); Route::post('/', [VendorContactController::class, 'store']);

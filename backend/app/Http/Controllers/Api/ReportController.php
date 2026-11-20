@@ -218,20 +218,34 @@ class ReportController extends Controller
             ->when($assignedToMe, fn ($q) => $q->where('assigned_to', $request->user()->id));
 
         $total = (clone $query)->count();
-        $reports = $query
+        $rows = $query
             ->orderByDesc('create_date')
             ->orderByDesc('iReportId')
             ->forPage($page, $perPage)
-            ->get()
-            ->map(fn (Report $report): array => [
+            ->get();
+
+        // Old software's cube list also showed Date of casting / Date of testing (first cube set).
+        $cubeDates = $type === 'cc_cube'
+            ? CubeReport::query()->whereIn('iReportId', $rows->pluck('iReportId'))->orderBy('iCubeId')
+                ->get(['iReportId', 'date_of_casting', 'date_of_testing'])->unique('iReportId')->keyBy('iReportId')
+            : collect();
+
+        $reports = $rows->map(fn (Report $report): array => [
                 'iReportId' => $report->iReportId,
                 'uid_no' => $report->uid_no,
+                'ulr_no' => $report->ulr_no,
                 'job_id' => $report->job_id,
-                'create_date' => optional($report->create_date)->format('d M Y'),
+                'create_date' => optional($report->create_date)->format('Y-m-d'),
                 'customer_details' => $report->customer_details,
                 'agency_name' => $report->agency_name,
                 'reference_no' => $report->reference_no,
                 'material_details' => $report->material_details,
+                'source_location' => $report->source_location,
+                'work_order_no' => $report->work_order_no,
+                'sample_date' => $report->sample_date,
+                'sample_tested_date' => $report->sample_tested_date,
+                'date_of_casting' => $cubeDates[$report->iReportId]->date_of_casting ?? null,
+                'date_of_testing' => $cubeDates[$report->iReportId]->date_of_testing ?? null,
                 'status' => $report->status,
                 'assigned_to' => $report->assigned_to,
             ]);
@@ -754,19 +768,21 @@ class ReportController extends Controller
     public function createCube(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            // Old software (cubereport/create) required only UID and ULR; the rest is optional.
             'uid_no' => ['required', 'string'],
             'ulr_no' => ['required', 'string'],
             'customer_details' => ['required', 'string'],
             'agency_name' => ['required', 'string'],
-            'reference_no' => ['required', 'string'],
+            'reference_no' => ['nullable', 'string'],
             'material_details' => ['required', 'string'],
-            'source_location' => ['required', 'string'],
-            'work_order_no' => ['required', 'string'],
+            'source_location' => ['nullable', 'string'],
+            'work_order_no' => ['nullable', 'string'],
             'sample_date' => ['required', 'date'],
             'sample_tested_date' => ['required', 'date'],
             'dispatch_date' => ['nullable', 'date'],
             'sampled_by' => ['nullable', 'string'],
             'environment_condition' => ['nullable', 'string'],
+            'lab_data' => ['nullable', 'array'],
         ]);
         $userId = (int) $request->user()->id;
 
@@ -780,10 +796,10 @@ class ReportController extends Controller
                 'ulr_no' => $validated['ulr_no'],
                 'customer_details' => $validated['customer_details'],
                 'agency_name' => $validated['agency_name'],
-                'reference_no' => $validated['reference_no'],
+                'reference_no' => $validated['reference_no'] ?? '',
                 'material_details' => $validated['material_details'],
-                'source_location' => $validated['source_location'],
-                'work_order_no' => $validated['work_order_no'],
+                'source_location' => $validated['source_location'] ?? '',
+                'work_order_no' => $validated['work_order_no'] ?? '',
                 'sample_date' => $validated['sample_date'],
                 'sample_tested_date' => $validated['sample_tested_date'],
                 'dispatch_date' => $validated['dispatch_date'] ?? '',
@@ -803,7 +819,7 @@ class ReportController extends Controller
                 'iCubeId' => $nextCubeId,
                 'iReportId' => $report->iReportId,
                 'uid_no' => $validated['uid_no'],
-                'location' => $validated['source_location'],
+                'location' => $validated['source_location'] ?? '',
                 'size_of_cube' => '150',
                 'date_of_casting' => $validated['sample_date'],
                 'date_of_testing' => $validated['sample_tested_date'],

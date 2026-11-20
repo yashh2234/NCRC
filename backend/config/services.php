@@ -14,6 +14,14 @@ return [
     |
     */
 
+    // Tender document summaries (Google Gemini API; free tier works). Set GEMINI_API_KEY in .env.
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-flash-lite-latest'),
+        // Used automatically when the main model is overloaded (common on the free tier).
+        'fallback_model' => env('GEMINI_FALLBACK_MODEL', 'gemini-flash-latest'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

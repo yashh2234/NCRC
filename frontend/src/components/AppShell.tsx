@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, FlaskConical, RefreshCcw, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, X, PhoneCall } from 'lucide-react'
+import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { getRoleConfig } from '../lib/roleConfig'
+import { mailApi } from '../lib/mail'
 
 const iconMap: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
@@ -61,6 +62,10 @@ interface AppShellProps {
   groups: NavGroup[]
   showInquiries: boolean
   showTenders: boolean
+  /** Shown as the Mail button in the top bar when the user has Mail access. */
+  onOpenMail?: () => void
+  /** True while the Mail page is open; closing it refreshes the unread badge. */
+  mailOpen?: boolean
   activeModule: string
   onModuleChange: (key: string) => void
   children: React.ReactNode
@@ -89,8 +94,8 @@ const STANDALONE_TITLES: Record<string, string> = {
   tenders: 'Tenders',
 }
 
-export function AppShell({ groups, showInquiries, showTenders, activeModule, onModuleChange, children }: AppShellProps) {
-  const { user, logout, refresh, error } = useAuth()
+export function AppShell({ groups, showInquiries, showTenders, onOpenMail, mailOpen = false, activeModule, onModuleChange, children }: AppShellProps) {
+  const { user, logout, error } = useAuth()
   useTracking()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unread, setUnread] = useState(0)
@@ -151,7 +156,14 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
     } catch { }
   }, [])
 
-  useEffect(() => { void loadNotifs() }, [loadNotifs])
+  useEffect(() => {
+    void loadNotifs()
+    // Poll so new notifications show up without reloading the page
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadNotifs()
+    }, 60000)
+    return () => window.clearInterval(timer)
+  }, [loadNotifs])
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -160,6 +172,28 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // Unread count for the Mail button. The server check also creates the new-mail bell notifications.
+  const [mailUnread, setMailUnread] = useState<number | null>(null)
+  const canMail = Boolean(onOpenMail)
+  const loadMailUnread = useCallback(async (fresh = false) => {
+    try {
+      const res = await mailApi.unread(fresh)
+      setMailUnread((previous) => {
+        if (res.unread !== null && previous !== null && res.unread > previous) void loadNotifs()
+        return res.unread
+      })
+    } catch { /* keep the last count */ }
+  }, [loadNotifs])
+
+  useEffect(() => {
+    if (!canMail || mailOpen) return
+    void loadMailUnread(true)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadMailUnread()
+    }, 3 * 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [canMail, mailOpen, loadMailUnread])
 
   const handleMarkRead = async (id: number) => {
     try {
@@ -181,15 +215,9 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
 
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar-brand">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="sidebar-brand__logo"><FlaskConical size={17} /></span>
-            <span className="sidebar-brand__name">
-              <strong>NCRC</strong>
-              <span>Namotech Consultancy</span>
-            </span>
-          </div>
-          <button className="sidebar-drawer-toggle sidebar-close" onClick={() => setDrawerOpen(false)} type="button" aria-label="Close menu">
-            <X size={18} />
+          <img className="sidebar-brand__img" src={`${import.meta.env.BASE_URL}ncrc-logo.png`} alt="NCRC" />
+          <button className="sidebar-drawer-toggle sidebar-collapse" onClick={toggleDrawer} type="button" title="Hide menu" aria-label="Hide menu">
+            <PanelLeft size={18} />
           </button>
         </div>
 
@@ -274,45 +302,23 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
             )
           })}
         </nav>
-
-        {/* Clean user block — role badge with color */}
-        <div className="user-block">
-          {(() => {
-            const role = user?.tracker_role ?? 'staff'
-            const config = getRoleConfig(role)
-            return (
-              <>
-                <div className="user-block__avatar" style={{ background: config.bgColor, color: config.color }}>
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="user-block__meta">
-                  <strong title={user?.name}>{user?.name}</strong>
-                  <span className="user-block__role" style={{ color: config.color, background: config.bgColor }}>
-                    {config.label}
-                  </span>
-                </div>
-                <button className="icon-btn" onClick={() => void logout()} type="button" title="Sign out" aria-label="Sign out">
-                  <LogOut size={16} />
-                </button>
-              </>
-            )
-          })()}
-        </div>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div className="topbar__title">
-            <button
-              className="sidebar-drawer-toggle"
-              onClick={toggleDrawer}
-              type="button"
-              title={drawerOpen ? 'Hide menu' : 'Show menu'}
-              aria-label={drawerOpen ? 'Hide menu' : 'Show menu'}
-              aria-expanded={drawerOpen}
-            >
-              <PanelLeft size={18} />
-            </button>
+            {!drawerOpen ? (
+              <button
+                className="sidebar-drawer-toggle"
+                onClick={toggleDrawer}
+                type="button"
+                title="Show menu"
+                aria-label="Show menu"
+                aria-expanded={false}
+              >
+                <PanelLeft size={18} />
+              </button>
+            ) : null}
             <h1>{pageTitle}</h1>
           </div>
           <div className="topbar-actions">
@@ -348,8 +354,7 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
                 <div style={{ display: 'flex', gap: 8, padding: '10px 0', flexWrap: 'wrap', alignItems: 'center' }}>
                   <input value={filterStage} onChange={e => setFilterStage(e.target.value)} placeholder="Stage" style={{ width: 110, fontSize: '0.78rem', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }} />
                   <div style={{ width: 150 }}><DepartmentSelector value={filterDept} onChange={setFilterDept} placeholder="Dept" /></div>
-                  <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} style={{ fontSize: '0.78rem', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', width: 130 }} />
-                  <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} style={{ fontSize: '0.78rem', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', width: 130 }} />
+                  <DateRangeFilter start={filterDateFrom} end={filterDateTo} onApply={(start, end) => { setFilterDateFrom(start); setFilterDateTo(end) }} />
                   <button className="icon-button" onClick={() => { setFilterStage(''); setFilterDept(null); setFilterDateFrom(''); setFilterDateTo('') }} type="button" title="Clear filters"><X size={14} /></button>
                 </div>
               ) : null}
@@ -392,6 +397,12 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
             </div>
 
             */}
+            {onOpenMail ? (
+              <button className="topbar-mail" onClick={onOpenMail} type="button" title="Check mails" aria-label="Check mails">
+                <Mail size={17} /> <span>Mail</span>
+                {mailUnread ? <span className="topbar-mail__badge" aria-label={`${mailUnread} unread`}>{mailUnread > 99 ? '99+' : mailUnread}</span> : null}
+              </button>
+            ) : null}
             {/* Notifications */}
             <div ref={notifRef} className="notif-wrap">
               <button className="icon-button" onClick={() => { void loadNotifs(); setShowNotifs((s) => !s) }} type="button" title="Notifications" aria-label="Notifications">
@@ -411,7 +422,7 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
                       <div
                         key={n.id}
                         className={`notif-item${n.read ? '' : ' unread'}`}
-                        onClick={() => { if (!n.read) void handleMarkRead(n.id) }}
+                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); onOpenMail() } }}
                       >
                         <div className="notif-item__row">
                           <strong>{n.title}</strong>
@@ -426,15 +437,16 @@ export function AppShell({ groups, showInquiries, showTenders, activeModule, onM
             </div>
 
             {/* Actions */}
-            <button className="icon-button" onClick={() => void refresh()} type="button" title="Refresh" aria-label="Refresh"><RefreshCcw size={17} /></button>
-            {(() => {
-              const config = getRoleConfig(user?.tracker_role ?? 'staff')
-              return (
-                <span className="topbar-avatar" title={user?.name} style={{ background: config.bgColor, color: config.color }}>
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              )
-            })()}
+            <button
+              className="topbar-user"
+              onClick={() => void logout()}
+              type="button"
+              title={`${getRoleConfig(user?.tracker_role ?? 'staff').label} · Log out`}
+              aria-label={`Log out ${user?.name ?? ''}`}
+            >
+              <span className="topbar-user__name">{user?.name || 'User'}</span>
+              <LogOut size={16} />
+            </button>
           </div>
         </header>
 

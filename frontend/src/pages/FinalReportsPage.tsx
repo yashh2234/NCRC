@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, Trash2, Printer, Pencil, Calendar, Filter, X, ArrowLeft } from 'lucide-react'
+import { Trash2, Printer, Pencil, X, ArrowLeft } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 import { ReportEditPage } from './ReportEditPage'
@@ -281,91 +282,44 @@ export function FinalReportsPage() {
 
   return (
     <div>
-      <section className="surface" style={{ padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', marginBottom: 16 }}>
-      {/* Filter Toolbar Matching Old Software Start Date - End Date - GO */}
-      <div style={{
-        display: 'flex',
-        gap: 12,
-        flexWrap: 'wrap',
-        alignItems: 'center'
-      }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Calendar size={15} color="#64748b" />
-          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>Start Date:</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
-          />
-        </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>End Date:</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Filter size={15} color="#64748b" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
-          >
-            <option value="">All Statuses</option>
-            <option value="Complete">Approved</option>
-            <option value="Pending">Pending</option>
-            <option value="Testing">Testing</option>
-            <option value="Report Generated">Report Generated</option>
-            <option value="Cancel">Cancel</option>
-          </select>
-        </div>
-
-        <button
-          className="primary-button"
-          onClick={() => void load()}
-          type="button"
-          style={{ padding: '6px 16px', fontSize: '0.82rem', fontWeight: 600 }}
-        >
-          GO
-        </button>
-
-        {(startDate || endDate || statusFilter) && (
-          <button
-            className="ghost-button"
-            onClick={() => { setStartDate(''); setEndDate(''); setStatusFilter('') }}
-            type="button"
-            style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            <X size={14} /> Clear
-          </button>
-        )}
-      </div>
-
-      </section>
-
-      <section className="surface" style={{ padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff' }}>
       {error ? <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div> : null}
 
-      {loading ? (
-        <p className="empty-state">Loading reports...</p>
-      ) : data.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 16px', color: '#64748b' }}>
-          <FileText size={36} color="#cbd5e1" style={{ margin: '0 auto 12px', display: 'block' }} />
-          <p style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 4px' }}>No reports found</p>
-          <p style={{ fontSize: '0.82rem', margin: 0 }}>Try clearing your date or status filters to view all records.</p>
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <DataTable columns={columns} rows={rows} filename="final-reports" />
-        </div>
-      )}
-      </section>
+      <DataTable
+        columns={columns}
+        rows={loading ? [] : rows}
+        filename="final-reports"
+        showCount={false}
+        emptyText={loading ? 'Loading reports...' : 'No records found.'}
+        toolbarStart={
+          <>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter by status"
+              style={{ width: 'auto', minWidth: 160, minHeight: 36, padding: '6px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
+            >
+              <option value="">All Statuses</option>
+              <option value="Complete">Approved</option>
+              <option value="Pending">Pending</option>
+              <option value="Testing">Testing</option>
+              <option value="Report Generated">Report Generated</option>
+              <option value="Cancel">Cancel</option>
+            </select>
+            {statusFilter && (
+              <button
+                className="ghost-button"
+                onClick={() => setStatusFilter('')}
+                type="button"
+                style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+          </>
+        }
+        toolbarEnd={<DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />}
+      />
     </div>
   )
 }

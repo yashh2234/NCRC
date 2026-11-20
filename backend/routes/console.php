@@ -16,3 +16,6 @@ Schedule::command('jobs:send-reminders')->hourly()->withoutOverlapping();
 
 // Auto-transition completed stages — every 15 minutes
 Schedule::command('jobs:auto-transition')->everyFifteenMinutes()->withoutOverlapping();
+
+// Office mailbox: bell notifications for new mail (the top-bar poll also does this while people are online).
+Schedule::command('mail:check')->everyFiveMinutes()->withoutOverlapping();

@@ -1,0 +1,78 @@
+/* ===== Tender summary (AI) popup ===== */
+.ts { display: grid; gap: 14px; font-size: 0.875rem; color: var(--gray-800, #1e293b); }
+.ts-muted { margin: 0; color: var(--gray-500, #64748b); font-size: 0.8rem; }
+.ts-error { margin: 0; padding: 10px 12px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #b91c1c; }
+.ts-spin { animation: ts-spin 0.9s linear infinite; }
+@keyframes ts-spin { to { transform: rotate(360deg); } }
+
+.ts-upload {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border: 1.5px dashed #c4b5fd;
+  border-radius: 12px;
+  background: #faf8ff;
+  text-align: center;
+}
+.ts-upload > svg { color: #7c3aed; }
+.ts-upload h3 { margin: 0; font-size: 1rem; color: var(--gray-900, #0f172a); }
+.ts-upload p { max-width: 560px; }
+.ts-upload__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.ts-file { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.ts-file small { color: var(--gray-500, #64748b); font-weight: 400; }
+
+.ts-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.8rem; color: var(--gray-500, #64748b); }
+.ts-meta strong { color: var(--gray-800, #1e293b); }
+.ts-meta__actions { display: inline-flex; gap: 6px; }
+.ts-disclaimer { margin: 0; padding: 8px 12px; border-radius: 8px; background: #f5f3ff; color: #5b21b6; font-size: 0.78rem; }
+
+.ts-title { margin: 0; font-size: 1.05rem; line-height: 1.4; color: var(--gray-900, #0f172a); }
+.ts-overview { margin: 0; line-height: 1.6; }
+
+.ts-watch { padding: 12px 16px; border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb; }
+.ts-watch h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: #92400e; font-size: 0.875rem; }
+.ts-watch ul { margin: 0; padding-left: 20px; color: #78350f; line-height: 1.55; }
+
+.ts-conflicts { padding: 12px 16px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; }
+.ts-conflicts h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; color: #991b1b; font-size: 0.875rem; }
+.ts-conflicts h4 small { color: #b91c1c; font-weight: 500; }
+.ts-conflicts p { margin: 0 0 6px; color: #b91c1c; font-size: 0.78rem; }
+.ts-conflicts ul { margin: 0; padding-left: 20px; color: #7f1d1d; line-height: 1.55; }
+
+.ts-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.ts-fact { display: grid; gap: 2px; padding: 9px 12px; border: 1px solid var(--color-border, #eaecf0); border-radius: 8px; background: var(--gray-50, #f8fafc); }
+.ts-fact span { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gray-500, #64748b); }
+.ts-fact strong { font-size: 0.86rem; color: var(--gray-900, #0f172a); overflow-wrap: anywhere; }
+
+.ts-section h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 0.9rem; color: var(--gray-900, #0f172a); }
+.ts-section h4 small { color: var(--gray-400, #94a3b8); font-weight: 500; }
+.ts-section ul { margin: 0; padding-left: 20px; line-height: 1.6; }
+.ts-section li + li { margin-top: 2px; }
+.ts-checklist { list-style: none; padding-left: 0 !important; }
+.ts-checklist li { position: relative; padding-left: 24px; }
+.ts-checklist li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--gray-400, #94a3b8);
+  border-radius: 3px;
+}
+
+.ts-dates { width: 100%; border-collapse: collapse; }
+.ts-dates td { padding: 7px 10px; border-bottom: 1px solid var(--color-border-light, #f0f2f5); vertical-align: top; }
+.ts-dates__when { white-space: nowrap; font-weight: 600; color: var(--gray-900, #0f172a); }
+.ts-dates__left { white-space: nowrap; text-align: right; color: var(--gray-500, #64748b); font-size: 0.8rem; }
+.ts-dates__left.urgent { color: #b91c1c; font-weight: 700; }
+.ts-foot { text-align: right; }
+
+/* Print only the summary */
+@media print {
+  body * { visibility: hidden !important; }
+  .ts, .ts * { visibility: visible !important; }
+  .ts { position: absolute; inset: 0 auto auto 0; width: 100%; padding: 0; }
+  .ts-meta__actions, .ts-upload { display: none !important; }
+}

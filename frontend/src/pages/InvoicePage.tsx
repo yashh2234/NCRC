@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Printer, ArrowLeft } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import type { Invoice } from '../lib/types'
@@ -323,9 +324,7 @@ export function InvoicePage() {
       </div>
       <div className="surface" style={{ padding: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label className="form-field" style={{ marginBottom: 0 }}><span>From</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
-          <label className="form-field" style={{ marginBottom: 0 }}><span>To</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label>
-          <button className="primary-button" onClick={() => void loadInvoices()} style={{ marginTop: 18 }}>Filter</button>
+          <DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />
         </div>
       </div>
       {error ? <p style={{ color: '#c44a5a', marginBottom: 12 }}>{error}</p> : null}

@@ -144,6 +144,8 @@ export interface Registration {
   sample_details_2?: string
   sample_details_3?: string
   sample_details_4?: string
+  /** JSON list of samples with their test sub-types, qty and rate. */
+  sample_items?: string
   new_back?: string
   new_back_1?: string
   new_back_2?: string
@@ -211,6 +213,8 @@ export interface RegistrationFormData {
   sample_details_2?: string
   sample_details_3?: string
   sample_details_4?: string
+  /** JSON list of samples with their test sub-types, qty and rate. */
+  sample_items?: string
   new_back?: string
   new_back_1?: string
   new_back_2?: string
@@ -272,6 +276,9 @@ export interface CubeReport {
   sample_date: string | null
   sample_tested_date: string | null
   status: string
+  ulr_no?: string | null
+  date_of_casting?: string | null
+  date_of_testing?: string | null
 }
 
 export interface CubeFormData {
@@ -405,7 +412,7 @@ export interface PurchaseOrderListItem {
   set_count: number
 }
 
-export type ModuleKey = 'dashboard' | 'tenders' | 'admin' | 'lab' | 'users' | 'roles' | 'permissions' | 'clients' | 'inquiries' | 'quotations' | 'work_orders' | 'registrations' | 'billing' | 'reports' | 'expenses' | 'purchase_orders' | 'invoices' | 'due_reports' | 'final_reports' | 'dispatches' | 'outsource' | 'ulr_add' | 'ulr_register' | 'ulr_links' | 'stores' | 'settings' | 'audit' | 'user_tracking' | 'analytics' | 'workflow_templates' | 'jobs' | 'documents' | 'job_types' | 'help_guide'
+export type ModuleKey = 'dashboard' | 'tenders' | 'admin' | 'lab' | 'users' | 'roles' | 'permissions' | 'clients' | 'inquiries' | 'quotations' | 'work_orders' | 'registrations' | 'billing' | 'reports' | 'expenses' | 'purchase_orders' | 'invoices' | 'due_reports' | 'final_reports' | 'dispatches' | 'outsource' | 'ulr_add' | 'ulr_register' | 'ulr_links' | 'stores' | 'settings' | 'audit' | 'user_tracking' | 'analytics' | 'workflow_templates' | 'jobs' | 'documents' | 'job_types' | 'help_guide' | 'mail'
 
 export interface WorkflowTemplate {
   id: number

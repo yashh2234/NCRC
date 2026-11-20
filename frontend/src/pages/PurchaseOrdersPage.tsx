@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Plus, Printer, Pencil, Trash2, X } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 import type { PurchaseOrder, PurchaseOrderListItem } from '../lib/types'
@@ -235,25 +236,11 @@ export function PurchaseOrdersPage() {
         <div>
           <p className="section-label">Procurement</p>
         </div>
-        <div className="page-actions">
-          <button className="btn btn-primary" onClick={beginCreate} type="button"><Plus size={16} /> New Purchase Order</button>
-        </div>
-      </div>
-
-      <div className="filter-bar">
-        <div className="date-filter">
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          <span>to</span>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </div>
-        <span className="record-count">{orders.length} orders</span>
       </div>
 
       {localError && <div className="error-banner">{localError}</div>}
 
-      <div className="table-card">
-        {loading ? <p className="empty-state">Loading...</p> : (
-          <DataTable
+      <DataTable
             columns={[
               { key: 'date', label: 'Date' },
               { key: 'agency_name', label: 'Agency' },
@@ -264,7 +251,7 @@ export function PurchaseOrdersPage() {
               { key: 'total_amount', label: 'Total' },
               { key: 'actions', label: '', sortable: false },
             ]}
-            rows={orders.map((po) => ({
+            rows={loading ? [] : orders.map((po) => ({
               date: <span className="mono">{po.date ?? '-'}</span>,
               agency_name: po.agency_name ?? '-',
               reporting_address: <span className="text-muted">{po.reporting_address ?? '-'}</span>,
@@ -280,9 +267,11 @@ export function PurchaseOrdersPage() {
             }))}
             exportable={true}
             filename="purchase-orders"
+            showCount={false}
+            emptyText={loading ? 'Loading...' : 'No records found.'}
+            toolbarStart={<DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />}
+            toolbarAfterExport={<button className="btn btn-primary btn-sm" onClick={beginCreate} type="button"><Plus size={14} /> New Purchase Order</button>}
           />
-        )}
-      </div>
 
       {showForm && (
         <Modal title={editingId ? 'Edit Purchase Order' : 'New Purchase Order'} subtitle={editingId ? 'Update' : 'Create'} onClose={() => { setShowForm(false); setEditingId(null) }} size="lg" onSubmit={handleSubmit} saveLabel={editingId ? 'Update PO' : 'Create PO'}>

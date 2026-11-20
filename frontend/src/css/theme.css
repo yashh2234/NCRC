@@ -18,6 +18,7 @@
   border-bottom: 1px solid var(--color-border);
 }
 .sidebar-brand__logo { width: 32px; height: 32px; border-radius: 9px; }
+.sidebar-brand__img { display: block; height: 44px; width: auto; max-width: 100%; object-fit: contain; }
 .sidebar-brand__name strong { color: var(--gray-900); font-size: 1.05rem; }
 .sidebar-brand__name span { color: var(--gray-400); }
 
@@ -154,11 +155,43 @@
   box-shadow: 0 0 0 1px var(--color-border);
 }
 
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  max-width: 260px;
+  padding: 0 14px 0 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--gray-900);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.topbar-user__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-user svg { flex-shrink: 0; color: var(--gray-500); transition: color 0.15s; }
+.topbar-user:hover {
+  background: var(--gray-50);
+  border-color: var(--color-border-strong);
+}
+.topbar-user:hover svg { color: var(--brand-red, #dc2626); }
+
 /* Page title sits in the top bar, right of the menu button */
 .topbar h1 {
   font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   color: var(--gray-900);
 }
 

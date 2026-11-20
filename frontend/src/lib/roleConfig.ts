@@ -163,6 +163,7 @@ export function isModuleAllowed(role: TrackerRole, moduleKey: string): boolean {
 /** Features an admin can switch on per user in Manage Users (keys must match backend User::FEATURE_KEYS). */
 export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'tenders', label: 'Tenders', group: 'General' },
+  { key: 'mail', label: 'Mail (office mailbox)', group: 'General' },
   { key: 'inquiries', label: 'Inquiries', group: 'Clients' },
   { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
   { key: 'quotations', label: 'Quotations', group: 'Clients' },

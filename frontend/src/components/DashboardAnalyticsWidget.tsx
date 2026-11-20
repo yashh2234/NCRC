@@ -1,5 +1,6 @@
 import { RegistrationTrendChart, MonthlyRevenueChart, ReportStatusChart, ExpenseCategoryChart } from './Charts'
 import { Activity, ShieldCheck, CheckCircle2, Calendar } from 'lucide-react'
+import { DateRangeFilter } from './DateRangeFilter'
 
 interface AnalyticsWidgetProps {
   trends: {
@@ -73,20 +74,8 @@ export function DashboardAnalyticsWidget({
           </div>
 
           {period === 'custom' ? (
-            <div className="flex items-center gap-2 mt-2 sm:mt-0">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => onPeriodChange('custom', e.target.value, toDate)}
-                className="px-2.5 py-1 rounded-md border border-default-300 text-xs bg-content1 text-default-900 outline-none focus:ring-1 focus:ring-primary"
-              />
-              <span className="text-xs text-default-400">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => onPeriodChange('custom', fromDate, e.target.value)}
-                className="px-2.5 py-1 rounded-md border border-default-300 text-xs bg-content1 text-default-900 outline-none focus:ring-1 focus:ring-primary"
-              />
+            <div className="mt-2 sm:mt-0">
+              <DateRangeFilter start={fromDate} end={toDate} onApply={(start, end) => onPeriodChange('custom', start, end)} />
             </div>
           ) : null}
         </div>

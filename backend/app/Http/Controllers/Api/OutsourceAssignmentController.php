@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\OutsourceAssignment;
+use App\Models\Vendor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -36,8 +37,7 @@ class OutsourceAssignmentController extends Controller
         $validated = $request->validate([
             'work_order_id' => 'required|integer|exists:work_orders,id',
             'registration_id' => 'nullable|integer',
-            'party_name' => 'required|string|max:222',
-            'party_contact' => 'nullable|string|max:222',
+            'vendor_id' => 'required|integer',
             'party_email' => 'nullable|email|max:222',
             'scope_of_work' => 'nullable|string',
             'agreed_amount' => 'required|numeric|min:0',
@@ -45,6 +45,7 @@ class OutsourceAssignmentController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $validated += $this->vendorParty((int) $validated['vendor_id']);
         $validated['status'] = 'assigned';
         $validated['assigned_by'] = auth()->id();
         $validated['remaining_payment'] = ($validated['agreed_amount'] ?? 0) - ($validated['advance_payment'] ?? 0);
@@ -62,8 +63,7 @@ class OutsourceAssignmentController extends Controller
     public function update(Request $request, OutsourceAssignment $outsourceAssignment)
     {
         $validated = $request->validate([
-            'party_name' => 'sometimes|string|max:222',
-            'party_contact' => 'nullable|string|max:222',
+            'vendor_id' => 'sometimes|integer',
             'party_email' => 'nullable|email|max:222',
             'scope_of_work' => 'nullable|string',
             'agreed_amount' => 'sometimes|numeric|min:0',
@@ -79,6 +79,10 @@ class OutsourceAssignmentController extends Controller
             'delivery_date' => 'nullable|date',
             'notes' => 'nullable|string',
         ]);
+
+        if (isset($validated['vendor_id']) && (int) $validated['vendor_id'] !== (int) $outsourceAssignment->vendor_id) {
+            $validated = $this->vendorParty((int) $validated['vendor_id']) + $validated;
+        }
 
         if (isset($validated['agreed_amount']) || isset($validated['advance_payment'])) {
             $agreed = $validated['agreed_amount'] ?? $outsourceAssignment->agreed_amount;
@@ -101,6 +105,20 @@ class OutsourceAssignmentController extends Controller
     {
         $outsourceAssignment->delete();
         return response()->json(['message' => 'Outsource assignment deleted']);
+    }
+
+    /** Party details copied from a registered vendor, which must be approved and active. */
+    private function vendorParty(int $vendorId): array
+    {
+        $vendor = Vendor::query()->whereKey($vendorId)->where('is_active', true)->where('approval_status', 'approved')->first();
+        if (! $vendor) {
+            abort(response()->json([
+                'message' => 'Select an approved vendor.',
+                'errors' => ['vendor_id' => ['Select an approved vendor.']],
+            ], 422));
+        }
+
+        return ['vendor_id' => $vendor->id, 'party_name' => $vendor->vendor_name, 'party_contact' => $vendor->mobile];
     }
 
     public function uploadVendorReport(Request $request, OutsourceAssignment $outsourceAssignment)

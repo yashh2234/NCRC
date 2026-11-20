@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Vendor extends Model
 {
-    protected $fillable = ['vendor_name', 'contact_person', 'mobile', 'phone', 'email', 'website', 'address', 'city', 'state', 'pincode', 'gst_no', 'pan_no', 'services_offered', 'notes', 'is_active', 'created_by'];
+    protected $fillable = ['vendor_name', 'contact_person', 'mobile', 'phone', 'email', 'website', 'address', 'city', 'state', 'pincode', 'gst_no', 'pan_no', 'services_offered', 'notes', 'is_active', 'approval_status', 'approved_by', 'approved_at', 'created_by'];
+
+    protected $casts = ['is_active' => 'boolean', 'approved_at' => 'datetime'];
 
     public function contacts(): HasMany
     {

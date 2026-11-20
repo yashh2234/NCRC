@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react'
-import { Search, Plus, UserCog, History, Download, Calendar, X, Folder } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Modal } from '../components/Modal'
+import { Search, Plus, UserCog, History, Download, X, Folder } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { useAuth } from '../lib/auth'
 import { api, request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
@@ -45,8 +47,20 @@ function exportToCsv(headers: string[], rows: (string | number)[][], filename: s
   link.click()
 }
 
-export function RegistrationsPage() {
+export function RegistrationsPage({ onViewBill }: { onViewBill?: (uid: string) => void } = {}) {
   const { registrations, refresh, clearError, setStatus } = useAuth()
+  // UIDs that have a bill under the Billing menu (matched case-insensitively)
+  const [billedUids, setBilledUids] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    let cancelled = false
+    api.billingList()
+      .then((res) => {
+        if (cancelled) return
+        setBilledUids(new Set((res.data ?? []).map((b) => (b.uid_no ?? '').trim().toLowerCase()).filter(Boolean)))
+      })
+      .catch(() => { /* no billing access or network error: column just shows '-' */ })
+    return () => { cancelled = true }
+  }, [registrations])
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formVisible, setFormVisible] = useState(false)
@@ -58,6 +72,8 @@ export function RegistrationsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [activeFilter, setActiveFilter] = useState(false)
+  const [applyCount, setApplyCount] = useState(0)
+  const [workFor, setWorkFor] = useState<Registration | null>(null)
   // Always open on "All jobs": filtering by the user's stage hid jobs right after they were saved / handed over.
   const [roleFilter, setRoleFilter] = useState<string>('all')
 
@@ -152,8 +168,10 @@ export function RegistrationsPage() {
     exportToCsv(headers, rows, `registrations_${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
-  const applyDateFilter = () => { setActiveFilter(true) }
-  const clearDateFilter = () => { setStartDate(''); setEndDate(''); setActiveFilter(false) }
+  const applyDateFilter = (start: string, end: string) => { setStartDate(start); setEndDate(end); setActiveFilter(Boolean(start || end)); setApplyCount((n) => n + 1) }
+
+  // Any filter change sends the table back to page 1
+  const filterKey = `${roleFilter}|${activeFilter ? `${startDate}|${endDate}` : ''}|${query.trim().toLowerCase()}|${applyCount}`
 
   const wizardInitial = (): RegistrationFormData => {
     if (!editingId) return {
@@ -191,6 +209,7 @@ export function RegistrationsPage() {
       sample_details_2: reg.sample_details_2 ?? '',
       sample_details_3: reg.sample_details_3 ?? '',
       sample_details_4: reg.sample_details_4 ?? '',
+      sample_items: reg.sample_items ?? '',
       new_back: reg.new_back ?? '',
       new_back_1: reg.new_back_1 ?? '',
       new_back_2: reg.new_back_2 ?? '',
@@ -266,10 +285,7 @@ export function RegistrationsPage() {
             </option>
           ))}
         </select>
-        <Calendar size={15} color="#64748b" />
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} aria-label="Start date" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
-        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>to</span>
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-label="End date" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
+        <DateRangeFilter start={activeFilter ? startDate : ''} end={activeFilter ? endDate : ''} onApply={applyDateFilter} />
         <button className="btn btn-outline" onClick={handleExport} type="button">
           <Download size={15} /> Export
         </button>
@@ -279,8 +295,6 @@ export function RegistrationsPage() {
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search UID, agency, work..." aria-label="Search registrations" style={{ width: '100%', padding: '7px 10px 7px 32px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }} />
         </div>
-        <button className="btn btn-primary" onClick={applyDateFilter} type="button">Apply</button>
-        {activeFilter ? <button className="ghost-button" onClick={clearDateFilter} type="button"><X size={14} /> Clear</button> : null}
         <button className="btn btn-primary registration-create-button" onClick={beginCreate} type="button">
           <Plus size={16} /> Create Registration
         </button>
@@ -290,6 +304,7 @@ export function RegistrationsPage() {
       {/* Main Data Table matching Old software Manage Registration table */}
       <div>
         <DataTable
+          resetPageKey={filterKey}
           showHeader={false}
           columns={[
             { key: 'uid_no', label: 'UID NO.' },
@@ -299,9 +314,10 @@ export function RegistrationsPage() {
             { key: 'mobile_no', label: 'Mobile No.' },
             { key: 'name_of_work', label: 'Name Of Work' },
             { key: 'sample_details', label: 'Sample Details' },
-            { key: 'total_payment', label: 'Total Payment' },
-            { key: 'advance_payment', label: 'Advance Payment' },
-            { key: 'balance_dues', label: 'Payment Dues' },
+            { key: 'total_payment', label: 'Total Payment', align: 'center', width: 95 },
+            { key: 'advance_payment', label: 'Advance Payment', align: 'center', width: 95 },
+            { key: 'balance_dues', label: 'Payment Dues', align: 'center', width: 95 },
+            { key: 'bill', label: 'Bill', sortable: false, align: 'center', width: 70 },
             { key: 'actions', label: 'Action', sortable: false },
           ]}
           rows={filtered.map((registration) => {
@@ -352,7 +368,10 @@ export function RegistrationsPage() {
               ),
               name_of_work: (
                 <div style={{ maxWidth: 200, fontSize: '0.8rem', color: '#475569', lineHeight: 1.3 }}>
-                  {registration.name_of_work || '-'}
+                  <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{registration.name_of_work || '-'}</span>
+                  {(registration.name_of_work ?? '').length > 90 ? (
+                    <button type="button" onClick={() => setWorkFor(registration)} style={{ background: 'none', border: 'none', padding: 0, marginTop: 4, color: '#2563eb', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer' }}>Read more</button>
+                  ) : null}
                 </div>
               ),
               sample_details: (
@@ -381,6 +400,31 @@ export function RegistrationsPage() {
                 >
                   ₹{money(registration.balance_dues)}
                 </span>
+              ),
+              bill: registration.uid_no && billedUids.has(registration.uid_no.trim().toLowerCase()) ? (
+                onViewBill ? (
+                  <button
+                    type="button"
+                    onClick={() => onViewBill(registration.uid_no)}
+                    title="View bill in Billing"
+                    style={{
+                      border: '1px solid #bbf7d0',
+                      background: '#f0fdf4',
+                      padding: '5px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: '#16a34a',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View
+                  </button>
+                ) : (
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#16a34a' }}>Billed</span>
+                )
+              ) : (
+                <span style={{ color: '#94a3b8' }}>-</span>
               ),
               actions: (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -476,6 +520,12 @@ export function RegistrationsPage() {
       )}
 
       {/* Document Library Drawer */}
+      {workFor ? (
+        <Modal title="Name of work" subtitle={`${workFor.uid_no || 'Draft'} · ${workFor.agency_name || ''}`} onClose={() => setWorkFor(null)} size={600}>
+          <p style={{ margin: 0, color: '#1e293b', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{workFor.name_of_work}</p>
+        </Modal>
+      ) : null}
+
       <UIDDocumentDrawer
         uidNo={drawerUid}
         isOpen={Boolean(drawerUid)}
