@@ -61,18 +61,18 @@ function AuthenticatedApp() {
       ],
     },
     {
-      label: 'Lab Reports',
-      icon: FlaskConical,
-      items: [
-        { key: 'reports', label: 'All Lab Reports' },
-      ],
-    },
-    {
       label: 'Manage ULR',
       icon: ClipboardList,
       items: [
         { key: 'ulr_add', label: 'ADD ULR' },
         { key: 'ulr_register', label: 'Manage ULR Register' },
+      ],
+    },
+    {
+      label: 'Lab Reports',
+      icon: FlaskConical,
+      items: [
+        { key: 'reports', label: 'All Lab Reports' },
       ],
     },
     {

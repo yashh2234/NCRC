@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
+import { ArrowLeft, CheckCircle2, FileText, Play, Printer, RotateCcw, Save, XCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatDateForInput } from '../lib/utils'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
+import { Modal } from '../components/Modal'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
-import { Timeline } from '../components/Timeline'
-import type { UserRecord } from '../lib/types'
 
 interface DetailRow {
   set_count?: number
@@ -32,9 +32,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
   const [showDrawer, setShowDrawer] = useState(false)
   const [labData, setLabData] = useState<Record<string, string>>({})
   const [templateKey, setTemplateKey] = useState('')
-  const [users, setUsers] = useState<UserRecord[]>([])
-  const [assignTo, setAssignTo] = useState('')
-  const [timeline, setTimeline] = useState<Array<{ event: string; timestamp: string | null; icon: string; user?: string }> | null>(null)
+  const [confirmApprove, setConfirmApprove] = useState(false)
 
   // State for core fields
   const [coreFields, setCoreFields] = useState<any>({})
@@ -98,6 +96,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
   }
 
   const handleApprove = async () => {
+    setConfirmApprove(false)
     try {
       await api.approveReport(reportId)
       setMessage('Report approved successfully')
@@ -137,20 +136,6 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
       setError(failed)
     }
   }
-
-  const openTimeline = async () => {
-    try {
-      const d = await api.reportTimeline(reportId)
-      setTimeline(d.data)
-    } catch {
-      setError('Could not load timeline')
-    }
-  }
-
-  useEffect(() => {
-    if (report?.status !== 'Pending' || users.length) return
-    api.users().then((d) => setUsers(d.data)).catch(() => {})
-  }, [report?.status, users.length])
 
   const handlePrint = async () => {
     try {
@@ -259,58 +244,49 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         updateLabData={updateLabData}
       />
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24, padding: '16px 0', borderTop: '1px solid #e2e8f0', alignItems: 'center' }}>
-        <button type="button" onClick={() => void handlePrint()} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-          Print
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 24, padding: '16px 0', borderTop: '1px solid var(--color-border, #e2e8f0)', alignItems: 'center' }}>
+        <button type="button" className="btn btn-outline" onClick={onBack}>
+          <ArrowLeft size={15} /> Back
         </button>
-        {report?.status === 'Pending' && (
-          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            <select value={assignTo} onChange={(e) => setAssignTo(e.target.value)} aria-label="Assign to lab tech" style={{ minHeight: 36, padding: '6px 32px 6px 10px', fontSize: '0.88rem', width: 'auto' }}>
-              <option value="">Assign to…</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.firstname} {u.lastname}</option>)}
-            </select>
-            <button type="button" disabled={!assignTo} onClick={() => void runStep(() => api.assignReport(reportId, Number(assignTo)), 'Report assigned', 'Assign failed')} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: assignTo ? 'pointer' : 'not-allowed', fontSize: '0.9rem' }}>
-              Assign
-            </button>
-          </span>
-        )}
+        <div style={{ flex: '1 1 auto' }} />
+        <button type="button" className="btn btn-outline" onClick={() => void handlePrint()}>
+          <Printer size={15} /> Print
+        </button>
         {report?.status === 'Testing' && (
           <>
-            <button type="button" onClick={() => void runStep(() => api.startTesting(reportId), 'Testing started', 'Start testing failed')} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-              Start Testing
+            <button type="button" className="btn btn-outline" onClick={() => void runStep(() => api.startTesting(reportId), 'Testing started', 'Start testing failed')}>
+              <Play size={15} /> Start Testing
             </button>
-            <button type="button" onClick={() => void runStep(() => api.generateReport(reportId), 'Report generated', 'Generate report failed')} style={{ padding: '8px 16px', background: '#8b5cf6', color: '#fff', border: '1px solid #7c3aed', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-              Generate Report
+            <button type="button" className="btn btn-violet" onClick={() => void runStep(() => api.generateReport(reportId), 'Report generated', 'Generate report failed')}>
+              <FileText size={15} /> Generate Report
             </button>
           </>
         )}
         {report?.status === 'Cancel' && (
-          <button type="button" onClick={() => void runStep(() => api.reapproveReport(reportId), 'Report reapproved', 'Reapprove failed')} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-            Reapprove
+          <button type="button" className="btn btn-outline" onClick={() => void runStep(() => api.reapproveReport(reportId), 'Report reapproved', 'Reapprove failed')}>
+            <RotateCcw size={15} /> Reapprove
           </button>
         )}
-        <button type="button" onClick={() => void openTimeline()} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-          Timeline
-        </button>
-        {report?.status === 'Report Generated' && (
-          <button type="button" onClick={() => void handleApprove()} style={{ padding: '8px 16px', background: '#00a65a', color: '#fff', border: '1px solid #008d4c', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-            Approved Report
+        {report?.status !== 'Complete' && report?.status !== 'Cancel' && (
+          <button type="button" className="btn btn-success" onClick={() => setConfirmApprove(true)}>
+            <CheckCircle2 size={15} /> Approved Report
           </button>
         )}
         {report?.status !== 'Cancel' && (
-          <button type="button" onClick={() => void handleCancel()} style={{ padding: '8px 16px', background: '#f39c12', color: '#fff', border: '1px solid #e08e0b', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-            Cancel Report
+          <button type="button" className="btn btn-warning" onClick={() => void handleCancel()}>
+            <XCircle size={15} /> Cancel Report
           </button>
         )}
-        <button type="button" onClick={() => void handleSave(false)} style={{ padding: '8px 16px', background: '#3c8dbc', color: '#fff', border: '1px solid #367fa9', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-          Save Changes
-        </button>
-        <button type="button" onClick={onBack} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', fontSize: '0.9rem' }}>
-          Back
+        <button type="button" className="btn btn-primary" onClick={() => void handleSave(false)}>
+          <Save size={15} /> Save Changes
         </button>
       </div>
 
-      {timeline ? <Timeline entries={timeline} uidNo={report?.uid_no} onClose={() => setTimeline(null)} /> : null}
+      {confirmApprove ? (
+        <Modal title="Approved Report" size="sm" onClose={() => setConfirmApprove(false)} onSave={() => void handleApprove()} saveLabel="Approve" cancelLabel="Close">
+          <p style={{ margin: 0 }}>Do you really want to approve the report for UID <strong>{report?.uid_no}</strong>?</p>
+        </Modal>
+      ) : null}
 
       <UIDDocumentDrawer
         uidNo={report?.uid_no || ''}

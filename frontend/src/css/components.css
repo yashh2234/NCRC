@@ -49,6 +49,16 @@ button { cursor: pointer; }
   border-color: var(--gray-300);
 }
 
+.btn-success,
+.btn-warning,
+.btn-violet { color: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15); }
+.btn-success { background: #16a34a; border-color: #15803d; }
+.btn-success:hover { color: #fff; background: #15803d; border-color: #166534; }
+.btn-warning { background: #f59e0b; border-color: #d97706; }
+.btn-warning:hover { color: #fff; background: #d97706; border-color: #b45309; }
+.btn-violet { background: #7c3aed; border-color: #6d28d9; }
+.btn-violet:hover { color: #fff; background: #6d28d9; border-color: #5b21b6; }
+
 .btn-danger {
   color: var(--color-red-text);
   background: var(--color-surface);

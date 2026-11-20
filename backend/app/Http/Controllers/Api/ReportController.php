@@ -464,7 +464,9 @@ class ReportController extends Controller
     public function approve(int $reportId): JsonResponse
     {
         $report = Report::query()->where('iReportId', $reportId)->firstOrFail();
-        abort_if($report->status !== 'Report Generated', 422, 'Only generated reports can be approved');
+        // Old software: "Approved Report" works from any status (confirm popup on the edit page).
+        abort_if($report->status === 'Complete', 422, 'Report is already approved');
+        abort_if($report->status === 'Cancel', 422, 'Reapprove the cancelled report first');
 
         $report->update([
             'status' => 'Complete',
@@ -745,6 +747,11 @@ class ReportController extends Controller
             'lab_data' => ['nullable', 'array'],
         ]);
 
+        // Legacy `reports` columns are NOT NULL varchar: an emptied box (sent as null) is saved as ''.
+        foreach ($validated as $key => $value) {
+            if ($value === null && $key !== 'lab_data') $validated[$key] = '';
+        }
+
         $report->update(array_merge($validated, [
             'updated_date' => now(),
             'updated_by' => $request->user()?->id,
@@ -783,6 +790,21 @@ class ReportController extends Controller
             'sampled_by' => ['nullable', 'string'],
             'environment_condition' => ['nullable', 'string'],
             'lab_data' => ['nullable', 'array'],
+            // Old Create Report page: up to 5 cube sets entered while creating
+            'sets' => ['nullable', 'array', 'max:5'],
+            'sets.*.location' => ['nullable', 'string'],
+            'sets.*.size_of_cube' => ['nullable', 'string'],
+            'sets.*.date_of_casting' => ['nullable', 'string'],
+            'sets.*.date_of_testing' => ['nullable', 'string'],
+            'sets.*.age_of_specimen' => ['nullable', 'string'],
+            'sets.*.load_1' => ['nullable', 'string'],
+            'sets.*.load_2' => ['nullable', 'string'],
+            'sets.*.load_3' => ['nullable', 'string'],
+            'sets.*.comp_strength_1' => ['nullable', 'string'],
+            'sets.*.comp_strength_2' => ['nullable', 'string'],
+            'sets.*.comp_strength_3' => ['nullable', 'string'],
+            'sets.*.avg_comp_strength' => ['nullable', 'string'],
+            'sets.*.is_code_comp_strength' => ['nullable', 'string'],
         ]);
         $userId = (int) $request->user()->id;
 
@@ -815,26 +837,31 @@ class ReportController extends Controller
                 'lab_data' => $validated['lab_data'] ?? null,
             ]);
 
-            CubeReport::query()->create([
-                'iCubeId' => $nextCubeId,
-                'iReportId' => $report->iReportId,
-                'uid_no' => $validated['uid_no'],
-                'location' => $validated['source_location'] ?? '',
-                'size_of_cube' => '150',
-                'date_of_casting' => $validated['sample_date'],
-                'date_of_testing' => $validated['sample_tested_date'],
-                'age_of_specimen' => '28',
-                'avg_comp_strength' => '0',
-                'is_code_comp_strength' => '0',
-                'load_1' => '0',
-                'load_2' => '0',
-                'load_3' => '0',
-                'comp_strength_1' => '0',
-                'comp_strength_2' => '0',
-                'comp_strength_3' => '0',
-                'set_count' => 1,
-                'create_date' => now(),
-            ]);
+            // One cube row per set (old software: countset rows); defaults when no sets were sent.
+            $sets = $validated['sets'] ?? [[]];
+            $setCount = max(1, count($sets));
+            foreach (array_values($sets) as $i => $set) {
+                CubeReport::query()->create([
+                    'iCubeId' => $nextCubeId + $i,
+                    'iReportId' => $report->iReportId,
+                    'uid_no' => $validated['uid_no'],
+                    'location' => ($set['location'] ?? '') !== '' ? $set['location'] : ($validated['source_location'] ?? ''),
+                    'size_of_cube' => ($set['size_of_cube'] ?? '') !== '' ? $set['size_of_cube'] : '150',
+                    'date_of_casting' => ($set['date_of_casting'] ?? '') !== '' ? $set['date_of_casting'] : $validated['sample_date'],
+                    'date_of_testing' => ($set['date_of_testing'] ?? '') !== '' ? $set['date_of_testing'] : $validated['sample_tested_date'],
+                    'age_of_specimen' => ($set['age_of_specimen'] ?? '') !== '' ? $set['age_of_specimen'] : '28',
+                    'avg_comp_strength' => ($set['avg_comp_strength'] ?? '') !== '' ? $set['avg_comp_strength'] : '0',
+                    'is_code_comp_strength' => ($set['is_code_comp_strength'] ?? '') !== '' ? $set['is_code_comp_strength'] : '0',
+                    'load_1' => ($set['load_1'] ?? '') !== '' ? $set['load_1'] : '0',
+                    'load_2' => ($set['load_2'] ?? '') !== '' ? $set['load_2'] : '0',
+                    'load_3' => ($set['load_3'] ?? '') !== '' ? $set['load_3'] : '0',
+                    'comp_strength_1' => ($set['comp_strength_1'] ?? '') !== '' ? $set['comp_strength_1'] : '0',
+                    'comp_strength_2' => ($set['comp_strength_2'] ?? '') !== '' ? $set['comp_strength_2'] : '0',
+                    'comp_strength_3' => ($set['comp_strength_3'] ?? '') !== '' ? $set['comp_strength_3'] : '0',
+                    'set_count' => $setCount,
+                    'create_date' => now(),
+                ]);
+            }
 
             // Advance workflow job to 'sample-received' stage
             $this->bridge->advanceToStage(
@@ -921,12 +948,29 @@ class ReportController extends Controller
                 'uid_no' => $validated['uid_no'],
             ];
 
+            // Legacy detail tables have NOT NULL columns without defaults: start every column empty
+            // (dates/set count get real values) so the blank results row can be inserted.
+            $columns = DB::select(
+                'SELECT COLUMN_NAME c, DATA_TYPE t, IS_NULLABLE n, COLUMN_DEFAULT d FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+                [$config['table']]
+            );
+            foreach ($columns as $col) {
+                // Column names are case-insensitive in MySQL (e.g. iBitumenLid vs iBitumenLId)
+                if (in_array(strtolower($col->c), array_map('strtolower', array_keys($detailData)), true) || $col->n === 'YES' || $col->d !== null) continue;
+                $detailData[$col->c] = match (true) {
+                    in_array($col->t, ['int', 'bigint', 'smallint', 'tinyint', 'decimal', 'float', 'double'], true) => $col->c === 'set_count' ? 1 : 0,
+                    in_array($col->t, ['date', 'datetime', 'timestamp'], true) => now(),
+                    default => '',
+                };
+            }
+
             // Add common default fields if they exist on the model
             if (in_array($config['table'], ['concretecore_report', 'concretebeam_report'])) {
                 $detailData['create_date'] = now();
             }
 
-            $detailModel::query()->create($detailData);
+            // Straight insert: the models' $fillable lists don't cover every legacy column.
+            DB::table($config['table'])->insert($detailData);
 
             // Advance workflow
             $this->bridge->advanceToStage(

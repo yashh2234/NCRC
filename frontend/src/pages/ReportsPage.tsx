@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Pencil, Printer, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { ReportEditPage } from './ReportEditPage'
-import { EXCEL_TEMPLATE_OPTIONS } from '../components/ExcelLabReportEditor'
+import { ReportCreatePage } from './ReportCreatePage'
 
 import type { CubeReport } from '../lib/types'
-import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Pagination } from '../components/Pagination'
 import { DateRangeFilter } from '../components/DateRangeFilter'
@@ -35,9 +34,6 @@ const STATUS_COLORS: Record<string, string> = {
 /** dd-mm-yyyy, numbers only. */
 const showDate = (value: string | null | undefined) => (value ? formatDisplayDate(value).replace(/\//g, '-') : '-')
 
-/** Fields the create-lab-report form will not submit without. */
-const CREATE_REQUIRED: string[] = ['uid_no', 'customer_details', 'agency_name', 'material_details', 'sample_date', 'sample_tested_date']
-
 export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [types, setTypes] = useState<ReportTypeInfo[]>([])
   const [activeType, setActiveType] = useState<string>(defaultType || '')
@@ -55,74 +51,6 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [removingBusy, setRemovingBusy] = useState(false)
   const [editingReportId, setEditingReportId] = useState<number | null>(null)
   const [showCreate, setShowCreate] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [createForm, setCreateForm] = useState({
-    report_type: 'cc_cube', template: 'cc_cube', uid_no: '', customer_details: '', agency_name: '',
-    material_details: '', sample_date: '', sample_tested_date: '', ulr_no: '', reference_no: '',
-    source_location: '', work_order_no: '',
-  })
-  const [uidSuggestions, setUidSuggestions] = useState<Array<{ uid_no: string; agency_name: string; name_of_work: string }>>([])
-  const [linkedUlrs, setLinkedUlrs] = useState<string[]>([])
-  const pickedUidRef = useRef('')
-  const filledUidRef = useRef('')
-
-  // Add lab report: UID suggestions while typing (same search as Add ULR).
-  useEffect(() => {
-    const q = createForm.uid_no.trim()
-    if (!showCreate || q.length < 2 || createForm.uid_no === pickedUidRef.current) {
-      setUidSuggestions([])
-      return
-    }
-    const timer = window.setTimeout(async () => {
-      try {
-        const res = await api.searchRegistrationUids(q)
-        setUidSuggestions(res.data)
-      } catch {
-        setUidSuggestions([])
-      }
-    }, 250)
-    return () => window.clearTimeout(timer)
-  }, [showCreate, createForm.uid_no])
-
-  /**
-   * Same as the old cubereport getClientDetails: fill Customer (reporting address), Agency,
-   * Name of work and Work order no. from the registration. ULR is never filled; the UID's
-   * linked ULRs are only offered as suggestions.
-   */
-  const fillFromUid = async (rawUid: string) => {
-    const uid = rawUid.trim()
-    if (!uid || uid === filledUidRef.current) return
-    filledUidRef.current = uid
-    try {
-      const [details, links] = await Promise.all([
-        api.ulrClientDetails(uid),
-        api.ulrLinksFiltered({ uid_no: uid }).catch(() => ({ data: [] })),
-      ])
-      if (filledUidRef.current !== uid) return
-      const reg = details.data
-      if (reg) {
-        setCreateForm((previous) => ({
-          ...previous,
-          customer_details: reg.reporting_address || '',
-          agency_name: reg.agency_name || '',
-          source_location: reg.name_of_work || '',
-          work_order_no: reg.work_order_no || '',
-        }))
-      }
-      const same = links.data.filter((l) => l.uid_no.trim().toLowerCase() === uid.toLowerCase()).map((l) => l.ulr_no)
-      setLinkedUlrs([...new Set(same)])
-    } catch {
-      // leave the fields for manual entry
-    }
-  }
-
-  const pickUid = (uid: string) => {
-    pickedUidRef.current = uid
-    updateCreate('uid_no', uid)
-    setUidSuggestions([])
-    void fillFromUid(uid)
-  }
-
   const handlePrint = async (reportId: number) => {
     try {
       await api.downloadReportPdf(activeType, reportId)
@@ -200,26 +128,18 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const activeTypeInfo = types.find((t) => t.key === activeType)
   const isCube = activeType === 'cc_cube'
 
-  const updateCreate = (field: string, value: string) => setCreateForm((previous) => ({ ...previous, [field]: value }))
-  const handleCreate = async (event: FormEvent) => {
-    event.preventDefault()
-    setCreating(true)
-    setLocalError('')
-    try {
-      const payload = { ...createForm, lab_data: { _template: createForm.template } }
-      if (createForm.report_type === 'cc_cube') await api.createCubeReport(payload)
-      else await api.createLabReport(createForm.report_type, payload)
-      setShowCreate(false)
-      await loadTypes()
-      await loadReports()
-    } catch {
-      setLocalError('Unable to create lab report')
-    } finally {
-      setCreating(false)
-    }
-  }
-
   const statusSteps = ['Pending', 'Testing', 'Report Generated', 'Complete']
+
+  if (showCreate) {
+    return (
+      <ReportCreatePage
+        types={types}
+        defaultType={activeType}
+        onBack={() => setShowCreate(false)}
+        onCreated={() => { setShowCreate(false); void loadTypes(); void loadReports() }}
+      />
+    )
+  }
 
   if (editingReportId) {
     return <ReportEditPage type={activeType} reportId={editingReportId} onBack={() => { setEditingReportId(null); void loadReports() }} />
@@ -373,71 +293,6 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
         ) : null}
         </section>
       </div>
-      {showCreate ? (
-        <Modal title="Add lab report" subtitle="Laboratory" onClose={() => setShowCreate(false)} size={680} onSubmit={handleCreate} saving={creating} saveLabel="Create pending lab report">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <label>Report type<select className="input" value={createForm.report_type} onChange={(event) => updateCreate('report_type', event.target.value)}>
-                {types.filter((type) => !type.is_template).map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
-              </select></label>
-              <label>Report format<select className="input" value={createForm.template} onChange={(event) => updateCreate('template', event.target.value)}>
-                {EXCEL_TEMPLATE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-              </select></label>
-              {/* UID: search registrations; picking one fills the details like the old software */}
-              <label style={{ position: 'relative' }}>
-                <span>UID No.<Req /></span>
-                <input
-                  className="input"
-                  required
-                  autoComplete="off"
-                  placeholder="Type to search UID"
-                  value={createForm.uid_no}
-                  onChange={(event) => updateCreate('uid_no', event.target.value)}
-                  onBlur={() => { setUidSuggestions([]); void fillFromUid(createForm.uid_no) }}
-                />
-                {uidSuggestions.length > 0 && (
-                  <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 240, overflowY: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 8px 20px rgba(15,23,42,0.18)' }}>
-                    {uidSuggestions.map((s) => (
-                      <button
-                        key={s.uid_no}
-                        type="button"
-                        // mousedown + preventDefault: picks on the first click, before the input blurs
-                        onMouseDown={(event) => { event.preventDefault(); pickUid(s.uid_no) }}
-                        style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderBottom: '1px solid #f1f5f9', background: '#fff', textAlign: 'left', cursor: 'pointer', color: '#1e293b' }}
-                      >
-                        <strong>{s.uid_no}</strong>
-                        <span style={{ display: 'block', marginTop: 2, fontSize: '0.75rem', color: '#64748b' }}>{s.agency_name || s.name_of_work || 'Registration'}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </label>
-              {/* ULR stays manual: the UID's linked ULRs (Manage ULR) are only offered as suggestions */}
-              <label>
-                <span>ULR No.{createForm.report_type === 'cc_cube' ? <Req /> : null}</span>
-                <input
-                  className="input"
-                  list="create-report-ulrs"
-                  autoComplete="off"
-                  required={createForm.report_type === 'cc_cube'}
-                  placeholder={linkedUlrs.length ? 'Pick a linked ULR or type' : 'Enter ULR No.'}
-                  value={createForm.ulr_no}
-                  onChange={(event) => updateCreate('ulr_no', event.target.value)}
-                />
-                <datalist id="create-report-ulrs">
-                  {linkedUlrs.map((ulr) => <option key={ulr} value={ulr} />)}
-                </datalist>
-              </label>
-              {([
-                ['customer_details', 'Customer name & address'], ['agency_name', 'Agency name'],
-                ['source_location', 'Name of work'], ['work_order_no', 'Work order no.'],
-                ['reference_no', 'Reference no.'], ['material_details', 'Material details'],
-                ['sample_date', 'Sample receipt date'], ['sample_tested_date', 'Sample tested date'],
-              ] as const).map(([key, label]) => (
-                <label key={key}><span>{label}{CREATE_REQUIRED.includes(key) ? <Req /> : null}</span><input className="input" required={CREATE_REQUIRED.includes(key)} type={key.includes('date') ? 'date' : 'text'} value={createForm[key]} onChange={(event) => updateCreate(key, event.target.value)} /></label>
-              ))}
-            </div>
-        </Modal>
-      ) : null}
 
       {removing ? (
         <Modal title="Remove Report" size="sm" onClose={() => setRemoving(null)} onSave={() => void confirmRemove()} saveLabel="Remove" cancelLabel="Close" saving={removingBusy}>
