@@ -281,6 +281,10 @@ class ReportController extends Controller
         if ($report->assigned_to) {
             $assignedUser = User::query()->find($report->assigned_to, ['id', 'firstname', 'lastname', 'username']);
         }
+        // Approved reports carry the public link (QR on the print); older approved reports get it on first open
+        if ($report->status === 'Complete') {
+            $report->ensurePublicToken();
+        }
         $approvedBy = null;
         if ($report->approved_by) {
             $approvedBy = User::query()->find($report->approved_by, ['id', 'firstname', 'lastname', 'username']);
@@ -482,6 +486,7 @@ class ReportController extends Controller
             'updated_date' => now(),
             'updated_by' => request()->user()?->id,
         ]);
+        $report->ensurePublicToken();
 
         // Advance workflow job through 'technical-review' then 'approval' stage
         $this->bridge->advanceToStage(

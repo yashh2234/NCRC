@@ -6,6 +6,7 @@
 import { EXCEL_TEMPLATE_OPTIONS, getTemplate, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
 import { LAB_FORMATS, effectiveValues, headerRows, type Block, type Cell, type Line, type Values } from './labFormats'
 import { chartSvg } from './labCharts'
+import qrcode from 'qrcode-generator'
 import { DEFAULT_BEND, DEFAULT_REBEND, STEEL_DIAS, STEEL_GRADES, STEEL_MAX_SAMPLES, STEEL_STANDARD, steelKey, utsRequirementText } from './steel'
 
 type Rec = Record<string, unknown>
@@ -91,7 +92,28 @@ function generalTable(type: string, material: string, key: string, details: Rec[
   }, {}, {})
 }
 
-export function buildReportHtml(type: string, report: Rec, details: Rec[]): string {
+/** Where the QR on an approved report points: the public view on its own domain, not the software */
+export const PUBLIC_REPORT_BASE = 'https://reports.namotech.in/r/'
+
+/** QR code as crisp inline SVG (one path), sized in mm for print */
+function qrSvg(textValue: string, sizeMm: number): string {
+  const qr = qrcode(0, 'M')
+  qr.addData(textValue)
+  qr.make()
+  const n = qr.getModuleCount(), m = 2, total = n + m * 2
+  let d = ''
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${sizeMm}mm" height="${sizeMm}mm" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`
+}
+
+/** QR block for approved reports that have a public link; empty otherwise */
+function qrBlock(report: Rec): string {
+  const token = str(report.public_token)
+  if (str(report.status) !== 'Complete' || !/^[A-Za-z0-9]{16,40}$/.test(token)) return ''
+  return `<div class="qr">${qrSvg(PUBLIC_REPORT_BASE + token, 24)}<div>Scan to view report</div></div>`
+}
+
+export function buildReportHtml(type: string, report: Rec, details: Rec[], opts: { qr?: boolean } = {}): string {
   const lab = (report.lab_data ?? {}) as Values
   const material = str(report.material_details)
   const key = str(lab._template) || resolveExcelTemplateKey(type, material)
@@ -156,6 +178,8 @@ td,th{border:1px solid #000;padding:3px 5px;vertical-align:middle;word-wrap:brea
 .foot{padding:8px 6px 4px;page-break-inside:avoid}
 .space{height:42px}
 .sign{display:flex;justify-content:space-between;align-items:flex-end}
+.foot-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.qr{text-align:center;font-size:7pt;line-height:1.2}.qr svg{display:block;margin:0 auto 1px}
 .notes{font-size:8pt;line-height:1.35;margin-top:8px}.notes p{margin:1px 0}
 .end{text-align:center;font-weight:bold;font-size:9.5pt;margin-top:6px}
 @media screen{body{background:#e5e7eb;padding:16px}.sheet{max-width:210mm;margin:0 auto;background:#fff;padding:10mm;box-shadow:0 2px 10px rgba(0,0,0,.15)}}
@@ -167,9 +191,11 @@ ${header}
 </table>
 ${results}
 <div class="foot">
+<div class="foot-top"><div>
 <div class="b">For Namotech Consultancy Services LLP</div><div class="space"></div>
 <div>Omendra Gupta - Managing Director</div>
 <div class="sign"><span class="b">Authorized Signatory</span></div>
+</div>${opts.qr === false ? '' : qrBlock(report)}</div>
 <div class="notes"><p class="b">Note:-</p>
 <p>1. ${esc(format?.note1 ?? 'Results related only to the sample (s) under test in as received condition and applicable parameter(s).')}</p>
 <p>2. This Test Report shall not reproduce wholly or in part and cannot be used as evidence in the court of law without written approval of Namotech Consultancy LLP.</p>

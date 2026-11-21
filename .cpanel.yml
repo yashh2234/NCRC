@@ -10,6 +10,10 @@ deployment:
     - export COMPOSER_BIN=$(command -v composer || echo /opt/cpanel/composer/bin/composer)
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R frontend/dist/. $DEPLOYPATH
+    # reports.namotech.in: public report view from the QR code (only /api/public/* reaches Laravel there)
+    - export REPORTSPATH=/home2/namoteuj/reports.namotech.in/
+    - /bin/mkdir -p $REPORTSPATH
+    - /bin/cp -R frontend/dist-public/. $REPORTSPATH
     # The old /api symlink made Laravel see "/login" instead of "/api/login"; routing is in .htaccess now.
     - /bin/rm -f $DEPLOYPATH/api
     - /bin/chmod 755 $DEPLOYPATH

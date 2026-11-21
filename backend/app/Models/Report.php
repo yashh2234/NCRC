@@ -46,6 +46,7 @@ class Report extends Model
         'locked_at',
         'locked_by',
         'lab_data',
+        'public_token',
     ];
 
     protected $casts = [
@@ -59,6 +60,19 @@ class Report extends Model
         'locked_at' => 'datetime',
         'lab_data' => 'array',
     ];
+
+    /** Secret token for the public link (QR on the print); made once, on approval */
+    public function ensurePublicToken(): string
+    {
+        if (! $this->public_token) {
+            do {
+                $token = \Illuminate\Support\Str::random(20);
+            } while (self::query()->where('public_token', $token)->exists());
+            $this->forceFill(['public_token' => $token])->save();
+        }
+
+        return $this->public_token;
+    }
 
     public function job(): BelongsTo
     {

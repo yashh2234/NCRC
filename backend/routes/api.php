@@ -62,6 +62,9 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+// Public report view (QR on the print -> reports.namotech.in/r/{token}); no login, token is the key
+Route::get('/public/reports/{token}', [\App\Http\Controllers\Api\PublicReportController::class, 'show'])->middleware('throttle:60,1');
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
