@@ -35,10 +35,10 @@ async function main(): Promise<void> {
     }
     if (!res.ok) throw new Error(String(res.status))
     const data = (await res.json()) as { type: string; report: Rec; details: Rec[] }
-    // The report page replaces this one (same layout as the print)
+    // The report page replaces this one (same layout as the print, QR included)
     document.open()
     // A4-wide viewport: phones show the whole sheet scaled to the screen (pinch to zoom)
-    const html = buildReportHtml(data.type, data.report, data.details, { qr: false })
+    const html = buildReportHtml(data.type, data.report, data.details)
       .replace('<head>', '<head><meta name="viewport" content="width=840"><meta name="robots" content="noindex, nofollow">')
     document.write(html)
     document.close()

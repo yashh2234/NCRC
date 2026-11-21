@@ -46,6 +46,9 @@ class PublicReportController extends Controller
             $value = $report->{$field};
             $data[$field] = $value instanceof \DateTimeInterface ? $value->format('Y-m-d') : $value;
         }
+        // So the page draws the same QR as the printed copy
+        $data['status'] = 'Complete';
+        $data['public_token'] = $report->public_token;
 
         return response()->json(['type' => $type, 'report' => $data, 'details' => $details])
             ->header('Cache-Control', 'no-store')
