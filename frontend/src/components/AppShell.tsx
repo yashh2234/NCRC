@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall } from 'lucide-react'
+import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -35,6 +35,7 @@ const iconMap: Record<string, LucideIcon> = {
   settings: Settings,
   inquiries: PhoneCall,
   quotations: ReceiptText,
+  proposals: FileSignature,
   work_orders: FileText,
   dispatches: FileText,
   outsource: FlaskConical,
@@ -61,6 +62,7 @@ interface NavGroup {
 interface AppShellProps {
   groups: NavGroup[]
   showInquiries: boolean
+  showProposals: boolean
   showTenders: boolean
   /** Shown as the Mail button in the top bar when the user has Mail access. */
   onOpenMail?: () => void
@@ -91,10 +93,11 @@ function isCompactViewport() {
 const STANDALONE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
   inquiries: 'Inquiries',
+  proposals: 'Proposals',
   tenders: 'Tenders',
 }
 
-export function AppShell({ groups, showInquiries, showTenders, onOpenMail, mailOpen = false, activeModule, onModuleChange, children }: AppShellProps) {
+export function AppShell({ groups, showInquiries, showProposals, showTenders, onOpenMail, mailOpen = false, activeModule, onModuleChange, children }: AppShellProps) {
   const { user, logout, error } = useAuth()
   useTracking()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -239,6 +242,16 @@ export function AppShell({ groups, showInquiries, showTenders, onOpenMail, mailO
             >
               <PhoneCall size={17} />
               Inquiries
+            </button>
+          ) : null}
+          {showProposals ? (
+            <button
+              className={activeModule === 'proposals' ? 'active' : ''}
+              onClick={() => navigate('proposals')}
+              type="button"
+            >
+              <FileSignature size={17} />
+              Proposals
             </button>
           ) : null}
           {showTenders ? (

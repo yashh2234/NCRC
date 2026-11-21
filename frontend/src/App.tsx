@@ -15,6 +15,7 @@ import { WorkflowTemplatesPage } from './pages/WorkflowTemplatesPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import QuotationsPage from './pages/QuotationsPage'
+import { ProposalsPage } from './pages/ProposalsPage'
 import WorkOrdersPage from './pages/WorkOrdersPage'
 import OutsourcePage from './pages/OutsourcePage'
 import { JobTypesPage } from './pages/JobTypesPage'
@@ -152,6 +153,7 @@ function AuthenticatedApp() {
     <AppShell
       groups={groups}
       showInquiries={canUserAccess(user, 'inquiries')}
+      showProposals={canUserAccess(user, 'proposals')}
       showTenders={canUserAccess(user, 'tenders')}
       onOpenMail={canUseMail ? () => setMailOpen(true) : undefined}
       mailOpen={mailOpen}
@@ -178,6 +180,9 @@ function AuthenticatedApp() {
       </div>
       <div className={`view ${activeModule === 'quotations' ? 'visible' : ''}`}>
         {activeModule === 'quotations' && <QuotationsPage />}
+      </div>
+      <div className={`view ${activeModule === 'proposals' ? 'visible' : ''}`}>
+        {activeModule === 'proposals' && <ProposalsPage />}
       </div>
       <div className={`view ${activeModule === 'work_orders' ? 'visible' : ''}`}>
         {activeModule === 'work_orders' && <WorkOrdersPage />}

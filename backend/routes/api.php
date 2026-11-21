@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\Api\QuotationController;
+use App\Http\Controllers\Api\ProposalController;
 use App\Http\Controllers\Api\WorkOrderController;
 use App\Http\Controllers\Api\DispatchController;
 use App\Http\Controllers\Api\OutsourceAssignmentController;
@@ -371,6 +372,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::delete('{inquiry}', [InquiryController::class, 'destroy']);
         Route::post('{inquiry}/activities', [InquiryController::class, 'logActivity']);
     });
+
+    Route::post('proposals/generate', [ProposalController::class, 'generate']);
+    Route::apiResource('proposals', ProposalController::class);
 
     Route::prefix('quotations')->group(function (): void {
         Route::get('/', [QuotationController::class, 'index']);

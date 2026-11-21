@@ -40,7 +40,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     bgColor: '#ede9fe',
     description: 'Full access to all modules and all dashboard data',
     allowedModules: [
-      'dashboard', 'tenders', 'jobs', 'inquiries', 'registrations', 'quotations', 'work_orders', 'outsource',
+      'dashboard', 'tenders', 'jobs', 'inquiries', 'registrations', 'quotations', 'proposals', 'work_orders', 'outsource',
       'reports', 'ulr_add', 'ulr_register', 'ulr_links', 'final_reports', 'billing', 'due_reports',
       'admin', 'users', 'user_tracking', 'expenses', 'purchase_orders',
       'lab', 'documents', 'roles', 'permissions', 'settings', 'analytics',
@@ -118,7 +118,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     description: 'Stage 7 (Payment Pending) — Payment follow-up, financial oversight',
     allowedModules: [
       'dashboard', 'tenders', 'jobs', 'inquiries', 'registrations', 'billing', 'expenses',
-      'purchase_orders', 'clients', 'analytics', 'due_reports', 'quotations',
+      'purchase_orders', 'clients', 'analytics', 'due_reports', 'quotations', 'proposals',
       'work_orders', 'help_guide',
     ],
     dashboardWidgets: [
@@ -165,6 +165,7 @@ export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'tenders', label: 'Tenders', group: 'General' },
   { key: 'mail', label: 'Mail (office mailbox)', group: 'General' },
   { key: 'inquiries', label: 'Inquiries', group: 'Clients' },
+  { key: 'proposals', label: 'Proposals', group: 'Clients' },
   { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
   { key: 'quotations', label: 'Quotations', group: 'Clients' },
   { key: 'work_orders', label: 'Work Orders', group: 'Clients' },
