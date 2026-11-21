@@ -19,8 +19,12 @@ interface ReportTypeInfo {
   generated: number
   assigned_to_me: number
   is_template?: boolean
+  is_all?: boolean
   template_key?: string
 }
+
+/** List rows also say which report type they are (needed when "All tests" or a format is selected) */
+type ReportRow = CubeReport & { report_type?: string; type_label?: string; format_label?: string | null }
 
 /** Status labels coloured like the old software (Pending orange, Complete green, Cancel red). */
 const STATUS_COLORS: Record<string, string> = {
@@ -37,7 +41,7 @@ const showDate = (value: string | null | undefined) => (value ? formatDisplayDat
 export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [types, setTypes] = useState<ReportTypeInfo[]>([])
   const [activeType, setActiveType] = useState<string>(defaultType || '')
-  const [reports, setReports] = useState<CubeReport[]>([])
+  const [reports, setReports] = useState<ReportRow[]>([])
   const [loading, setLoading] = useState(true)
   const [localError, setLocalError] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -47,13 +51,16 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [page, setPage] = useState(1)
   const [lastPage, setLastPage] = useState(1)
   const [totalRecords, setTotalRecords] = useState(0)
-  const [removing, setRemoving] = useState<CubeReport | null>(null)
+  const [removing, setRemoving] = useState<ReportRow | null>(null)
   const [removingBusy, setRemovingBusy] = useState(false)
-  const [editingReportId, setEditingReportId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<{ id: number; type: string } | null>(null)
+  // "All tests" and format selections mix types, so each row acts with its own report type
+  const rowType = (report: ReportRow) => report.report_type || activeType
+  const openReport = (report: ReportRow) => setEditing({ id: report.iReportId, type: rowType(report) })
   const [showCreate, setShowCreate] = useState(false)
-  const handlePrint = async (reportId: number) => {
+  const handlePrint = async (report: ReportRow) => {
     try {
-      await api.downloadReportPdf(activeType, reportId)
+      await api.printLabReport(rowType(report), report.iReportId)
     } catch {
       setLocalError('Failed to print report')
     }
@@ -79,14 +86,6 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
 
   const loadReports = useCallback(async () => {
     if (!activeType) return
-    const selectedType = types.find((type) => type.key === activeType)
-    if (selectedType?.is_template) {
-      setReports([])
-      setTotalRecords(0)
-      setLastPage(1)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -104,7 +103,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
     } finally {
       setLoading(false)
     }
-  }, [activeType, statusFilter, startDate, endDate, search, page, types])
+  }, [activeType, statusFilter, startDate, endDate, search, page])
 
   useEffect(() => { void loadTypes() }, [loadTypes])
   useEffect(() => { void loadReports() }, [loadReports])
@@ -114,7 +113,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
     if (!removing) return
     setRemovingBusy(true)
     try {
-      await api.deleteReport(activeType, removing.iReportId)
+      await api.deleteReport(rowType(removing), removing.iReportId)
       setRemoving(null)
       await loadTypes()
       await loadReports()
@@ -127,6 +126,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
 
   const activeTypeInfo = types.find((t) => t.key === activeType)
   const isCube = activeType === 'cc_cube'
+  const mixed = activeType === 'all' || activeType.startsWith('template:')
 
   const statusSteps = ['Pending', 'Testing', 'Report Generated', 'Complete']
 
@@ -141,8 +141,8 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
     )
   }
 
-  if (editingReportId) {
-    return <ReportEditPage type={activeType} reportId={editingReportId} onBack={() => { setEditingReportId(null); void loadReports() }} />
+  if (editing) {
+    return <ReportEditPage type={editing.type} reportId={editing.id} onBack={() => { setEditing(null); void loadReports() }} />
   }
 
   return (
@@ -210,15 +210,10 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
 
           {localError ? <div className="error-banner">{localError}</div> : null}
 
-        {activeTypeInfo?.is_template ? (
-          <div className="empty-state">
-            <p><strong>{activeTypeInfo.label}</strong> is available as an Excel lab-report format.</p>
-            <p>Choose this format inside a report’s Lab testing screen. Existing reports are listed under their report type.</p>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <p className="empty-state">Loading reports...</p>
         ) : reports.length === 0 ? (
-          <p className="empty-state">No {activeTypeInfo?.label?.toLowerCase() ?? ''} reports found.</p>
+          <p className="empty-state">No {activeTypeInfo?.is_all ? '' : `${activeTypeInfo?.label?.toLowerCase() ?? ''} `}reports found.</p>
         ) : (
           <div className="table-card">
             <div className="table-wrap">
@@ -228,6 +223,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                     <th>Date</th>
                     <th>UID No</th>
                     <th>ULR No</th>
+                    {mixed ? <th>Test</th> : null}
                     <th>Name &amp; Address</th>
                     <th>Agency Name</th>
                     {isCube ? <th>Date of casting</th> : null}
@@ -249,11 +245,12 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                       <tr key={report.iReportId}>
                         <td style={{ whiteSpace: 'nowrap' }}>{showDate(report.create_date)}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
-                          <button type="button" onClick={() => setEditingReportId(report.iReportId)} title="Open report" style={{ background: 'none', border: 0, padding: 0, color: 'var(--color-primary, #2563eb)', fontWeight: 600, cursor: 'pointer', font: 'inherit' }}>
+                          <button type="button" onClick={() => openReport(report)} title="Open report" style={{ background: 'none', border: 0, padding: 0, color: 'var(--color-primary, #2563eb)', fontWeight: 600, cursor: 'pointer', font: 'inherit' }}>
                             {report.uid_no}
                           </button>
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>{report.ulr_no || '-'}</td>
+                        {mixed ? <td style={{ whiteSpace: 'nowrap' }}>{report.format_label || report.type_label || '-'}</td> : null}
                         <td style={{ minWidth: 180 }}>{report.customer_details || '-'}</td>
                         <td style={{ minWidth: 140 }}>{report.agency_name || '-'}</td>
                         {isCube ? <td style={{ whiteSpace: 'nowrap' }}>{showDate(report.date_of_casting)}</td> : null}
@@ -266,8 +263,8 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                         <td style={{ whiteSpace: 'nowrap' }}>{showDate(report.sample_tested_date)}</td>
                         <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
                           <div style={{ display: 'inline-flex', gap: 4 }}>
-                            <button className="icon-button" onClick={() => void handlePrint(report.iReportId)} type="button" title="Print report" aria-label={`Print report ${report.uid_no}`}><Printer size={16} /></button>
-                            <button className="icon-button" onClick={() => setEditingReportId(report.iReportId)} type="button" title="Edit report" aria-label={`Edit report ${report.uid_no}`}><Pencil size={16} /></button>
+                            <button className="icon-button" onClick={() => void handlePrint(report)} type="button" title="Print report" aria-label={`Print report ${report.uid_no}`}><Printer size={16} /></button>
+                            <button className="icon-button" onClick={() => openReport(report)} type="button" title="Edit report" aria-label={`Edit report ${report.uid_no}`}><Pencil size={16} /></button>
                             <button className="icon-button" onClick={() => setRemoving(report)} type="button" title="Remove report" aria-label={`Remove report ${report.uid_no}`} style={{ color: '#dc2626' }}><Trash2 size={16} /></button>
                           </div>
                         </td>

@@ -11,7 +11,6 @@ use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UserActivity;
 use App\Services\WorkflowBridge;
-use App\Services\ExcelTemplatePdfRenderer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +18,10 @@ use Illuminate\Support\Facades\DB;
 class ReportController extends Controller
 {
     protected WorkflowBridge $bridge;
-    protected ExcelTemplatePdfRenderer $templatePdfRenderer;
 
-    public function __construct(WorkflowBridge $bridge, ExcelTemplatePdfRenderer $templatePdfRenderer)
+    public function __construct(WorkflowBridge $bridge)
     {
         $this->bridge = $bridge;
-        $this->templatePdfRenderer = $templatePdfRenderer;
     }
 
     public const REPORT_TYPES = [
@@ -120,6 +117,12 @@ class ReportController extends Controller
         'main_hole_cover_hd20' => 'Main Hole Cover HD 20',
         'sand' => 'Sand',
         'soil_omc_mdd_cbr' => 'Soil OMC MDD & CBR',
+        'steel_fe415' => 'Steel Fe-415',
+        'steel_fe415d' => 'Steel Fe-415D',
+        'steel_fe500' => 'Steel Fe-500',
+        'steel_fe500d' => 'Steel Fe-500D',
+        'steel_fe550' => 'Steel Fe-550',
+        'steel_fe550d' => 'Steel Fe-550D',
         'verified_floor_tile' => 'Verified Floor Tile',
         'water' => 'Water',
         'wmm_mix' => 'WMM Mix OMC MDD',
@@ -132,7 +135,8 @@ class ReportController extends Controller
         $report = Report::query()->where('iReportId', $reportId)->where('report_type', $type)->firstOrFail();
         $config = self::REPORT_TYPES[$type];
         $detailModel = $config['model'];
-        $details = $detailModel::query()->where('iReportId', $reportId)->get();
+        $pk = (new $detailModel())->getKeyName();
+        $details = $detailModel::query()->where('iReportId', $reportId)->orderBy($pk)->get();
         $company = Company::query()->first();
 
         $payload = [
@@ -141,56 +145,56 @@ class ReportController extends Controller
             'company' => $company,
         ];
 
-        if ($request->query('format') === 'pdf') {
-            $html = $this->templatePdfRenderer->render($report, $details, $company);
-            return \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
-                ->download('report-' . $reportId . '.pdf');
-        }
-
         return response()->json($payload);
     }
 
     public function types(): JsonResponse
     {
         $user = request()->user();
-        $types = [];
-        foreach (self::REPORT_TYPES as $key => $config) {
-            $query = Report::query()->where('report_type', $key);
-            $count = (clone $query)->count();
-            $pending = (clone $query)->where('status', 'Pending')->count();
-            $testing = (clone $query)->where('status', 'Testing')->count();
-            $generated = (clone $query)->where('status', 'Report Generated')->count();
-            $assignedToMe = $user ? (clone $query)->where('assigned_to', $user->id)->whereNotIn('status', ['Complete', 'Cancel'])->count() : 0;
-            $types[] = [
-                'key' => $key,
-                'label' => $config['label'],
-                'total' => $count,
-                'pending' => $pending,
-                'testing' => $testing,
-                'generated' => $generated,
-                'assigned_to_me' => $assignedToMe,
+        $counts = function (string $key) use ($user): array {
+            $query = $this->typeQuery($key);
+            return [
+                'total' => (clone $query)->count(),
+                'pending' => (clone $query)->where('status', 'Pending')->count(),
+                'testing' => (clone $query)->where('status', 'Testing')->count(),
+                'generated' => (clone $query)->where('status', 'Report Generated')->count(),
+                'assigned_to_me' => $user ? (clone $query)->where('assigned_to', $user->id)->whereNotIn('status', ['Complete', 'Cancel'])->count() : 0,
             ];
+        };
+
+        $types = [['key' => 'all', 'label' => 'All tests', 'is_all' => true] + $counts('all')];
+        foreach (self::REPORT_TYPES as $key => $config) {
+            $types[] = ['key' => $key, 'label' => $config['label']] + $counts($key);
         }
         foreach (self::EXCEL_TEMPLATES as $key => $label) {
-            $types[] = [
-                'key' => 'template:' . $key,
-                'label' => $label,
-                'total' => 0,
-                'pending' => 0,
-                'testing' => 0,
-                'generated' => 0,
-                'assigned_to_me' => 0,
-                'is_template' => true,
-                'template_key' => $key,
-            ];
+            $types[] = ['key' => 'template:' . $key, 'label' => $label, 'is_template' => true, 'template_key' => $key] + $counts('template:' . $key);
         }
 
         return response()->json(['data' => $types]);
     }
 
+    /** Reports for a list selection: 'all', a report type, or 'template:<format key>' */
+    private function typeQuery(string $type): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($type === 'all') {
+            return Report::query();
+        }
+        if (str_starts_with($type, 'template:')) {
+            return Report::query()->where('lab_data->_template', substr($type, strlen('template:')));
+        }
+
+        return Report::query()->where('report_type', $type);
+    }
+
     public function index(Request $request, string $type): JsonResponse
     {
-        abort_if(! isset(self::REPORT_TYPES[$type]), 404, "Unknown report type: $type");
+        // 'all' = every test; 'template:<key>' = reports saved in that lab-report format
+        $templateKey = str_starts_with($type, 'template:') ? substr($type, strlen('template:')) : null;
+        abort_if(
+            $type !== 'all' && ! isset(self::REPORT_TYPES[$type]) && ! isset(self::EXCEL_TEMPLATES[$templateKey ?? '']),
+            404,
+            "Unknown report type: $type",
+        );
 
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
@@ -200,8 +204,7 @@ class ReportController extends Controller
         $perPage = 50;
         $page = max(1, (int) $request->query('page', 1));
 
-        $query = Report::query()
-            ->where('report_type', $type)
+        $query = $this->typeQuery($type)
             ->when($startDate && $endDate, function ($query) use ($startDate, $endDate): void {
                 $query->whereDate('create_date', '>=', $startDate)
                     ->whereDate('create_date', '<=', $endDate);
@@ -232,6 +235,9 @@ class ReportController extends Controller
 
         $reports = $rows->map(fn (Report $report): array => [
                 'iReportId' => $report->iReportId,
+                'report_type' => $report->report_type,
+                'type_label' => self::REPORT_TYPES[$report->report_type]['label'] ?? $report->report_type,
+                'format_label' => self::EXCEL_TEMPLATES[($report->lab_data ?? [])['_template'] ?? ''] ?? null,
                 'uid_no' => $report->uid_no,
                 'ulr_no' => $report->ulr_no,
                 'job_id' => $report->job_id,
@@ -257,7 +263,7 @@ class ReportController extends Controller
             'last_page' => max(1, (int) ceil($total / $perPage)),
             'data' => $reports,
             'type' => $type,
-            'config' => self::REPORT_TYPES[$type],
+            'config' => self::REPORT_TYPES[$type] ?? null,
         ]);
     }
 
@@ -268,7 +274,8 @@ class ReportController extends Controller
         $report = Report::query()->where('iReportId', $reportId)->where('report_type', $type)->firstOrFail();
         $config = self::REPORT_TYPES[$type];
         $detailModel = $config['model'];
-        $details = $detailModel::query()->where('iReportId', $reportId)->get();
+        // Rows in entry order (results screen and print number them 1, 2, 3…)
+        $details = $detailModel::query()->where('iReportId', $reportId)->orderBy((new $detailModel())->getKeyName())->get();
 
         $assignedUser = null;
         if ($report->assigned_to) {

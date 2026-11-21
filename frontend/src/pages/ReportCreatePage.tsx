@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { DateInput } from '../components/DateInput'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { EXCEL_TEMPLATE_OPTIONS, ExcelLabReportEditor } from '../components/ExcelLabReportEditor'
+import { cubeSetsFromGrid } from '../lib/labFormats'
 
 /**
  * Create Report.
@@ -16,7 +17,6 @@ import { EXCEL_TEMPLATE_OPTIONS, ExcelLabReportEditor } from '../components/Exce
 interface ReportTypeOption { key: string; label: string; is_template?: boolean }
 
 const CUBE_MATERIALS = ['Cube Sample (01 Set)', 'Cube Sample (02 Set)', 'Cube Sample (03 Set)', 'Cube Sample (04 Set)', 'Cube Sample (05 Set)']
-const CUBE_KEYS = ['location', 'size_of_cube', 'date_of_casting', 'date_of_testing', 'age_of_specimen', 'load_1', 'comp_strength_1', 'avg_comp_strength', 'is_code_comp_strength'] as const
 /** Final-report format → the report type it is saved as. Formats without their own type are kept under MES. */
 const FORMAT_TYPE: Record<string, string> = {
   cc_cube: 'cc_cube', cc_core: 'cc_core', clay_bricks: 'bricks', interlocking_60mm: 'interlocking',
@@ -36,21 +36,6 @@ function defaultFormat(listType: string): string {
 
 const SAMPLED_BY = ['Sample Supplied By Customer', 'Sample Collected By Ncs']
 const DEFAULT_ENVIRONMENT = 'As Per the Prescribed test Method'
-
-const emptyCubeRow = (): Record<string, string> => ({
-  ...Object.fromEntries(CUBE_KEYS.map((k) => [k, ''])),
-  size_of_cube: '22500',
-  age_of_specimen: '28 Days',
-})
-
-/** Old software: strength = load × 1000 ÷ size (2 decimals). One load per row in this table, so avg = strength. */
-function recalcCube(row: Record<string, string>): Record<string, string> {
-  const size = Number(row.size_of_cube) || 0
-  const load = (row.load_1 ?? '').trim()
-  if (!load || !size) return row
-  const strength = ((Number(load) || 0) * 1000 / size).toFixed(2)
-  return { ...row, comp_strength_1: strength, avg_comp_strength: strength }
-}
 
 function nowStamp() {
   const d = new Date()
@@ -89,7 +74,6 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
     source_location: '', work_order_no: '', sample_date: '', sample_tested_date: '',
     sampled_by: SAMPLED_BY[0], environment_condition: DEFAULT_ENVIRONMENT, dispatch_date: '',
   })
-  const [details, setDetails] = useState<Array<Record<string, string>>>(isCube ? [emptyCubeRow()] : [])
   const [labData, setLabData] = useState<Record<string, string>>({})
 
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
@@ -108,11 +92,10 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
     return () => window.clearTimeout(t)
   }, [uid])
 
-  // CC Cube: "Cube Sample (0N Set)" gives N result rows
+  // CC Cube: "Cube Sample (0N Set)" gives N cube sets in the results table
   const setCount = isCube ? Math.max(1, CUBE_MATERIALS.indexOf(form.material_details) + 1) : 0
   useEffect(() => {
-    if (!isCube) { setDetails([]); return }
-    setDetails((prev) => (prev.length === setCount ? prev : Array.from({ length: setCount }, (_, i) => prev[i] ?? emptyCubeRow())))
+    if (isCube) setLabData((prev) => (prev.n_sets === String(setCount) ? prev : { ...prev, n_sets: String(setCount) }))
   }, [isCube, setCount])
 
   const changeFormat = (next: string) => {
@@ -176,12 +159,7 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
     void getDetails(value)
   }
 
-  const updateDetail = (index: number, field: string, value: string) =>
-    setDetails((prev) => prev.map((row, i) => {
-      if (i !== index) return row
-      const next = { ...row, [field]: value }
-      return isCube && (field === 'load_1' || field === 'size_of_cube') ? recalcCube(next) : next
-    }))
+  const updateDetail = () => {}
   const updateLabData = (field: string, value: string) => setLabData((prev) => ({ ...prev, [field]: value }))
 
   const submit = async (e: FormEvent) => {
@@ -203,7 +181,8 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
         uid_no: loadedUid,
         dispatch_date: form.dispatch_date || undefined,
         lab_data: { ...labData, _template: templateKey },
-        ...(isCube ? { sets: details.slice(0, setCount) } : {}),
+        // Lab Reports list shows the cube dates from these rows
+        ...(isCube ? { sets: cubeSetsFromGrid(labData) } : {}),
       }
       if (isCube) await api.createCubeReport(payload)
       else await api.createLabReport(reportType, payload)
@@ -326,7 +305,7 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
           <ExcelLabReportEditor
             reportType={reportType}
             material={form.material_details}
-            details={isCube ? details.slice(0, setCount) : details}
+            details={[]}
             labData={labData}
             templateKey={templateKey}
             updateDetail={updateDetail}

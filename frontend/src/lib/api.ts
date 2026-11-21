@@ -1,4 +1,5 @@
 import type { Tender, TenderInput } from './tenders'
+import { openReportPrint } from './reportPrint'
 import type { Inquiry, InquiryCallInput, InquiryInput } from './inquiries'
 import type {
   AuditLogEntry,
@@ -223,17 +224,9 @@ export const api = {
     return request(`/reports/${type}/${reportId}`, { method: 'PUT', body: JSON.stringify(data) })
   },
 
-  async downloadReportPdf(type: string, reportId: number): Promise<void> {
-    const token = getToken()
-    const response = await fetch(`${BASE_URL}/reports/${type}/${reportId}/print?format=pdf`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (!response.ok) throw new Error('Print failed')
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    window.open(url, '_blank')
+  /** Opens the lab report print (laid out like the lab's Excel formats) in a new tab with the print dialog */
+  printLabReport(type: string, reportId: number): Promise<void> {
+    return openReportPrint(() => this.reportDetail(type, reportId), type)
   },
 
   createCubeReport(data: Record<string, unknown>): Promise<{ message: string }> {
@@ -553,6 +546,21 @@ export const api = {
 
   removeRegistrationAttachment(registrationId: number | string, field: string): Promise<{ message: string }> {
     return request(`/registrations/${registrationId}/attachments/${field}`, { method: 'DELETE' })
+  },
+
+  /** Year's ULR list (e.g. NCS 2026.xlsx: ULR No. + Date) → date-wise ULR pool of the Add ULR page */
+  async importUlrList(file: File): Promise<{ message: string; added: number; moved: number; unchanged: number; linked_kept: number }> {
+    const body = new FormData()
+    body.append('file', file)
+    const token = getToken()
+    const response = await fetch(`${BASE_URL}/ulr-links/import`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body,
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(payload.message ?? 'Import failed')
+    return payload
   },
 
   uploadRegistrationScan(formData: FormData, onProgress?: (percent: number) => void): Promise<{ message: string; path: string; url: string }> {

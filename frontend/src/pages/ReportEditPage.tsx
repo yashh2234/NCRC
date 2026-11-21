@@ -139,7 +139,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
 
   const handlePrint = async () => {
     try {
-      await api.downloadReportPdf(type, reportId)
+      await api.printLabReport(type, reportId)
     } catch {
       setError('Print failed')
     }

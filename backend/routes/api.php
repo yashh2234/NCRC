@@ -169,6 +169,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('ulr-links/export', [UlrLinkController::class, 'export']);
     Route::get('ulr-links/register', [UlrLinkController::class, 'register']);
     Route::post('ulr-links/client-details', [UlrLinkController::class, 'getClientDetails']);
+    Route::post('ulr-links/import', [UlrLinkController::class, 'importPool']);
 
     Route::apiResource('stores', StoreController::class)->only(['index', 'store', 'update', 'destroy']);
 

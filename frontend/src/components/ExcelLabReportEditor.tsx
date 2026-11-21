@@ -1,4 +1,8 @@
 import { useMemo } from 'react'
+import { isSteelFormat } from '../lib/steel'
+import { SteelResultsEditor } from './SteelResultsEditor'
+import { LabFormatGrid } from './LabFormatGrid'
+import { hasLabFormat } from '../lib/labFormats'
 
 interface TemplateField {
   key: string
@@ -22,7 +26,10 @@ export const EXCEL_TEMPLATE_OPTIONS = [
   ['clay_bricks', 'Clay Bricks'], ['dbm_bc_density', 'DBM BC Bitumen Core Density'], ['fcdc_ferro_cover', 'FCDC Ferro Cover'],
   ['grit_10mm', 'Grit 10mm'], ['grit_20mm', 'Grit 20mm'], ['gsb_iii_mix', 'GSB-III Mix'], ['interlocking_60mm', 'Interlocking 60mm'],
   ['kerb_stone', 'Kerb Stone'], ['m30_mix', 'M-30 Mix'], ['main_hole_cover_hd20', 'Main Hole Cover HD 20'],
-  ['sand', 'Sand'], ['soil_omc_mdd_cbr', 'Soil OMC MDD & CBR'], ['verified_floor_tile', 'Verified Floor Tile'],
+  ['sand', 'Sand'], ['soil_omc_mdd_cbr', 'Soil OMC MDD & CBR'],
+  ['steel_fe415', 'Steel Fe-415'], ['steel_fe415d', 'Steel Fe-415D'], ['steel_fe500', 'Steel Fe-500'],
+  ['steel_fe500d', 'Steel Fe-500D'], ['steel_fe550', 'Steel Fe-550'], ['steel_fe550d', 'Steel Fe-550D'],
+  ['verified_floor_tile', 'Verified Floor Tile'],
   ['water', 'Water'], ['wmm_mix', 'WMM Mix OMC MDD'],
 ] as const
 
@@ -101,8 +108,8 @@ export function resolveExcelTemplateKey(reportType: string, material: string): s
   const lower = material.toLowerCase()
   if (reportType === 'cc_cube') return 'cc_cube'
   if (reportType === 'cc_core') return 'cc_core'
-  if (reportType === 'bitumen_core' && lower.includes('dbm')) return 'dbm_bc_density'
-  if (reportType === 'bitumen_core') return 'bitumen_sample_dbm_bc'
+  // Bitumen cores: thickness + density (DBM BC Bitumen Core Density format)
+  if (reportType === 'bitumen_core') return 'dbm_bc_density'
   if (reportType === 'bitumen_loose') return 'bitumen_sample_dbm_bc'
   if (reportType === 'bricks') return 'clay_bricks'
   if (reportType === 'ferro_cover') return 'fcdc_ferro_cover'
@@ -110,6 +117,8 @@ export function resolveExcelTemplateKey(reportType: string, material: string): s
   if (reportType === 'mainhole_cover') return 'main_hole_cover_hd20'
   if (reportType === 'sand') return 'sand'
   if (reportType === 'water') return 'water'
+  const fe = lower.replace(/\s|-/g, '').match(/fe(415|500|550)(d?)/)
+  if (fe) return `steel_fe${fe[1]}${fe[2]}`
   if (lower.includes('cement')) return 'cement_opc_43'
   if (lower.includes('soil')) return 'soil_omc_mdd_cbr'
   if (lower.includes('wmm')) return 'wmm_mix'
@@ -125,7 +134,7 @@ export function resolveExcelTemplateKey(reportType: string, material: string): s
   return 'cc_cube'
 }
 
-function getTemplate(type: string, material: string, selectedKey: string): { title: string; standard: string; fields: TemplateField[] } {
+export function getTemplate(type: string, material: string, selectedKey: string): { title: string; standard: string; fields: TemplateField[] } {
   const selectedOption = EXCEL_TEMPLATE_OPTIONS.find(([key]) => key === selectedKey)
   if (selectedOption) {
     const title = selectedOption[1]
@@ -152,6 +161,15 @@ function getTemplate(type: string, material: string, selectedKey: string): { tit
 export function ExcelLabReportEditor({ reportType, material, details, labData, updateDetail, updateLabData, templateKey }: ExcelLabReportEditorProps) {
   const template = useMemo(() => getTemplate(reportType, material, templateKey ?? ''), [reportType, material, templateKey])
   const rows = details.length > 0 ? details : [{}]
+
+  if (templateKey && isSteelFormat(templateKey)) {
+    return <SteelResultsEditor templateKey={templateKey} labData={labData} updateLabData={updateLabData} />
+  }
+  // Formats taken from the lab's Excel sheets: same tables as the print
+  if (hasLabFormat(templateKey)) {
+    const label = EXCEL_TEMPLATE_OPTIONS.find(([k]) => k === templateKey)?.[1] ?? templateKey
+    return <LabFormatGrid formatKey={templateKey} label={label} labData={labData} details={details} updateLabData={updateLabData} />
+  }
 
   return (
     <section style={{ marginTop: 28, border: '1px solid #e2e8f0', background: '#fff' }}>

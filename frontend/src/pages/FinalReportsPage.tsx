@@ -75,7 +75,7 @@ export function FinalReportsPage() {
   const handlePrint = async (r: FinalReport) => {
     setPrintingId(r.iReportId)
     try {
-      await api.downloadReportPdf(r.report_type, r.iReportId)
+      await api.printLabReport(r.report_type, r.iReportId)
     } catch {
       setError(`Failed to download report print for ${r.uid_no}`)
     } finally {

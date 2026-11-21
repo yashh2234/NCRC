@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\UlrLink;
+use App\Services\XlsxReader;
 use App\Models\UlrCopy;
 use App\Models\Registration;
 use App\Models\Report;
@@ -97,6 +98,110 @@ class UlrLinkController extends Controller
             });
 
         return response()->json(['data' => $links]);
+    }
+
+    /**
+     * Import the year's ULR list (e.g. "NCS 2026.xlsx": ULR No. + Date columns) into the date-wise pool
+     * that the Add ULR page offers. ULRs already linked to a UID are never changed.
+     */
+    public function importPool(Request $request): JsonResponse
+    {
+        $request->validate(['file' => 'required|file|max:20480']);
+
+        try {
+            $rows = XlsxReader::firstSheetRows($request->file('file')->getRealPath());
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not read the Excel file: ' . $e->getMessage()], 422);
+        }
+
+        // Header row: the "ULR No." and "Date" columns
+        $ulrCol = $dateCol = null;
+        $headerRow = 0;
+        foreach (array_slice($rows, 0, 10, true) as $n => $cells) {
+            foreach ($cells as $col => $value) {
+                $v = strtolower(trim($value));
+                if ($ulrCol === null && str_contains($v, 'ulr')) $ulrCol = $col;
+                if ($dateCol === null && preg_match('/^date\b/', $v)) $dateCol = $col;
+            }
+            if ($ulrCol !== null && $dateCol !== null) { $headerRow = $n; break; }
+            $ulrCol = $dateCol = null;
+        }
+        if ($ulrCol === null || $dateCol === null) {
+            return response()->json(['message' => 'The Excel needs a "ULR No." column and a "Date" column in its header row.'], 422);
+        }
+
+        // ULR → date from the Excel
+        $list = [];
+        $invalid = 0;
+        foreach ($rows as $n => $cells) {
+            if ($n <= $headerRow) continue;
+            $ulr = preg_replace('/\.0+$/', '', trim((string) ($cells[$ulrCol] ?? '')));
+            if ($ulr === '') continue;
+            $date = $this->excelDate($cells[$dateCol] ?? '');
+            if (! $date) { $invalid++; continue; }
+            $list[$ulr] = $date;
+        }
+        if (! $list) {
+            return response()->json(['message' => 'No ULR numbers with a date were found in the Excel.'], 422);
+        }
+
+        $added = $moved = $same = $linkedKept = 0;
+        DB::transaction(function () use ($list, &$added, &$moved, &$same, &$linkedKept) {
+            $years = array_values(array_unique(array_map(fn ($d) => (int) substr($d, 0, 4), $list)));
+            // The ULR series repeats every year: match within the same year
+            $existing = UlrLink::query()
+                ->where(function ($q) use ($years) {
+                    foreach ($years as $y) $q->orWhereBetween('date', ["$y-01-01", "$y-12-31"]);
+                })
+                ->whereIn('ulr_no', array_map('strval', array_keys($list)))
+                ->lockForUpdate()
+                ->get(['id', 'ulr_no', 'date', 'uid_no'])
+                ->groupBy(fn ($r) => trim((string) $r->ulr_no) . '|' . substr((string) $r->date, 0, 4));
+
+            $insert = [];
+            foreach ($list as $ulr => $date) {
+                $rowsForUlr = $existing->get($ulr . '|' . substr($date, 0, 4));
+                if (! $rowsForUlr) {
+                    $insert[] = array_merge(array_fill_keys(UlrLink::TEXT_COLUMNS, ''), [
+                        'ulr_no' => (string) $ulr, 'date' => $date, 'ndate' => UlrLink::dmy($date),
+                        'sample_received_date' => null, 'report_dispatch_date' => null,
+                    ]);
+                    $added++;
+                    continue;
+                }
+                if ($rowsForUlr->contains(fn ($r) => substr((string) $r->date, 0, 10) === $date)) { $same++; continue; }
+                if ($rowsForUlr->contains(fn ($r) => trim((string) $r->uid_no) !== '')) { $linkedKept++; continue; }
+                UlrLink::query()->whereKey($rowsForUlr->first()->id)->update(['date' => $date, 'ndate' => UlrLink::dmy($date)]);
+                $moved++;
+            }
+            foreach (array_chunk($insert, 500) as $chunk) {
+                UlrLink::query()->insert($chunk);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Imported ' . count($list) . " ULR numbers: {$added} added, {$moved} moved to their Excel date, {$same} already correct"
+                . ($linkedKept ? ", {$linkedKept} already linked to a UID on another date (kept)" : '')
+                . ($invalid ? ", {$invalid} rows skipped (no valid date)" : '') . '.',
+            'total' => count($list), 'added' => $added, 'moved' => $moved, 'unchanged' => $same, 'linked_kept' => $linkedKept, 'invalid' => $invalid,
+        ]);
+    }
+
+    /** 31/01/2026, 31-01-2026, 2026-01-31 or an Excel date number → 2026-01-31 */
+    private function excelDate(string $value): ?string
+    {
+        $v = trim($value);
+        if (preg_match('/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/', $v, $m) && checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
+            return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+        }
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $v, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return "$m[1]-$m[2]-$m[3]";
+        }
+        if (is_numeric($v) && (float) $v > 20000 && (float) $v < 80000) {
+            return gmdate('Y-m-d', (int) round(((float) $v - 25569) * 86400));
+        }
+
+        return null;
     }
 
     public function store(Request $request): JsonResponse

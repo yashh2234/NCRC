@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link2, CheckCircle2, AlertCircle, X } from 'lucide-react'
+import { Link2, CheckCircle2, AlertCircle, X, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { Req } from '../components/ui'
@@ -32,6 +32,8 @@ export function UlrLinkPage() {
   const [uidSuggestions, setUidSuggestions] = useState<Array<{ uid_no: string; agency_name: string; reporting_address?: string; name_of_work: string; sample_details: string }>>([])
   const [isLinking, setIsLinking] = useState(false)
   const pickedUidRef = useRef('')
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
   const lookupSeqRef = useRef(0)
 
   // Load ULR list for active date
@@ -151,8 +153,33 @@ export function UlrLinkPage() {
     }
   }
 
+  // Year's ULR list (NCS 2026.xlsx): each ULR No. on its Excel date, offered when that date is picked
+  const handleImport = async (file: File | undefined) => {
+    if (!file) return
+    setImporting(true)
+    setError('')
+    setSuccessMsg('')
+    try {
+      const res = await api.importUlrList(file)
+      setSuccessMsg(res.message)
+      await loadDateDropdown(quickDate)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setImporting(false)
+      if (importInputRef.current) importInputRef.current.value = ''
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <input ref={importInputRef} type="file" accept=".xlsx" hidden onChange={(e) => void handleImport(e.target.files?.[0])} />
+        <button type="button" className="btn btn-outline btn-sm" disabled={importing} onClick={() => importInputRef.current?.click()}
+          title="Excel with ULR No. and Date columns, e.g. NCS 2026.xlsx. Linked ULRs are not changed.">
+          <Upload size={14} /> {importing ? 'Importing…' : 'Import ULR list (Excel)'}
+        </button>
+      </div>
       {/* Notifications */}
       {error && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '10px 16px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
