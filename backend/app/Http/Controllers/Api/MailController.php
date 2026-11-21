@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\MailAccount;
 use App\Models\User;
 use App\Services\MailInboxWatcher;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Symfony\Component\Mailer\Mailer;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use Symfony\Component\Mime\Address as MimeAddress;
 use Symfony\Component\Mime\Email;
@@ -62,7 +62,7 @@ class MailController extends Controller
         if (blank($values['password'] ?? null)) {
             unset($values['password']); // keep the saved password
         }
-        $values['updated_by'] = auth()->id();
+        $values['updated_by'] = Auth::id();
 
         $candidate = ($account ?? new MailAccount())->fill($values);
 
@@ -195,7 +195,12 @@ class MailController extends Controller
         $messages = $total > 0 ? $query->limit(self::PER_PAGE, $page)->get() : collect();
 
         return response()->json([
-            'data' => collect($messages)->map(fn (Message $m) => $this->summary($m))->values(),
+            // Newest first, like Thunderbird sorted by date (the IMAP library hands each page back oldest-first).
+            'data' => collect($messages)->map(fn (Message $m) => $this->summary($m))
+                ->sortBy([
+                    fn ($a, $b) => strtotime($b['date'] ?? '1970-01-01') <=> strtotime($a['date'] ?? '1970-01-01'),
+                    fn ($a, $b) => $b['uid'] <=> $a['uid'],
+                ])->values(),
             'total' => $total,
             'page' => $page,
             'per_page' => self::PER_PAGE,
@@ -353,14 +358,21 @@ class MailController extends Controller
             }
         }
 
+        // Give the mail the same identity Thunderbird does: a Date, a Message-ID on our own domain
+        // and an EHLO name that is our domain instead of "[127.0.0.1]", which Gmail scores badly.
+        $domain = substr(strrchr($account->email, '@') ?: '@localhost', 1);
+        $email->date(new \DateTimeImmutable());
+        $email->getHeaders()->addIdHeader('Message-ID', bin2hex(random_bytes(16)).'@'.$domain);
+
         try {
             $transport = new EsmtpTransport($account->smtp_host, $account->smtp_port, $account->smtp_encryption === 'ssl');
             if ($account->smtp_encryption === 'none') {
                 $transport->setAutoTls(false);
             }
+            $transport->setLocalDomain($domain);
             $transport->setUsername($account->username);
             $transport->setPassword($account->password);
-            (new Mailer($transport))->send($email);
+            $transport->send($email);
         } catch (Throwable $e) {
             return response()->json(['message' => 'The mail server did not accept the message: '.$e->getMessage()], 502);
         }
@@ -388,7 +400,7 @@ class MailController extends Controller
 
     private function isAdmin(): bool
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         return $user instanceof User && $user->isFullAdmin();
     }
@@ -400,13 +412,13 @@ class MailController extends Controller
 
     private function requireUserAdmin(): void
     {
-        $user = auth()->user();
+        $user = Auth::user();
         abort_unless($user instanceof User && $user->canManageUsers(), 403, 'Only an administrator can change who can open Mail.');
     }
 
     private function requireMailAccess(): void
     {
-        $user = auth()->user();
+        $user = Auth::user();
         abort_unless(
             $user instanceof User && ($user->isFullAdmin() || in_array('mail', $user->allowed_modules ?? [], true)),
             403,
@@ -460,6 +472,7 @@ class MailController extends Controller
     private function createFolder(Client $client, string $name): string
     {
         // cPanel/Dovecot keeps folders under "INBOX." — follow whatever the server already uses.
+        /** @var Folder|null $sample */
         $sample = collect($client->getFolders(false))->first(fn (Folder $f) => $f->path !== 'INBOX');
         $path = $sample && str_starts_with($sample->path, 'INBOX'.$sample->delimiter)
             ? 'INBOX'.$sample->delimiter.$name
