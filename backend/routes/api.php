@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\Api\QuotationController;
 use App\Http\Controllers\Api\ProposalController;
+use App\Http\Controllers\Api\BillController;
 use App\Http\Controllers\Api\WorkOrderController;
 use App\Http\Controllers\Api\DispatchController;
 use App\Http\Controllers\Api\OutsourceAssignmentController;
@@ -378,6 +379,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::post('proposals/generate', [ProposalController::class, 'generate']);
     Route::apiResource('proposals', ProposalController::class);
+
+    Route::get('bills/next-number', [BillController::class, 'nextNumber']);
+    Route::get('bills/billed-uids', [BillController::class, 'billedUids']);
+    Route::get('bills/registration/{uid}', [BillController::class, 'fromRegistration'])->where('uid', '.*');
+    Route::post('bills/{bill}/cancel', [BillController::class, 'cancel']);
+    Route::post('bills/{bill}/restore', [BillController::class, 'restore']);
+    Route::put('bills/{bill}/credit-note', [BillController::class, 'saveCreditNote']);
+    Route::apiResource('bills', BillController::class);
 
     Route::prefix('quotations')->group(function (): void {
         Route::get('/', [QuotationController::class, 'index']);

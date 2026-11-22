@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature } from 'lucide-react'
+import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature, FileMinus } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -15,6 +15,7 @@ const iconMap: Record<string, LucideIcon> = {
   clients: Building2,
   registrations: ClipboardList,
   billing: ReceiptText,
+  credit_notes: FileMinus,
   reports: BarChart3,
   tenders: FileText,
   admin: Users,
@@ -137,7 +138,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, on
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('nav_expanded')
-    return saved ? new Set(JSON.parse(saved)) : new Set(['Client Registration', 'Lab Reports', 'Billing', 'Groups', 'Setting'])
+    return saved ? new Set(JSON.parse(saved)) : new Set(['Client Registration', 'Lab Reports', 'Invoice', 'Groups', 'Setting'])
   })
   const notifRef = useRef<HTMLDivElement>(null)
 

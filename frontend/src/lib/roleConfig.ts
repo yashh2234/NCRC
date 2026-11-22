@@ -175,7 +175,7 @@ export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'ulr_register', label: 'ULR Register', group: 'Reports' },
   { key: 'final_reports', label: 'Final Reports', group: 'Reports' },
   { key: 'due_reports', label: 'UID w/o Report', group: 'Reports' },
-  { key: 'billing', label: 'Billing', group: 'Accounts' },
+  { key: 'billing', label: 'Invoice', group: 'Accounts' },
   { key: 'expenses', label: 'Daily Expenses', group: 'Accounts' },
   { key: 'purchase_orders', label: 'Purchase Order', group: 'Accounts' },
   { key: 'admin', label: 'Administration (manage users)', group: 'Admin' },
@@ -212,8 +212,10 @@ export function defaultFeaturesForRole(role: TrackerRole): string[] {
  * Full admins see everything. If an admin has saved a feature list for the user, that list decides;
  * otherwise the user keeps the defaults of their job role (the behaviour before per-user access existed).
  */
-export function canUserAccess(user: AccessUser | null | undefined, moduleKey: string): boolean {
+export function canUserAccess(user: AccessUser | null | undefined, requestedKey: string): boolean {
   if (!user) return false
+  // Credit notes come from cancelled invoices: same access as Invoice
+  const moduleKey = requestedKey === 'credit_notes' ? 'billing' : requestedKey
   if (ALWAYS_ALLOWED.includes(moduleKey)) return true
   const role = user.tracker_role ?? 'staff'
   if (user.is_admin || role === 'admin') return true

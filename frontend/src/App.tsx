@@ -24,10 +24,10 @@ import { InquiriesPage } from './pages/InquiriesPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
 import { MailPage } from './pages/MailPage'
-import { useState, useMemo } from 'react'
+import { useCallback, useState, useMemo } from 'react'
 import type { ModuleKey } from './lib/types'
 import { canUserAccess } from './lib/roleConfig'
-import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, type LucideIcon } from 'lucide-react'
+import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, FileMinus, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   key: string
@@ -84,10 +84,17 @@ function AuthenticatedApp() {
       ],
     },
     {
-      label: 'Billing',
+      label: 'Invoice',
       icon: ReceiptText,
       items: [
-        { key: 'billing', label: 'Billing' },
+        { key: 'billing', label: 'Invoice' },
+      ],
+    },
+    {
+      label: 'Credit Note',
+      icon: FileMinus,
+      items: [
+        { key: 'credit_notes', label: 'Credit Note' },
       ],
     },
     {
@@ -147,6 +154,15 @@ function AuthenticatedApp() {
     setBillingUid(uid)
     setActiveModule('billing' as ModuleKey)
   }
+  // "Create" in the Bill column starts a new bill for that UID
+  const [createBillUid, setCreateBillUid] = useState('')
+  const createBillForUid = (uid: string) => {
+    if (!canViewBilling) return
+    setBillingUid('')
+    setCreateBillUid(uid)
+    setActiveModule('billing' as ModuleKey)
+  }
+  const clearCreateBillUid = useCallback(() => setCreateBillUid(''), [])
 
   return (
     <>
@@ -191,10 +207,13 @@ function AuthenticatedApp() {
         {activeModule === 'inquiries' && <InquiriesPage />}
       </div>
       <div className={`view ${activeModule === 'registrations' ? 'visible' : ''}`}>
-        {activeModule === 'registrations' && <RegistrationsPage onViewBill={canViewBilling ? openBillingForUid : undefined} />}
+        {activeModule === 'registrations' && <RegistrationsPage onViewBill={canViewBilling ? openBillingForUid : undefined} onCreateBill={canViewBilling ? createBillForUid : undefined} />}
       </div>
       <div className={`view ${activeModule === 'billing' ? 'visible' : ''}`}>
-        {activeModule === 'billing' && <BillingPage uidFilter={billingUid} onClearUidFilter={() => setBillingUid('')} />}
+        {activeModule === 'billing' && <BillingPage uidFilter={billingUid} onClearUidFilter={() => setBillingUid('')} createForUid={createBillUid} onCreateHandled={clearCreateBillUid} />}
+      </div>
+      <div className={`view ${activeModule === 'credit_notes' ? 'visible' : ''}`}>
+        {activeModule === 'credit_notes' && <BillingPage mode="credit_notes" />}
       </div>
       <div className={`view ${activeModule.startsWith('report') ? 'visible' : ''}`}>
         {activeModule.startsWith('report') && <ReportsPage defaultType={activeModule.startsWith('report_') ? activeModule.replace('report_', '') : undefined} />}

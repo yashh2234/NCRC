@@ -4,6 +4,7 @@ import { Search, Plus, UserCog, History, Download, X, Folder } from 'lucide-reac
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { useAuth } from '../lib/auth'
 import { api, request } from '../lib/api'
+import { billsApi } from '../lib/bills'
 import { DataTable } from '../components/DataTable'
 import { RegistrationWizard } from '../components/RegistrationWizard'
 import { Timeline } from '../components/Timeline'
@@ -47,16 +48,16 @@ function exportToCsv(headers: string[], rows: (string | number)[][], filename: s
   link.click()
 }
 
-export function RegistrationsPage({ onViewBill }: { onViewBill?: (uid: string) => void } = {}) {
+export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (uid: string) => void; onCreateBill?: (uid: string) => void } = {}) {
   const { registrations, refresh, clearError, setStatus } = useAuth()
   // UIDs that have a bill under the Billing menu (matched case-insensitively)
   const [billedUids, setBilledUids] = useState<Set<string>>(new Set())
   useEffect(() => {
     let cancelled = false
-    api.billingList()
+    billsApi.billedUids()
       .then((res) => {
         if (cancelled) return
-        setBilledUids(new Set((res.data ?? []).map((b) => (b.uid_no ?? '').trim().toLowerCase()).filter(Boolean)))
+        setBilledUids(new Set((res.data ?? []).map((uid) => (uid ?? '').trim().toLowerCase()).filter(Boolean)))
       })
       .catch(() => { /* no billing access or network error: column just shows '-' */ })
     return () => { cancelled = true }
@@ -317,7 +318,7 @@ export function RegistrationsPage({ onViewBill }: { onViewBill?: (uid: string) =
             { key: 'total_payment', label: 'Total Payment', align: 'center', width: 95 },
             { key: 'advance_payment', label: 'Advance Payment', align: 'center', width: 95 },
             { key: 'balance_dues', label: 'Payment Dues', align: 'center', width: 95 },
-            { key: 'bill', label: 'Bill', sortable: false, align: 'center', width: 70 },
+            { key: 'bill', label: 'Invoice', sortable: false, align: 'center', width: 70 },
             { key: 'actions', label: 'Action', sortable: false },
           ]}
           rows={filtered.map((registration) => {
@@ -406,7 +407,7 @@ export function RegistrationsPage({ onViewBill }: { onViewBill?: (uid: string) =
                   <button
                     type="button"
                     onClick={() => onViewBill(registration.uid_no)}
-                    title="View bill in Billing"
+                    title="View invoice"
                     style={{
                       border: '1px solid #bbf7d0',
                       background: '#f0fdf4',
@@ -423,6 +424,24 @@ export function RegistrationsPage({ onViewBill }: { onViewBill?: (uid: string) =
                 ) : (
                   <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#16a34a' }}>Billed</span>
                 )
+              ) : registration.uid_no && onCreateBill ? (
+                <button
+                  type="button"
+                  onClick={() => onCreateBill(registration.uid_no)}
+                  title="Create an invoice for this UID"
+                  style={{
+                    border: '1px solid #bfdbfe',
+                    background: '#eff6ff',
+                    padding: '5px 10px',
+                    borderRadius: 6,
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: '#1d4ed8',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Create
+                </button>
               ) : (
                 <span style={{ color: '#94a3b8' }}>-</span>
               ),

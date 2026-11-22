@@ -105,7 +105,7 @@ function below1000(n: number): string {
 }
 
 /** Indian numbering: 97500 → "Ninety-Seven Thousand Five Hundred" */
-function integerWords(n: number): string {
+export function integerWords(n: number): string {
   if (n === 0) return 'Zero'
   const crore = Math.floor(n / 10000000)
   const lakh = Math.floor((n % 10000000) / 100000)
