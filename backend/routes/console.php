@@ -19,3 +19,6 @@ Schedule::command('jobs:auto-transition')->everyFifteenMinutes()->withoutOverlap
 
 // Office mailbox: bell notifications for new mail (the top-bar poll also does this while people are online).
 Schedule::command('mail:check')->everyFiveMinutes()->withoutOverlapping();
+
+// WhatsApp inquiries: normally saved as they arrive; this catches any that were missed
+Schedule::command('whatsapp:process')->everyMinute()->withoutOverlapping();

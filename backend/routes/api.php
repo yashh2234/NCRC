@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\WhatsappController;
+use App\Http\Controllers\Api\AiProviderController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\NotificationController;
@@ -65,6 +67,10 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // Public report view (QR on the print -> reports.namotech.in/r/{token}); no login, token is the key
 Route::get('/public/reports/{token}', [\App\Http\Controllers\Api\PublicReportController::class, 'show'])->middleware('throttle:60,1');
+
+// WhatsApp inquiries: called by Meta; checked by signature, no login
+Route::get('/whatsapp/webhook', [WhatsappController::class, 'verify'])->middleware('throttle:30,1');
+Route::post('/whatsapp/webhook', [WhatsappController::class, 'receive'])->middleware('throttle:300,1');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
@@ -368,6 +374,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::prefix('client-management')->group(function (): void {
         Route::put('{client}/addresses', [ClientManagementController::class, 'updateAddresses']);
     });
+
+    Route::get('whatsapp/settings', [WhatsappController::class, 'settings']);
+    Route::put('whatsapp/settings', [WhatsappController::class, 'saveSettings']);
+
+    Route::get('ai-providers', [AiProviderController::class, 'index']);
+    Route::put('ai-providers', [AiProviderController::class, 'update']);
+    Route::post('ai-providers/{provider}/test', [AiProviderController::class, 'test'])->middleware('throttle:20,1');
 
     Route::prefix('inquiries')->group(function (): void {
         Route::get('/', [InquiryController::class, 'index']);

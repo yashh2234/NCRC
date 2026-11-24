@@ -43,6 +43,8 @@ export interface Inquiry {
   work_categories: string[]
   notes: string
   status: InquiryStatus
+  /** Came in by WhatsApp and was not clear; cleared when the form is saved */
+  needs_check: boolean
   next_follow_up: string | null
   received_date: string | null
   assigned_to: number | null

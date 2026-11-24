@@ -64,7 +64,8 @@ class InquiryController extends Controller
         $validated = $this->validateInquiry($request);
         $before = $inquiry->only(['status', 'assigned_to']);
 
-        $inquiry->update($this->toColumns($validated) + (isset($validated['status']) ? ['status' => $validated['status']] : []));
+        // Saving the form means the details were checked
+        $inquiry->update(['needs_check' => false] + $this->toColumns($validated) + (isset($validated['status']) ? ['status' => $validated['status']] : []));
 
         $statusChanged = $before['status'] !== $inquiry->status;
         $handedOver = (int) $before['assigned_to'] !== (int) $inquiry->assigned_to;
@@ -193,6 +194,7 @@ class InquiryController extends Controller
             'work_categories' => $inquiry->work_categories ?? [],
             'notes' => $inquiry->notes ?? '',
             'status' => in_array($inquiry->status, Inquiry::STATUSES, true) ? $inquiry->status : 'new',
+            'needs_check' => (bool) $inquiry->needs_check,
             'next_follow_up' => $inquiry->next_follow_up?->toDateString(),
             'received_date' => $inquiry->received_date?->toDateString(),
             'assigned_to' => $inquiry->assigned_to,
