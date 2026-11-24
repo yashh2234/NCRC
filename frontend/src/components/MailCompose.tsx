@@ -1,0 +1,197 @@
+import { useRef, useState } from 'react'
+import { FileText, Paperclip, X } from 'lucide-react'
+import { formatSize, mailApi, type MailAttachment } from '../lib/mail'
+import { MailEditor, type MailEditorHandle } from './MailEditor'
+import { Modal } from './Modal'
+import { Req } from './ui'
+
+/** An attachment that stays on the mail server: carried over from a forwarded mail or a saved draft */
+export interface KeptAttachment extends MailAttachment { folder: string; uid: number }
+
+export interface MailDraft {
+  title: string
+  to: string
+  cc: string
+  bcc: string
+  subject: string
+  html: string
+  kept: KeptAttachment[]
+  replyUid?: number
+  replyFolder?: string
+  /** Set when it was opened from the Drafts folder */
+  draftUid?: number
+}
+
+interface MailComposeProps {
+  draft: MailDraft
+  from: string
+  onClose: () => void
+  onSent: (warning?: string) => void
+  /** The Drafts folder changed */
+  onDraftSaved: () => void
+}
+
+const MAX_FILE = 20 * 1024 * 1024
+/** New files per save; the server refuses a bigger upload */
+const MAX_UPLOAD = 22 * 1024 * 1024
+
+export function MailCompose({ draft, from, onClose, onSent, onDraftSaved }: MailComposeProps) {
+  const [form, setForm] = useState({ to: draft.to, cc: draft.cc, bcc: draft.bcc, subject: draft.subject })
+  const [showCc, setShowCc] = useState(Boolean(draft.cc))
+  const [showBcc, setShowBcc] = useState(Boolean(draft.bcc))
+  const [files, setFiles] = useState<File[]>([])
+  const [kept, setKept] = useState(draft.kept)
+  const [draftUid, setDraftUid] = useState(draft.draftUid)
+  const [busy, setBusy] = useState<'' | 'send' | 'draft'>('')
+  const [dirty, setDirty] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+  const editor = useRef<MailEditorHandle>(null)
+
+  const touch = () => { setDirty(true); setNotice('') }
+  const set = (key: keyof typeof form, value: string) => { setForm((f) => ({ ...f, [key]: value })); touch() }
+
+  const addFiles = (added: File[]) => {
+    const big = added.filter((f) => f.size > MAX_FILE)
+    if (big.length) window.alert(`Maximum 20 MB per file. Not added: ${big.map((f) => f.name).join(', ')}`)
+    const next = [...files, ...added.filter((f) => f.size <= MAX_FILE)]
+    if (next.reduce((s, f) => s + f.size, 0) > MAX_UPLOAD) {
+      window.alert('The new files are more than 22 MB together. Save the draft first and then add the rest, or share a link.')
+      return
+    }
+    setFiles(next)
+    touch()
+  }
+
+  const payload = () => {
+    const data = new FormData()
+    data.append('to', form.to)
+    data.append('cc', form.cc)
+    data.append('bcc', form.bcc)
+    data.append('subject', form.subject)
+    data.append('html', editor.current?.getHtml() ?? '')
+    if (draft.replyUid) {
+      data.append('reply_uid', String(draft.replyUid))
+      data.append('reply_folder', draft.replyFolder ?? 'INBOX')
+    }
+    if (draftUid) data.append('draft_uid', String(draftUid))
+    files.forEach((file) => data.append('attachments[]', file))
+    kept.forEach((a, i) => {
+      data.append(`keep[${i}][folder]`, a.folder)
+      data.append(`keep[${i}][uid]`, String(a.uid))
+      data.append(`keep[${i}][part]`, a.part)
+    })
+    return data
+  }
+
+  const saveDraft = async (): Promise<boolean> => {
+    setBusy('draft')
+    setError('')
+    try {
+      const saved = await mailApi.saveDraft(payload())
+      // Everything attached now lives in the saved draft
+      if (saved.uid) {
+        const uid = saved.uid
+        setDraftUid(uid)
+        setKept(saved.attachments.map((a) => ({ ...a, folder: saved.folder, uid })))
+        setFiles([])
+      }
+      setDirty(false)
+      setNotice('Draft saved.')
+      onDraftSaved()
+      return true
+    } catch (err) {
+      setError((err as Error).message)
+      return false
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (busy) return
+    if (!form.subject.trim() && !window.confirm('Send this message without a subject?')) return
+    setBusy('send')
+    setError('')
+    try {
+      const result = await mailApi.send(payload())
+      onSent(result.saved === false ? 'The mail was sent, but a copy could not be saved in the Sent folder.' : undefined)
+    } catch (err) {
+      setError((err as Error).message)
+      setBusy('')
+    }
+  }
+
+  const close = () => {
+    if (busy) return
+    if (dirty) setAsking(true)
+    else onClose()
+  }
+
+  const footer = asking ? (
+    <>
+      <div className="ui-modal__footer-left"><strong>Save this mail as a draft?</strong></div>
+      <button type="button" className="btn btn-outline" onClick={() => setAsking(false)} disabled={Boolean(busy)}>Keep writing</button>
+      <button type="button" className="btn btn-outline" style={{ color: '#b91c1c' }} onClick={onClose} disabled={Boolean(busy)}>Discard</button>
+      <button type="button" className="btn btn-primary" disabled={Boolean(busy)} onClick={() => void saveDraft().then((ok) => { if (ok) onClose(); else setAsking(false) })}>{busy === 'draft' ? 'Saving…' : 'Save draft'}</button>
+    </>
+  ) : (
+    <>
+      <div className="ui-modal__footer-left" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer' }}>
+          <Paperclip size={14} /> Attach
+          <input type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        </label>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void saveDraft()} disabled={Boolean(busy)}><FileText size={14} /> {busy === 'draft' ? 'Saving…' : 'Save draft'}</button>
+        {notice ? <span className="tb-muted">{notice}</span> : null}
+      </div>
+      <button type="button" className="btn btn-outline" onClick={close} disabled={Boolean(busy)}>Cancel</button>
+      <button type="submit" className="btn btn-primary" disabled={Boolean(busy)}>{busy === 'send' ? 'Sending…' : 'Send'}</button>
+    </>
+  )
+
+  const row = (id: 'to' | 'cc' | 'bcc' | 'subject', label: React.ReactNode, props: React.InputHTMLAttributes<HTMLInputElement> = {}, after?: React.ReactNode) => (
+    <div className="tb-compose__row">
+      <label className="tb-label" htmlFor={`tb-${id}`}>{label}</label>
+      <input id={`tb-${id}`} className="input" value={form[id]} onChange={(e) => set(id, e.target.value)} {...props} />
+      {after}
+    </div>
+  )
+
+  return (
+    <Modal title={form.subject ? `${draft.title}: ${form.subject}` : draft.title} subtitle="Mail" onClose={close} size="lg" onSubmit={send} footer={footer}>
+      <div className="tb-compose">
+        {error ? <p className="tb-error" role="alert" style={{ margin: 0 }}>{error}</p> : null}
+        <div className="tb-compose__row"><span className="tb-label">From</span><span className="tb-compose__from">{from}</span></div>
+        {row('to', <>To<Req /></>, { required: true, placeholder: 'name@example.com, another@example.com', autoFocus: !draft.to }, (
+          <span className="tb-compose__toggles">
+            {!showCc ? <button type="button" onClick={() => setShowCc(true)}>Cc</button> : null}
+            {!showBcc ? <button type="button" onClick={() => setShowBcc(true)}>Bcc</button> : null}
+          </span>
+        ))}
+        {showCc ? row('cc', 'Cc') : null}
+        {showBcc ? row('bcc', 'Bcc') : null}
+        {row('subject', 'Subject')}
+        <MailEditor ref={editor} initialHtml={draft.html} autoFocus={Boolean(draft.to)} onChange={touch} />
+        {files.length || kept.length ? (
+          <div className="tb-attachbar__list">
+            {kept.map((a) => (
+              <span key={`${a.uid}-${a.part}`} className="tb-attachment">
+                <Paperclip size={13} /> <span>{a.name}</span> <small>{formatSize(a.size)}</small>
+                <button type="button" aria-label={`Remove ${a.name}`} onClick={() => { setKept(kept.filter((k) => k !== a)); touch() }}><X size={13} /></button>
+              </span>
+            ))}
+            {files.map((file, i) => (
+              <span key={`${file.name}-${i}`} className="tb-attachment">
+                <Paperclip size={13} /> <span>{file.name}</span> <small>{formatSize(file.size)}</small>
+                <button type="button" aria-label={`Remove ${file.name}`} onClick={() => { setFiles(files.filter((_, j) => j !== i)); touch() }}><X size={13} /></button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </Modal>
+  )
+}

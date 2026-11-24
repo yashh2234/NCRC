@@ -36,13 +36,17 @@ export interface MailSummary {
 
 export type MailFilter = '' | 'unread' | 'starred'
 
+/** `part` is the attachment's place in the mail, e.g. "2" or "1.3" */
+export interface MailAttachment { part: string; name: string; size: number; type: string | null }
+
 export interface MailMessage extends MailSummary {
   to: MailAddress[]
   cc: MailAddress[]
+  bcc: MailAddress[]
   reply_to: MailAddress[]
   html: string | null
   text: string
-  attachments: Array<{ index: number; name: string; size: number; type: string | null }>
+  attachments: MailAttachment[]
 }
 
 export interface MailSettings {
@@ -63,7 +67,7 @@ export interface MailSettings {
 /** The office mailbox's cPanel details (mail.namotech.in, SSL), used to pre-fill the setup form. */
 export const DEFAULT_MAIL_SETTINGS: MailSettings = {
   email: 'info@namotech.in',
-  from_name: 'NCRC',
+  from_name: 'Namotech',
   username: 'info@namotech.in',
   password: '',
   imap_host: 'mail.namotech.in',
@@ -76,6 +80,21 @@ export const DEFAULT_MAIL_SETTINGS: MailSettings = {
 }
 
 const q = (folder: string) => `folder=${encodeURIComponent(folder)}`
+
+/** Multipart post (attachments), so it can't use the JSON request helper. */
+async function postForm<T>(path: string, form: FormData, fallback: string): Promise<T> {
+  const token = getToken()
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    body: form,
+    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(response.status === 413 ? 'The attachments are too large to upload together. Remove some and try again.' : payload.message ?? fallback)
+  }
+  return payload as T
+}
 
 export const mailApi = {
   status: () => request<{ configured: boolean; email: string | null; can_configure: boolean }>('/mail/status'),
@@ -97,23 +116,13 @@ export const mailApi = {
   move: (folder: string, uid: number, to: string) =>
     request<{ folder: string }>(`/mail/messages/${uid}/move?${q(folder)}`, { method: 'POST', body: JSON.stringify({ to }) }),
 
-  /** Multipart send (attachments), so it can't use the JSON request helper. */
-  async send(form: FormData): Promise<void> {
-    const token = getToken()
-    const response = await fetch(`${BASE_URL}/mail/send`, {
-      method: 'POST',
-      body: form,
-      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    })
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}))
-      throw new Error(payload.message ?? 'Could not send the mail')
-    }
-  },
+  send: (form: FormData) => postForm<{ saved?: boolean }>('/mail/send', form, 'Could not send the mail'),
+  saveDraft: (form: FormData) =>
+    postForm<{ data: { uid: number | null; folder: string; attachments: MailAttachment[] } }>('/mail/drafts', form, 'Could not save the draft').then((r) => r.data),
 
-  async downloadAttachment(folder: string, uid: number, index: number, name: string): Promise<void> {
+  async downloadAttachment(folder: string, uid: number, part: string, name: string): Promise<void> {
     const token = getToken()
-    const response = await fetch(`${BASE_URL}/mail/messages/${uid}/attachments/${index}?${q(folder)}`, {
+    const response = await fetch(`${BASE_URL}/mail/messages/${uid}/attachments/${part}?${q(folder)}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!response.ok) throw new Error('Could not download the attachment')
@@ -128,7 +137,10 @@ export const mailApi = {
 
 export function formatAddress(a: MailAddress | null | undefined) {
   if (!a) return ''
-  return a.name ? `${a.name} <${a.email}>` : a.email
+  if (!a.name) return a.email
+  // A name with a comma must be quoted, or it reads as two addresses
+  const name = /[,;<>"]/.test(a.name) ? `"${a.name.replace(/["<>]/g, '')}"` : a.name
+  return `${name} <${a.email}>`
 }
 
 export function formatSize(bytes: number) {

@@ -12,16 +12,17 @@ class Quotation extends Model
 
     public const STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'];
 
-    public const GST_MODES = ['add', 'extra', 'none'];
+    /** Company => number prefix. ncs = NCS LLP (GST 18%), ncrc = NCRC Pvt Ltd (no GST) */
+    public const COMPANIES = ['ncs' => 'NCS', 'ncrc' => 'NCRC'];
 
-    /** The last quotation made outside the app was NCS/2026/1057 */
-    private const FIRST_SERIAL = 1058;
+    /** The last LLP quotation made outside the app was NCS/2026/1057 */
+    private const FIRST_SERIAL = ['ncs' => 1058, 'ncrc' => 1];
 
     protected $fillable = [
-        'inquiry_id', 'quotation_no', 'date', 'valid_until',
+        'company', 'inquiry_id', 'quotation_no', 'date', 'valid_until',
         'client_name', 'agency_name', 'contact_person', 'mobile_no', 'email', 'location',
         'client_address', 'client_gstin', 'subject', 'intro', 'ref_no', 'ref_date', 'prepared_by',
-        'total_amount', 'discount', 'gst_mode', 'tax_amount', 'transport', 'net_amount',
+        'total_amount', 'discount', 'gst_mode', 'tax_amount', 'transport', 'transport_gst', 'net_amount',
         'payment_terms', 'sections', 'signatory_name', 'signatory_designation',
         'terms_and_conditions', 'status', 'sent_via', 'sent_at',
         'accepted_at', 'notes', 'created_by', 'updated_by',
@@ -36,6 +37,7 @@ class Quotation extends Model
         'discount' => 'float',
         'tax_amount' => 'float',
         'transport' => 'float',
+        'transport_gst' => 'boolean',
         'net_amount' => 'float',
         'sent_at' => 'datetime',
         'accepted_at' => 'datetime',
@@ -56,24 +58,26 @@ class Quotation extends Model
         return $this->hasMany(WorkOrder::class);
     }
 
-    /** NCS/2026/1058: the year follows the quotation date, the serial runs on and never resets */
-    public static function nextNumber(?string $date = null): string
+    /** NCS/2026/1058, NCRC/2026/0001: the year follows the quotation date, each company's serial runs on and never resets */
+    public static function nextNumber(string $company = 'ncs', ?string $date = null): string
     {
-        $max = self::FIRST_SERIAL - 1;
-        static::query()->where('quotation_no', 'like', 'NCS/%')->pluck('quotation_no')
-            ->each(function ($no) use (&$max): void {
-                if (preg_match('#^NCS/\d{4}/(\d+)#', (string) $no, $m)) {
-                    $max = max($max, (int) $m[1]);
+        $prefix = self::COMPANIES[$company];
+        $next = self::FIRST_SERIAL[$company];
+        static::query()->where('quotation_no', 'like', $prefix . '/%')->pluck('quotation_no')
+            ->each(function ($no) use (&$next, $prefix): void {
+                if (preg_match('#^' . $prefix . '/\d{4}/(\d+)#', (string) $no, $m)) {
+                    $next = max($next, (int) $m[1] + 1);
                 }
             });
         $ts = $date ? strtotime($date) : false;
 
-        return 'NCS/' . date('Y', $ts ?: time()) . '/' . ($max + 1);
+        return $prefix . '/' . date('Y', $ts ?: time()) . '/' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
     public function toApi(): array
     {
         $data = $this->attributesToArray();
+        $data['company'] ??= 'ncs';
         foreach (['date', 'valid_until', 'ref_date'] as $key) {
             $data[$key] = $this->{$key}?->format('Y-m-d');
         }

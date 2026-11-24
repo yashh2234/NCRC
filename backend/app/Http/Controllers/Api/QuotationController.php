@@ -28,9 +28,9 @@ class QuotationController extends Controller
 
     public function nextNumber(Request $request): JsonResponse
     {
-        $request->validate(['date' => ['nullable', 'date']]);
+        $request->validate(['date' => ['nullable', 'date'], 'company' => ['nullable', Rule::in(array_keys(Quotation::COMPANIES))]]);
 
-        return response()->json(['data' => Quotation::nextNumber($request->query('date'))]);
+        return response()->json(['data' => Quotation::nextNumber($request->query('company') ?: 'ncs', $request->query('date'))]);
     }
 
     public function store(Request $request): JsonResponse
@@ -99,6 +99,7 @@ class QuotationController extends Controller
     private function validated(Request $request, ?Quotation $quotation = null): array
     {
         $v = $request->validate([
+            'company' => ['nullable', Rule::in(array_keys(Quotation::COMPANIES))],
             'inquiry_id' => ['nullable', 'integer', 'exists:inquiries,id'],
             'quotation_no' => ['nullable', 'string', 'max:50', Rule::unique('quotations', 'quotation_no')->ignore($quotation?->id)],
             'date' => ['required', 'date'],
@@ -116,8 +117,8 @@ class QuotationController extends Controller
             'subject' => ['nullable', 'string', 'max:1000'],
             'intro' => ['nullable', 'string', 'max:3000'],
             'discount' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
-            'gst_mode' => ['nullable', Rule::in(Quotation::GST_MODES)],
             'transport' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'transport_gst' => ['nullable', 'boolean'],
             'payment_terms' => ['nullable', 'string', 'max:2000'],
             'sections' => ['nullable', 'array', 'max:30'],
             'sections.*.title' => ['nullable', 'string', 'max:200'],
@@ -175,10 +176,13 @@ class QuotationController extends Controller
         if ($discount > $subtotal) {
             throw ValidationException::withMessages(['discount' => 'Discount cannot be more than the sub total.']);
         }
-        // GST on the items less discount; transport is added after GST (as on the invoices)
-        $mode = $v['gst_mode'] ?? 'add';
+        // The company is fixed once made. NCS LLP: GST always 18%, on the items less discount and, when chosen,
+        // on transport too (transport then comes before GST, else after it). NCRC Pvt Ltd: no GST.
+        $company = $quotation?->company ?? $v['company'] ?? 'ncs';
+        $mode = $company === 'ncs' ? 'add' : 'none';
         $transport = round((float) ($v['transport'] ?? 0), 2);
-        $tax = $mode === 'add' ? round(($subtotal - $discount) * 0.18, 2) : 0.0;
+        $transportGst = $company === 'ncs' && (bool) ($v['transport_gst'] ?? false);
+        $tax = $mode === 'add' ? round(($subtotal - $discount + ($transportGst ? $transport : 0)) * 0.18, 2) : 0.0;
         $net = round($subtotal - $discount + $tax + $transport);
         // Highest value the amount columns hold
         if (max($subtotal, $net) > 9999999999) {
@@ -208,14 +212,16 @@ class QuotationController extends Controller
             $data['inquiry_id'] = $v['inquiry_id'];
         }
         $no = trim((string) ($v['quotation_no'] ?? ''));
-        $data['quotation_no'] = $no !== '' ? $no : ($quotation?->quotation_no ?? Quotation::nextNumber($data['date']));
+        $data['quotation_no'] = $no !== '' ? $no : ($quotation?->quotation_no ?? Quotation::nextNumber($company, $data['date']));
 
         return [$data + [
+            'company' => $company,
             'total_amount' => $subtotal,
             'discount' => $discount,
             'gst_mode' => $mode,
             'tax_amount' => $tax,
             'transport' => $transport,
+            'transport_gst' => $transportGst,
             'net_amount' => $net,
             'sections' => $sections,
         ], $items];

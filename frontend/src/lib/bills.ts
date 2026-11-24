@@ -82,7 +82,7 @@ export interface CompanyProfile {
   pan: string
   orderLabel: string
   bank: { accountName: string; name: string; account: string; ifsc: string; swift?: string; branch: string }
-  /** Files in public/letterhead */
+  /** Files in public/letterhead; without a seal there is only plain Print (no With / Without Sign) */
   logo: string
   seal: string
   /** Print colour theme */
@@ -107,7 +107,8 @@ export const COMPANIES: Record<BillCompany, CompanyProfile> = {
     orderLabel: 'Work Order No',
     bank: { accountName: 'Namotech Consultancy and Research Centre Pvt Ltd', name: 'Union Bank of India', account: '535501010033143', ifsc: 'UBIN0553557', swift: 'UBININBBJAI', branch: 'Vishvesariya Nagar, Gopalpura Bypass, Jaipur' },
     logo: 'logo-ncrc.svg',
-    seal: 'seal-ncrc.png',
+    // No seal image yet: put its file name here and With / Without Sign comes back
+    seal: '',
     theme: 'ncrc',
   },
   ncs: {

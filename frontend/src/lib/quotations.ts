@@ -1,12 +1,15 @@
 /**
- * NCS LLP quotations (NCS/2026/1058 …). The server recomputes the totals on save;
- * calcQuotation() mirrors it for the live form and the print.
- * GST is on the items (less discount); transport is added after GST, as on the invoices.
+ * Quotations of NCS LLP (NCS/2026/1058 …, GST always 18%) and NCRC Pvt Ltd (NCRC/2026/0001 …, no GST).
+ * The server recomputes the totals on save; calcQuotation() mirrors it for the live form and the print.
+ * Transport is added after GST, as on the invoices, unless "GST on transport" is chosen: then before it.
  */
 import { request } from './api'
-import { amountWords, today } from './bills'
+import { amountWords, today, type BillCompany } from './bills'
 
-/** add = GST @ 18% added · extra = "Extra, as applicable" · none = no GST line */
+/** The same two companies, with the same details, as on the invoices */
+export const QUOTATION_COMPANY_KEYS: BillCompany[] = ['ncs', 'ncrc']
+
+/** add = GST @ 18% added (LLP) · none = no GST (NCRC) · extra = "Extra, as applicable", only on quotations saved earlier */
 export type GstMode = 'add' | 'extra' | 'none'
 export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
 export type SectionStyle = 'text' | 'bullets' | 'numbers'
@@ -30,6 +33,7 @@ export interface QuotationSection {
 }
 
 export interface QuotationInput {
+  company: BillCompany
   inquiry_id: number | null
   quotation_no: string
   date: string
@@ -50,6 +54,8 @@ export interface QuotationInput {
   discount: number | ''
   gst_mode: GstMode
   transport: number | ''
+  /** GST charged on transport: transport comes before GST */
+  transport_gst: boolean
   payment_terms: string
   sections: QuotationSection[]
   signatory_name: string
@@ -79,40 +85,50 @@ export const QUOTATION_STATUSES: { key: QuotationStatus; label: string; color: s
   { key: 'expired', label: 'Expired', color: '#d97706' },
 ]
 
-export const GST_OPTIONS: { key: GstMode; label: string }[] = [
-  { key: 'add', label: 'GST @ 18% added' },
-  { key: 'extra', label: 'GST extra, as applicable' },
-  { key: 'none', label: 'No GST line' },
-]
+/** GST is fixed per company */
+export const companyGst = (company: BillCompany): GstMode => (company === 'ncs' ? 'add' : 'none')
 
-export const UNITS = ['Nos', 'Mtr', 'LS', 'Per bore', 'Sqm', 'Cum', 'Day', 'Job', 'Set', 'Km']
+export const UNITS = ['Nos', 'Mtr', 'Per bore', 'LS']
 export const SECTION_TITLES = ['Scope of Work', 'Deliverables', 'Exclusions', 'Terms & Conditions', 'SWL Clarification', 'Client Scope', 'Time Schedule']
 export const DEFAULT_PAYMENT_TERMS = '50% along with PO; remaining 50% after submission of report'
 
 export const emptyQuotationItem = (): QuotationItem => ({ description: '', details: '', quantity: 1, unit: 'Nos', rate: '', included: false })
 export const emptySection = (): QuotationSection => ({ title: '', style: 'numbers', body: '', half: false })
 
-/** One month after: 2026-06-10 → 2026-07-10 (31 Jan → 28 / 29 Feb) */
-export function oneMonthAfter(iso: string): string {
+/** 2026-06-10 + 1 → 2026-07-10 (31 Jan → 28 / 29 Feb) */
+function addMonths(iso: string, months: number): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!m) return ''
-  const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])]
-  const lastDay = new Date(year, month + 1, 0).getDate()
-  const d = new Date(year, month, Math.min(day, lastDay))
+  const [year, month, day] = [Number(m[1]), Number(m[2]) - 1 + months, Number(m[3])]
+  const d = new Date(year, month, Math.min(day, new Date(year, month + 1, 0).getDate()))
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function emptyQuotation(): QuotationInput {
+export const oneMonthAfter = (iso: string) => addMonths(iso, 1)
+
+const MONTH_WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve']
+
+/** Validity in words from the two dates: "One Month", "Three Months", else "45 Days"; '' when not set */
+export function validityText(date: string, validUntil: string): string {
+  if (!date || !validUntil || validUntil <= date) return ''
+  const months = MONTH_WORDS.findIndex((_, i) => addMonths(date, i + 1) === validUntil)
+  if (months >= 0) return `${MONTH_WORDS[months]} ${months ? 'Months' : 'Month'}`
+  const days = Math.round((Date.parse(validUntil) - Date.parse(date)) / 86400000)
+  return Number.isFinite(days) ? `${days} ${days === 1 ? 'Day' : 'Days'}` : ''
+}
+
+export function emptyQuotation(company: BillCompany): QuotationInput {
   return {
+    company,
     inquiry_id: null,
     quotation_no: '', date: today(), valid_until: oneMonthAfter(today()),
     client_name: '', client_address: '', client_gstin: '', contact_person: '', mobile_no: '', email: '',
     location: '', ref_no: '', ref_date: '', prepared_by: '', subject: '', intro: '',
     items: [emptyQuotationItem()],
-    discount: '', gst_mode: 'add', transport: '',
+    discount: '', gst_mode: companyGst(company), transport: '', transport_gst: false,
     payment_terms: DEFAULT_PAYMENT_TERMS,
     sections: [],
-    signatory_name: 'Omendra Gupta', signatory_designation: 'Director',
+    signatory_name: company === 'ncs' ? 'Omendra Gupta' : '', signatory_designation: company === 'ncs' ? 'Director' : '',
     notes: '',
   }
 }
@@ -123,22 +139,39 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 export const quotationItemAmount = (it: Pick<QuotationItem, 'quantity' | 'rate' | 'included'>) =>
   (it.included ? 0 : r2(r2(num(it.quantity)) * r2(num(it.rate))))
 
-export function calcQuotation(q: Pick<QuotationInput, 'items' | 'discount' | 'gst_mode' | 'transport'>) {
+export function calcQuotation(q: Pick<QuotationInput, 'items' | 'discount' | 'gst_mode' | 'transport' | 'transport_gst'>) {
   const subtotal = r2(q.items.reduce((s, it) => s + quotationItemAmount(it), 0))
   const discount = r2(num(q.discount))
-  const taxable = Math.max(0, r2(subtotal - discount))
-  const gst = q.gst_mode === 'add' ? r2(taxable * 0.18) : 0
+  const afterDiscount = Math.max(0, r2(subtotal - discount))
   const transport = r2(num(q.transport))
-  const total = r2(taxable + gst + transport)
+  const transportFirst = q.gst_mode === 'add' && q.transport_gst
+  const taxable = r2(afterDiscount + (transportFirst ? transport : 0))
+  const gst = q.gst_mode === 'add' ? r2(taxable * 0.18) : 0
+  const total = r2(afterDiscount + gst + transport)
   const grand = Math.round(total)
   const grandLabel = q.gst_mode === 'add' ? 'Total Cost incl. GST' : q.gst_mode === 'extra' ? 'Total (excl. GST)' : 'Total Amount'
   const words = amountWords(grand) + (q.gst_mode === 'extra' ? ' + GST as applicable' : '')
-  return { subtotal, discount, taxable, gst, transport, roundOff: r2(grand - total), grand, grandLabel, words }
+  return { subtotal, discount, afterDiscount, transport, transportFirst, taxable, gst, roundOff: r2(grand - total), grand, grandLabel, words }
+}
+
+/** Amount lines between the first Sub Total and the grand total, in printing order: [label, value, is a sum line] */
+export function quotationLines(q: Pick<QuotationInput, 'items' | 'discount' | 'gst_mode' | 'transport' | 'transport_gst'>, money: (n: number) => string): [string, string, boolean][] {
+  const t = calcQuotation(q)
+  const lines: [string, string, boolean][] = []
+  const transport: [string, string, boolean] = ['Transportation incl. Toll', money(t.transport), false]
+  if (t.discount) lines.push(['Discount', `− ${money(t.discount)}`, false], ['Total after Discount', money(t.afterDiscount), true])
+  if (t.transport && t.transportFirst) lines.push(transport, ['Total before GST', money(t.taxable), true])
+  if (q.gst_mode === 'add') lines.push(['GST @ 18%', money(t.gst), false])
+  if (q.gst_mode === 'extra') lines.push(['GST', 'Extra, as applicable', false])
+  if (t.transport && !t.transportFirst) lines.push(transport)
+  if (t.roundOff) lines.push(['Round Off', `${t.roundOff > 0 ? '' : '− '}${money(Math.abs(t.roundOff))}`, false])
+  return lines
 }
 
 export function quotationToInput(q: Quotation): QuotationInput {
   const s = (v: string | null | undefined) => v ?? ''
   return {
+    company: q.company,
     inquiry_id: q.inquiry_id,
     quotation_no: q.quotation_no, date: s(q.date), valid_until: s(q.valid_until),
     client_name: s(q.client_name), client_address: s(q.client_address), client_gstin: s(q.client_gstin),
@@ -148,17 +181,12 @@ export function quotationToInput(q: Quotation): QuotationInput {
     items: q.items.length
       ? q.items.map((it) => ({ description: it.description, details: it.details, quantity: it.quantity, unit: it.unit, rate: it.included ? '' : it.rate, included: it.included }))
       : [emptyQuotationItem()],
-    discount: q.discount || '', gst_mode: q.gst_mode, transport: q.transport || '',
+    discount: q.discount || '', gst_mode: q.gst_mode, transport: q.transport || '', transport_gst: Boolean(q.transport_gst),
     payment_terms: s(q.payment_terms),
     sections: q.sections.map((sec) => ({ ...sec })),
     signatory_name: s(q.signatory_name), signatory_designation: s(q.signatory_designation),
     notes: s(q.notes),
   }
-}
-
-/** A new quotation with everything from an old one, under a new number and today's date */
-export function copyQuotation(q: Quotation): QuotationInput {
-  return { ...quotationToInput(q), inquiry_id: null, quotation_no: '', date: today(), valid_until: oneMonthAfter(today()), ref_no: '', ref_date: '', notes: '' }
 }
 
 export const quotationsApi = {
@@ -167,5 +195,5 @@ export const quotationsApi = {
   update: (id: number, data: QuotationInput) => request<{ data: Quotation }>(`/quotations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   setStatus: (id: number, status: QuotationStatus) => request<{ data: Quotation }>(`/quotations/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   remove: (id: number) => request<{ message: string }>(`/quotations/${id}`, { method: 'DELETE' }),
-  nextNumber: (date: string) => request<{ data: string }>(`/quotations/next-number?${new URLSearchParams({ date })}`),
+  nextNumber: (company: BillCompany, date: string) => request<{ data: string }>(`/quotations/next-number?${new URLSearchParams({ company, date })}`),
 }

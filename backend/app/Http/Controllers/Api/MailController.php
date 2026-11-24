@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\MailAccount;
 use App\Models\User;
+use App\Services\MailComposer;
 use App\Services\MailInboxWatcher;
+use App\Services\MailReader;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\HeaderUtils;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use Symfony\Component\Mime\Address as MimeAddress;
 use Symfony\Component\Mime\Email;
@@ -28,6 +31,9 @@ use Webklex\PHPIMAP\Message;
 class MailController extends Controller
 {
     private const PER_PAGE = 25;
+
+    /** All attachments of one mail together, before encoding */
+    private const MAX_ATTACHMENTS = 35 * 1024 * 1024;
 
     // ---------------------------------------------------------------- settings
 
@@ -57,7 +63,7 @@ class MailController extends Controller
             'smtp_encryption' => 'required|in:ssl,tls,none',
             'sent_folder' => 'nullable|string|max:255',
         ]);
-        $values['from_name'] ??= '';
+        $values['from_name'] = trim((string) ($values['from_name'] ?? '')) ?: 'Namotech';
         $values['sent_folder'] ??= '';
         if (blank($values['password'] ?? null)) {
             unset($values['password']); // keep the saved password
@@ -209,43 +215,47 @@ class MailController extends Controller
 
     public function show(Request $request, int $uid): JsonResponse
     {
-        $folder = $this->folder($this->client(), $request->input('folder', 'INBOX'));
-        $message = $folder->query()->setFetchBody(true)->leaveUnread()->getMessageByUid($uid);
-        $message->setFlag('Seen');
+        $client = $this->client();
+        $path = $request->input('folder', 'INBOX');
+        $message = $this->message($client, $path, $uid);
+        $reader = $this->reader($client, $path);
+        $content = $reader->content($uid);
+        $reader->flag($uid, 'Seen', true);
 
-        $attachments = [];
-        foreach ($message->getAttachments()->values() as $index => $attachment) {
-            $attachments[] = [
-                'index' => $index,
-                'name' => MailInboxWatcher::decodeHeader($attachment->name) ?: 'attachment-'.($index + 1),
-                'size' => (int) $attachment->size,
-                'type' => $attachment->content_type,
-            ];
-        }
-
-        return response()->json(['data' => $this->summary($message) + [
-            'seen' => true,
+        return response()->json(['data' => ['seen' => true] + $this->summary($message) + [
             'to' => $this->addresses($message->getTo()->all()),
             'cc' => $this->addresses($message->getCc()->all()),
+            'bcc' => $this->addresses($message->getBcc()->all()),
             'reply_to' => $this->addresses($message->getReplyTo()->all()),
-            'html' => $message->hasHTMLBody() ? $message->getHTMLBody() : null,
-            'text' => $message->getTextBody(),
-            'attachments' => $attachments,
-        ]]);
+            'html' => $content['html'],
+            'text' => $content['text'],
+            'attachments' => $content['attachments'],
+        ]], 200, [], JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
-    public function attachment(Request $request, int $uid, int $index): Response
+    /** Sent in small pieces, so a big attachment does not fill the memory. */
+    public function attachment(Request $request, int $uid, string $part): StreamedResponse
     {
-        $folder = $this->folder($this->client(), $request->input('folder', 'INBOX'));
-        $message = $folder->query()->setFetchBody(true)->leaveUnread()->getMessageByUid($uid);
-        $attachment = $message->getAttachments()->values()->get($index);
+        $reader = $this->reader($this->client(), $request->input('folder', 'INBOX'));
+        $attachment = $reader->attachment($uid, $part);
         abort_unless($attachment, 404, 'Attachment not found');
+        set_time_limit(300);
 
-        $name = MailInboxWatcher::decodeHeader($attachment->name) ?: 'attachment-'.($index + 1);
+        $name = str_replace(['/', '\\'], '-', $attachment['name']);
+        $ascii = trim((string) preg_replace('/[^\x20-\x24\x26-\x7e]+/', '_', $name)) ?: 'attachment';
 
-        return response($attachment->content, 200, [
-            'Content-Type' => $attachment->content_type ?: 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="'.addcslashes($name, '"\\').'"',
+        return response()->stream(function () use ($reader, $uid, $part, $attachment): void {
+            $reader->stream($uid, $part, function (string $bytes): void {
+                echo $bytes;
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
+            }, $attachment['encoding']);
+        }, 200, [
+            'Content-Type' => preg_match('#^[\w.+-]+/[\w.+-]+$#', $attachment['type']) ? $attachment['type'] : 'application/octet-stream',
+            'Content-Disposition' => HeaderUtils::makeDisposition('attachment', $name, $ascii),
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
@@ -253,13 +263,13 @@ class MailController extends Controller
     {
         $client = $this->client();
         $path = $request->input('folder', 'INBOX');
-        $message = $this->folder($client, $path)->query()->leaveUnread()->getMessageByUid($uid);
-
         $trash = $this->findFolder($client, 'trash');
+        $reader = $this->reader($client, $path);
+
         if ($trash && $trash !== $path) {
-            $message->move($trash, true);
+            $reader->move($uid, $trash);
         } else {
-            $message->delete(true);
+            $reader->delete($uid);
         }
 
         return response()->json(['message' => 'Deleted']);
@@ -269,11 +279,11 @@ class MailController extends Controller
     public function flags(Request $request, int $uid): JsonResponse
     {
         $values = $request->validate(['seen' => 'sometimes|boolean', 'flagged' => 'sometimes|boolean']);
-        $message = $this->folder($this->client(), $request->input('folder', 'INBOX'))->query()->leaveUnread()->getMessageByUid($uid);
+        $reader = $this->reader($this->client(), $request->input('folder', 'INBOX'));
 
         foreach (['seen' => 'Seen', 'flagged' => 'Flagged'] as $key => $flag) {
             if (array_key_exists($key, $values)) {
-                $values[$key] ? $message->setFlag($flag) : $message->unsetFlag($flag);
+                $reader->flag($uid, $flag, (bool) $values[$key]);
             }
         }
 
@@ -295,7 +305,7 @@ class MailController extends Controller
         }
         abort_if($to === $from, 422, 'The mail is already in that folder.');
 
-        $this->folder($client, $from)->query()->leaveUnread()->getMessageByUid($uid)->move($to, true);
+        $this->reader($client, $from)->move($uid, $to);
 
         return response()->json(['message' => 'Moved', 'folder' => $to]);
     }
@@ -306,94 +316,200 @@ class MailController extends Controller
     {
         $this->requireMailAccess();
         $account = $this->account();
-
-        $original = null;
-        $request->validate([
-            'to' => 'required|string|max:2000',
-            'cc' => 'nullable|string|max:2000',
-            'bcc' => 'nullable|string|max:2000',
-            'subject' => 'nullable|string|max:500',
-            'body' => 'nullable|string|max:200000',
-            'reply_uid' => 'nullable|integer',
-            'reply_folder' => 'nullable|string',
-            'attachments' => 'nullable|array|max:10',
-            'attachments.*' => 'file|max:20480',
-        ]);
+        $this->validateCompose($request);
 
         $to = $this->parseAddressList($request->input('to'));
-        $cc = $this->parseAddressList($request->input('cc', ''));
-        $bcc = $this->parseAddressList($request->input('bcc', ''));
+        $cc = $this->parseAddressList($request->input('cc'));
+        $bcc = $this->parseAddressList($request->input('bcc'));
         if (! $to) {
             return response()->json(['message' => 'Enter at least one valid email address in To.', 'errors' => ['to' => ['Enter a valid email address.']]], 422);
         }
-
-        $body = (string) $request->input('body', '');
-        $email = (new Email())
-            ->from(new MimeAddress($account->email, $account->from_name ?: ''))
-            ->to(...$to)
-            ->subject((string) $request->input('subject', ''))
-            ->text($body)
-            ->html('<div style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap">'.nl2br(e($body), false).'</div>');
-        if ($cc) {
-            $email->cc(...$cc);
-        }
-        if ($bcc) {
-            $email->bcc(...$bcc);
-        }
-        foreach ($request->file('attachments', []) as $file) {
-            $email->attachFromPath($file->getRealPath(), $file->getClientOriginalName(), $file->getClientMimeType());
+        foreach (['to' => $to, 'cc' => $cc, 'bcc' => $bcc] as $field => $list) {
+            if ($bad = $this->invalidAddresses($request->input($field))) {
+                return response()->json(['message' => 'This email address is not valid: '.implode(', ', $bad)], 422);
+            }
         }
 
-        if ($request->filled('reply_uid')) {
+        $client = $this->client();
+        [$email, $temporary] = $this->compose($request, $account, $client);
+        try {
+            $email->to(...$to)->cc(...$cc)->bcc(...$bcc);
+
             try {
-                $original = $this->folder($this->client(), $request->input('reply_folder', 'INBOX'))
-                    ->query()->leaveUnread()->getMessageByUid((int) $request->input('reply_uid'));
-                $messageId = trim((string) $original->message_id, '<> ');
-                if ($messageId !== '') {
-                    $email->getHeaders()->addIdHeader('In-Reply-To', $messageId);
-                    $email->getHeaders()->addIdHeader('References', $messageId);
+                $transport = new EsmtpTransport($account->smtp_host, $account->smtp_port, $account->smtp_encryption === 'ssl');
+                if ($account->smtp_encryption === 'none') {
+                    $transport->setAutoTls(false);
+                }
+                $transport->setLocalDomain(MailComposer::domain($account));
+                $transport->setUsername($account->username);
+                $transport->setPassword($account->password);
+                $transport->send($email);
+            } catch (Throwable $e) {
+                return response()->json(['message' => 'The mail server did not accept the message: '.$e->getMessage()], 502);
+            }
+
+            // The mail is out: nothing below may make it look as if sending failed.
+            try {
+                if ($request->filled('reply_uid')) {
+                    $this->reader($client, $request->input('reply_folder') ?: 'INBOX')->flag((int) $request->input('reply_uid'), 'Answered', true);
                 }
             } catch (Throwable) {
-                // Threading headers are a nicety; send anyway.
             }
+            // Keep a copy in Sent so it also appears in Thunderbird.
+            $saved = true;
+            try {
+                $sent = $account->sent_folder ?: $this->findFolder($client, 'sent');
+                if ($sent) {
+                    $this->folder($client, $sent)->appendMessage($email->toString(), ['\\Seen']);
+                }
+            } catch (Throwable) {
+                $saved = false;
+            }
+            try {
+                if ($request->filled('draft_uid') && ($drafts = $this->findFolder($client, 'drafts'))) {
+                    $this->reader($client, $drafts)->delete((int) $request->input('draft_uid'));
+                }
+            } catch (Throwable) {
+            }
+        } finally {
+            array_map('unlink', array_filter($temporary, 'is_file'));
         }
 
-        // Give the mail the same identity Thunderbird does: a Date, a Message-ID on our own domain
-        // and an EHLO name that is our domain instead of "[127.0.0.1]", which Gmail scores badly.
-        $domain = substr(strrchr($account->email, '@') ?: '@localhost', 1);
-        $email->date(new \DateTimeImmutable());
-        $email->getHeaders()->addIdHeader('Message-ID', bin2hex(random_bytes(16)).'@'.$domain);
+        return response()->json(['message' => 'Sent', 'saved' => $saved]);
+    }
 
+    /** Saves the compose window in the Drafts folder, in place of the draft it was opened from. */
+    public function saveDraft(Request $request): JsonResponse
+    {
+        $this->requireMailAccess();
+        $account = $this->account();
+        $this->validateCompose($request);
+
+        $client = $this->client();
+        $path = $this->findFolder($client, 'drafts') ?? $this->createFolder($client, 'Drafts');
+        [$email, $temporary] = $this->compose($request, $account, $client);
         try {
-            $transport = new EsmtpTransport($account->smtp_host, $account->smtp_port, $account->smtp_encryption === 'ssl');
-            if ($account->smtp_encryption === 'none') {
-                $transport->setAutoTls(false);
+            $email->to(...$this->parseAddressList($request->input('to')))->cc(...$this->parseAddressList($request->input('cc')));
+            $bcc = $this->parseAddressList($request->input('bcc'));
+            $messageId = $email->getHeaders()->get('Message-ID')?->getBodyAsString() ?? '';
+            // Symfony leaves Bcc out of the finished mail; a draft has to keep it
+            $source = ($bcc ? 'Bcc: '.implode(', ', array_map(fn (MimeAddress $a) => $a->getName() === '' ? $a->getAddress() : $a->toString(), $bcc))."\r\n" : '').$email->toString();
+            $this->folder($client, $path)->appendMessage($source, ['\\Seen', '\\Draft']);
+
+            $reader = $this->reader($client, $path);
+            $uid = $reader->findByMessageId($messageId);
+            if ($request->filled('draft_uid') && (int) $request->input('draft_uid') !== $uid) {
+                $reader->delete((int) $request->input('draft_uid'));
             }
-            $transport->setLocalDomain($domain);
-            $transport->setUsername($account->username);
-            $transport->setPassword($account->password);
-            $transport->send($email);
+        } finally {
+            array_map('unlink', array_filter($temporary, 'is_file'));
+        }
+
+        return response()->json(['data' => [
+            'uid' => $uid,
+            'folder' => $path,
+            'attachments' => $uid ? $reader->content($uid)['attachments'] : [],
+        ]]);
+    }
+
+    private function validateCompose(Request $request): void
+    {
+        // Forwarding can carry a mail of 48 MB
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
+        $request->validate([
+            'to' => 'nullable|string|max:5000',
+            'cc' => 'nullable|string|max:5000',
+            'bcc' => 'nullable|string|max:5000',
+            'subject' => 'nullable|string|max:500',
+            'html' => 'nullable|string|max:15000000',
+            'body' => 'nullable|string|max:200000',
+            'reply_uid' => 'nullable|integer',
+            'reply_folder' => 'nullable|string',
+            'draft_uid' => 'nullable|integer',
+            'attachments' => 'nullable|array|max:20',
+            'attachments.*' => 'file|max:20480',
+            'keep' => 'nullable|array|max:50',
+            'keep.*.folder' => 'required|string|max:255',
+            'keep.*.uid' => 'required|integer',
+            'keep.*.part' => ['required', 'string', 'regex:/^\d+(\.\d+)*$/'],
+        ]);
+    }
+
+    /**
+     * The mail as written, with new files and the attachments kept from another mail (forward, draft).
+     *
+     * @return array{0: Email, 1: list<string>} the mail and the temporary files to delete afterwards
+     */
+    private function compose(Request $request, MailAccount $account, Client $client): array
+    {
+        $html = (string) $request->input('html', '');
+        if ($html === '') {
+            $html = MailComposer::fromPlainText((string) $request->input('body', ''));
+        }
+        $email = MailComposer::build($account, (string) $request->input('subject', ''), $html);
+
+        $bytes = 0;
+        $temporary = [];
+        try {
+            foreach ($request->file('attachments', []) as $file) {
+                $bytes += $file->getSize();
+                $email->attachFromPath($file->getRealPath(), $file->getClientOriginalName(), $file->getClientMimeType());
+            }
+            foreach ($request->input('keep', []) as $keep) {
+                $reader = $this->reader($client, $keep['folder']);
+                $attachment = $reader->attachment((int) $keep['uid'], $keep['part']);
+                abort_unless($attachment, 422, 'An attachment of the original mail is no longer there. Remove it and try again.');
+                $bytes += $attachment['bytes'];
+                abort_if($bytes > self::MAX_ATTACHMENTS, 422, 'The attachments are too large together (maximum 35 MB).');
+
+                $path = tempnam(sys_get_temp_dir(), 'mail');
+                $temporary[] = $path;
+                $handle = fopen($path, 'wb');
+                $reader->stream((int) $keep['uid'], $keep['part'], function (string $data) use ($handle): void {
+                    fwrite($handle, $data);
+                }, $attachment['encoding']);
+                fclose($handle);
+                // A forwarded mail (.eml) travels as a plain file: message/rfc822 may not be base64
+                $type = preg_match('#^[\w.+-]+/[\w.+-]+$#', $attachment['type']) && ! str_starts_with($attachment['type'], 'message/') ? $attachment['type'] : 'application/octet-stream';
+                $email->attachFromPath($path, $attachment['name'], $type);
+            }
+            abort_if($bytes > self::MAX_ATTACHMENTS, 422, 'The attachments are too large together (maximum 35 MB).');
+            $this->addThreadHeaders($request, $email, $client);
         } catch (Throwable $e) {
-            return response()->json(['message' => 'The mail server did not accept the message: '.$e->getMessage()], 502);
+            array_map('unlink', array_filter($temporary, 'is_file'));
+            throw $e;
         }
 
-        try {
-            $original?->setFlag('Answered');
-        } catch (Throwable) {
-        }
+        return [$email, $temporary];
+    }
 
-        // Keep a copy in Sent so it also appears in Thunderbird.
+    /** In-Reply-To / References, so the reply lands in the same conversation; a draft keeps the ones it was saved with. */
+    private function addThreadHeaders(Request $request, Email $email, Client $client): void
+    {
         try {
-            $client = $this->client();
-            $sent = $account->sent_folder ?: $this->findFolder($client, 'sent');
-            if ($sent) {
-                $this->folder($client, $sent)->appendMessage($email->toString(), ['\\Seen']);
+            $ids = fn (?string $value): array => preg_match_all('/<([^<>\s]+)>/', (string) $value, $m) ? $m[1] : [];
+            if ($request->filled('reply_uid')) {
+                $h = $this->reader($client, $request->input('reply_folder') ?: 'INBOX')->headers((int) $request->input('reply_uid'), ['Message-ID', 'References']);
+                $replyTo = $ids($h['message-id'] ?? null);
+                $references = [...$ids($h['references'] ?? null), ...$replyTo];
+            } elseif ($request->filled('draft_uid') && ($drafts = $this->findFolder($client, 'drafts'))) {
+                $h = $this->reader($client, $drafts)->headers((int) $request->input('draft_uid'), ['In-Reply-To', 'References']);
+                $replyTo = $ids($h['in-reply-to'] ?? null);
+                $references = $ids($h['references'] ?? null);
+            } else {
+                return;
+            }
+            if ($replyTo) {
+                $email->getHeaders()->addTextHeader('In-Reply-To', '<'.$replyTo[0].'>');
+            }
+            if ($references) {
+                $email->getHeaders()->addTextHeader('References', implode(' ', array_map(fn ($id) => "<{$id}>", array_slice(array_unique($references), -20))));
             }
         } catch (Throwable) {
-            // The mail went out; a missing Sent copy is not worth failing the request.
+            // Threading headers are a nicety; send anyway.
         }
-
-        return response()->json(['message' => 'Sent']);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -442,6 +558,19 @@ class MailController extends Controller
         } catch (Throwable $e) {
             abort(response()->json(['message' => 'Could not connect to the mail server: '.$e->getMessage()], 502));
         }
+    }
+
+    /** Headers and flags of one mail, without downloading it. */
+    private function message(Client $client, string $path, int $uid): Message
+    {
+        return $this->folder($client, $path)->query()->setFetchBody(false)->leaveUnread()->getMessageByUid($uid);
+    }
+
+    private function reader(Client $client, string $path): MailReader
+    {
+        $this->folder($client, $path);
+
+        return new MailReader($client, $path);
     }
 
     private function connect(MailAccount $account): Client
@@ -542,11 +671,25 @@ class MailController extends Controller
         ));
     }
 
+    /** Parts of an address list that are not valid addresses, so nobody is silently left out. */
+    private function invalidAddresses(?string $input): array
+    {
+        $parts = array_filter(array_map('trim', $this->splitAddressList($input)), fn ($p) => $p !== '');
+
+        return array_values(array_filter($parts, fn ($p) => ! $this->parseAddressList($p)));
+    }
+
+    /** Splits at , and ; but not inside "quoted, names". */
+    private function splitAddressList(?string $input): array
+    {
+        return preg_split('/[,;]+(?=(?:[^"]*"[^"]*")*[^"]*$)/', (string) $input) ?: [];
+    }
+
     /** "a@x.com, Name <b@y.com>; c@z.com" => list of valid addresses. */
     private function parseAddressList(?string $input): array
     {
         $out = [];
-        foreach (preg_split('/[,;]+/', (string) $input) as $part) {
+        foreach ($this->splitAddressList($input) as $part) {
             $part = trim($part);
             if ($part === '') {
                 continue;

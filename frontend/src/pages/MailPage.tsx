@@ -4,23 +4,14 @@ import {
   Search, Reply, ReplyAll, Forward, Paperclip, Download, X, Mail, Star, ChevronDown, ChevronLeft, ChevronRight,
   Columns2, Rows2, Filter, CornerUpLeft, Circle,
 } from 'lucide-react'
+import { MailCompose, type MailDraft } from '../components/MailCompose'
 import { Modal } from '../components/Modal'
 import { Req } from '../components/ui'
 import {
   mailApi, DEFAULT_MAIL_SETTINGS, formatAddress, formatListDate, formatSize,
   type MailFilter, type MailFolder, type MailMessage, type MailSettings, type MailSummary,
 } from '../lib/mail'
-
-interface Draft {
-  to: string
-  cc: string
-  bcc: string
-  subject: string
-  body: string
-  replyUid?: number
-  replyFolder?: string
-  title: string
-}
+import { draftHtml, forwardHtml, newMailHtml, replyHtml } from '../lib/mailCompose'
 
 type Layout = 'classic' | 'vertical'
 
@@ -32,12 +23,6 @@ const FOLDER_LABELS: Partial<Record<MailFolder['role'], string>> = {
 }
 const LAYOUT_KEY = 'ncrc_mail_layout'
 const AUTO_CHECK_MS = 2 * 60 * 1000
-
-function quote(message: MailMessage) {
-  const when = message.date ? new Date(message.date).toLocaleString('en-IN') : ''
-  const lines = (message.text || '').split('\n').map((line) => `> ${line}`).join('\n')
-  return `\n\n\nOn ${when}, ${formatAddress(message.from)} wrote:\n${lines}`
-}
 
 function folderLabel(f: MailFolder) {
   return (f.depth === 0 || f.role !== 'other') && FOLDER_LABELS[f.role] ? FOLDER_LABELS[f.role]! : f.name
@@ -66,7 +51,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
   const [selectedUid, setSelectedUid] = useState<number | null>(null)
   const [message, setMessage] = useState<MailMessage | null>(null)
   const [messageLoading, setMessageLoading] = useState(false)
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const [draft, setDraft] = useState<MailDraft | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [checking, setChecking] = useState(false)
   const [layout, setLayout] = useState<Layout>(() => {
@@ -114,6 +99,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
 
   const visibleList = useMemo(() => onlyAttachments ? list.filter((m) => m.has_attachment) : list, [list, onlyAttachments])
   const currentFolder = folders.find((f) => f.path === folder)
+  const isDrafts = currentFolder?.role === 'drafts'
   const isSentLike = currentFolder?.role === 'sent' || currentFolder?.role === 'drafts'
 
   const adjustUnread = (path: string, delta: number) => {
@@ -197,7 +183,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
   }
 
   const ownEmail = (status?.email || '').toLowerCase()
-  const newMail = () => setDraft({ title: 'Write', to: '', cc: '', bcc: '', subject: '', body: '' })
+  const newMail = () => setDraft({ title: 'Write', to: '', cc: '', bcc: '', subject: '', html: newMailHtml(), kept: [] })
   const reply = (all: boolean) => {
     if (!message) return
     const primary = message.reply_to[0] ?? message.from
@@ -210,21 +196,38 @@ export function MailPage({ onBack }: { onBack: () => void }) {
       cc: others.map(formatAddress).join(', '),
       bcc: '',
       subject: /^re:/i.test(message.subject) ? message.subject : `Re: ${message.subject}`,
-      body: quote(message),
+      html: replyHtml(message),
+      kept: [],
       replyUid: message.uid,
       replyFolder: folder,
     })
   }
   const forward = () => {
     if (!message) return
-    const header = [
-      '', '', '-------- Forwarded Message --------',
-      `Subject: ${message.subject}`,
-      `Date: ${message.date ? new Date(message.date).toLocaleString('en-IN') : ''}`,
-      `From: ${formatAddress(message.from)}`,
-      `To: ${message.to.map(formatAddress).join(', ')}`, '', '',
-    ].join('\n')
-    setDraft({ title: 'Forward', to: '', cc: '', bcc: '', subject: /^fwd?:/i.test(message.subject) ? message.subject : `Fwd: ${message.subject}`, body: header + (message.text || '') })
+    setDraft({
+      title: 'Forward', to: '', cc: '', bcc: '',
+      subject: /^fwd?:/i.test(message.subject) ? message.subject : `Fwd: ${message.subject}`,
+      html: forwardHtml(message),
+      kept: message.attachments.map((a) => ({ ...a, folder, uid: message.uid })),
+    })
+  }
+  const editDraft = () => {
+    if (!message) return
+    setDraft({
+      title: 'Draft',
+      to: message.to.map(formatAddress).join(', '),
+      cc: message.cc.map(formatAddress).join(', '),
+      bcc: message.bcc.map(formatAddress).join(', '),
+      subject: message.subject === '(no subject)' ? '' : message.subject,
+      html: draftHtml(message),
+      kept: message.attachments.map((a) => ({ ...a, folder, uid: message.uid })),
+      draftUid: message.uid,
+    })
+  }
+  /** A draft gets a new number every time it is saved, and is gone once sent */
+  const draftsChanged = () => {
+    if (isDrafts) { setSelectedUid(null); setMessage(null) }
+    void getMessages()
   }
 
   // Thunderbird keyboard shortcuts
@@ -434,6 +437,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
                       {message.from?.name ? <span className="tb-muted"> &lt;{message.from.email}&gt;</span> : null}
                     </div>
                     <div className="tb-msgactions">
+                      {isDrafts ? <button type="button" onClick={editDraft} title="Continue writing this draft"><PenSquare size={15} /> <span>Edit draft</span></button> : null}
                       <button type="button" onClick={() => reply(false)} title="Reply (Ctrl+R)"><Reply size={15} /> <span>Reply</span></button>
                       <button type="button" onClick={() => reply(true)} title="Reply All (Ctrl+Shift+R)"><ReplyAll size={15} /> <span>Reply All</span></button>
                       <button type="button" onClick={forward} title="Forward (Ctrl+L)"><Forward size={15} /> <span>Forward</span></button>
@@ -447,6 +451,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
                   <div className="tb-msghead__fields">
                     <div><span className="tb-label">To</span> {message.to.map(formatAddress).join(', ') || '-'}</div>
                     {message.cc.length ? <div><span className="tb-label">Cc</span> {message.cc.map(formatAddress).join(', ')}</div> : null}
+                    {message.bcc.length ? <div><span className="tb-label">Bcc</span> {message.bcc.map(formatAddress).join(', ')}</div> : null}
                     <div className="tb-msghead__subject">
                       <span className="tb-label">Subject</span> <strong>{message.subject}</strong>
                       <span className="tb-msghead__date">{message.date ? new Date(message.date).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : ''}</span>
@@ -465,14 +470,14 @@ export function MailPage({ onBack }: { onBack: () => void }) {
                       <span className="tb-muted">{formatSize(message.attachments.reduce((s, a) => s + a.size, 0))}</span>
                       <span className="tb-spacer" />
                       {message.attachments.length > 1 ? (
-                        <button type="button" className="tb-tool" onClick={() => message.attachments.forEach((a) => void mailApi.downloadAttachment(folder, message.uid, a.index, a.name).catch(() => undefined))}>
+                        <button type="button" className="tb-tool" onClick={() => message.attachments.forEach((a) => void mailApi.downloadAttachment(folder, message.uid, a.part, a.name).catch(() => undefined))}>
                           <Download size={14} /> <span>Save All</span>
                         </button>
                       ) : null}
                     </div>
                     <div className="tb-attachbar__list">
                       {message.attachments.map((a) => (
-                        <button key={a.index} type="button" className="tb-attachment" onClick={() => void mailApi.downloadAttachment(folder, message.uid, a.index, a.name).catch((e: Error) => window.alert(e.message))} title={`Save ${a.name}`}>
+                        <button key={a.part} type="button" className="tb-attachment" onClick={() => void mailApi.downloadAttachment(folder, message.uid, a.part, a.name).catch((e: Error) => window.alert(e.message))} title={`Save ${a.name}`}>
                           <Paperclip size={13} /> <span>{a.name}</span> <small>{formatSize(a.size)}</small> <Download size={13} />
                         </button>
                       ))}
@@ -499,7 +504,15 @@ export function MailPage({ onBack }: { onBack: () => void }) {
         <span>Total: <strong>{currentFolder?.total ?? total}</strong></span>
       </footer>
 
-      {draft ? <ComposeModal draft={draft} from={status.email ?? ''} onClose={() => setDraft(null)} onSent={() => { setDraft(null); void getMessages() }} /> : null}
+      {draft ? (
+        <MailCompose
+          draft={draft}
+          from={status.email ?? ''}
+          onClose={() => setDraft(null)}
+          onSent={(warning) => { setDraft(null); draftsChanged(); if (warning) window.alert(warning) }}
+          onDraftSaved={draftsChanged}
+        />
+      ) : null}
       {showSettings ? <SettingsModal onClose={() => setShowSettings(false)} onSaved={() => { setShowSettings(false); loadStatus(); void getMessages() }} /> : null}
     </div>
   )
@@ -528,83 +541,6 @@ function MessageBody({ message }: { message: MailMessage }) {
         if (doc) setHeight(Math.max(200, doc.documentElement.scrollHeight + 16))
       }}
     />
-  )
-}
-
-function ComposeModal({ draft, from, onClose, onSent }: { draft: Draft; from: string; onClose: () => void; onSent: () => void }) {
-  const [form, setForm] = useState(draft)
-  const [showCc, setShowCc] = useState(Boolean(draft.cc))
-  const [showBcc, setShowBcc] = useState(false)
-  const [files, setFiles] = useState<File[]>([])
-  const [sending, setSending] = useState(false)
-
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.subject.trim() && !window.confirm('Send this message without a subject?')) return
-    setSending(true)
-    try {
-      const data = new FormData()
-      data.append('to', form.to)
-      data.append('cc', showCc ? form.cc : '')
-      data.append('bcc', showBcc ? form.bcc : '')
-      data.append('subject', form.subject)
-      data.append('body', form.body)
-      if (form.replyUid) {
-        data.append('reply_uid', String(form.replyUid))
-        data.append('reply_folder', form.replyFolder ?? 'INBOX')
-      }
-      files.forEach((file) => data.append('attachments[]', file))
-      await mailApi.send(data)
-      onSent()
-    } catch (err) {
-      window.alert((err as Error).message)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  return (
-    <Modal
-      title={form.subject ? `${form.title}: ${form.subject}` : form.title}
-      subtitle="Mail"
-      onClose={onClose}
-      size="lg"
-      onSubmit={send}
-      saving={sending}
-      saveLabel="Send"
-      footerLeft={(
-        <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer' }}>
-          <Paperclip size={14} /> Attach
-          <input type="file" multiple hidden onChange={(e) => { setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
-        </label>
-      )}
-    >
-      <div className="tb-compose">
-        <div className="tb-compose__row"><span className="tb-label">From</span><span className="tb-compose__from">{from}</span></div>
-        <div className="tb-compose__row">
-          <label className="tb-label" htmlFor="tb-to">To<Req /></label>
-          <input id="tb-to" className="input" required value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="name@example.com, another@example.com" autoFocus={!form.to} />
-          <span className="tb-compose__toggles">
-            {!showCc ? <button type="button" onClick={() => setShowCc(true)}>Cc</button> : null}
-            {!showBcc ? <button type="button" onClick={() => setShowBcc(true)}>Bcc</button> : null}
-          </span>
-        </div>
-        {showCc ? <div className="tb-compose__row"><label className="tb-label" htmlFor="tb-cc">Cc</label><input id="tb-cc" className="input" value={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.value })} /></div> : null}
-        {showBcc ? <div className="tb-compose__row"><label className="tb-label" htmlFor="tb-bcc">Bcc</label><input id="tb-bcc" className="input" value={form.bcc} onChange={(e) => setForm({ ...form, bcc: e.target.value })} /></div> : null}
-        <div className="tb-compose__row"><label className="tb-label" htmlFor="tb-subject">Subject</label><input id="tb-subject" className="input" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
-        <textarea className="input tb-compose__body" rows={16} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} autoFocus={Boolean(form.to)} aria-label="Message" />
-        {files.length ? (
-          <div className="tb-attachbar__list">
-            {files.map((file, i) => (
-              <span key={`${file.name}-${i}`} className="tb-attachment">
-                <Paperclip size={13} /> <span>{file.name}</span> <small>{formatSize(file.size)}</small>
-                <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}><X size={13} /></button>
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </Modal>
   )
 }
 
@@ -654,6 +590,8 @@ function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
       <div className="tb-settings-grid">
         <label><span>Email address<Req /></span><input className="input" type="email" required value={form.email} onChange={(e) => set('email', e.target.value)} /></label>
         <label><span>Password{hasPassword ? null : <Req />}</span><input className="input" type="password" autoComplete="new-password" required={!hasPassword} value={form.password ?? ''} onChange={(e) => set('password', e.target.value)} placeholder={hasPassword ? 'Leave blank to keep the saved password' : ''} /></label>
+        <label><span>Sender name</span><input className="input" value={form.from_name} onChange={(e) => set('from_name', e.target.value)} placeholder="Namotech" /></label>
+        <span />
         <label><span>Incoming (IMAP) server<Req /></span><input className="input" required value={form.imap_host} onChange={(e) => set('imap_host', e.target.value)} /></label>
         <div className="tb-settings-pair">
           <label><span>Port<Req /></span><input className="input" type="number" required value={form.imap_port} onChange={(e) => set('imap_port', Number(e.target.value))} /></label>

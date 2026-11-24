@@ -269,7 +269,7 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
       <div class="notes"><div class="k-label">Terms &amp; Declaration</div><div class="decl">${decl}</div></div>
       <div class="sign">
         <div class="for">For ${esc(co.name)}</div>
-        <div class="seal"><img src="${origin}/letterhead/${co.seal}" alt="" onerror="this.remove()"></div>
+        <div class="seal">${co.seal ? `<img src="${origin}/letterhead/${co.seal}" alt="" onerror="this.remove()">` : ''}</div>
         <div class="line">Authorised Signatory</div>
       </div>
     </div>

@@ -188,11 +188,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('folders', [MailController::class, 'folders']);
         Route::get('messages', [MailController::class, 'messages']);
         Route::get('messages/{uid}', [MailController::class, 'show'])->whereNumber('uid');
-        Route::get('messages/{uid}/attachments/{index}', [MailController::class, 'attachment'])->whereNumber(['uid', 'index']);
+        Route::get('messages/{uid}/attachments/{part}', [MailController::class, 'attachment'])->whereNumber('uid')->where('part', '[0-9.]+');
         Route::delete('messages/{uid}', [MailController::class, 'destroy'])->whereNumber('uid');
         Route::post('messages/{uid}/flags', [MailController::class, 'flags'])->whereNumber('uid');
         Route::post('messages/{uid}/move', [MailController::class, 'move'])->whereNumber('uid');
         Route::post('send', [MailController::class, 'send']);
+        Route::post('drafts', [MailController::class, 'saveDraft']);
     });
     Route::post('tenders/import', [TenderController::class, 'import']);
     Route::get('tenders/{tender}/summary', [TenderController::class, 'summary']);

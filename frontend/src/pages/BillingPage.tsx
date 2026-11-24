@@ -235,7 +235,7 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
                   <td style={{ textAlign: 'right', color: '#16a34a', whiteSpace: 'nowrap' }}>{b.amount_received ? inr(b.amount_received) : '-'}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600, color: b.cancelled ? '#94a3b8' : b.due_amount > 0 ? '#dc2626' : '#16a34a', whiteSpace: 'nowrap' }}>{b.cancelled ? '-' : b.due_amount > 0 ? inr(b.due_amount) : 'Paid'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    <button className="icon-button" type="button" title="Print / PDF" onClick={() => setPrinting({ bill: b })}><Printer size={16} /></button>
+                    <button className="icon-button" type="button" title="Print / PDF" onClick={() => (COMPANIES[b.company].seal ? setPrinting({ bill: b }) : openBillPrint(billToInput(b), false))}><Printer size={16} /></button>
                     <button className="icon-button" type="button" title="Edit / record payment" onClick={() => void openEdit(b.id)}><Pencil size={16} /></button>
                     {b.cancelled ? (
                       <button className="icon-button" type="button" title="Undo cancel" onClick={() => void restore(b)}><RotateCcw size={16} /></button>
@@ -794,8 +794,8 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
         </button>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <strong style={{ flex: 1, minWidth: 200 }}>Save and print / PDF</strong>
-          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => saveAndPrint(true)}><Stamp size={16} /> With Sign</button>
-          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => saveAndPrint(false)}><Printer size={16} /> Without Sign</button>
+          {co.seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
+          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => saveAndPrint(false)}><Printer size={16} /> {co.seal ? 'Without Sign' : 'Print'}</button>
         </div>
       </div>
     </div>

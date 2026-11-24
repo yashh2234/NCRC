@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, Printer, Save, Stamp, Trash2 } from 'lucide-react'
-import { money2 } from '../lib/bills'
+import { COMPANIES, money2 } from '../lib/bills'
 import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
 import {
-  GST_OPTIONS, SECTION_TITLES, UNITS, calcQuotation, emptyQuotationItem, emptySection, oneMonthAfter, quotationItemAmount, quotationToInput, quotationsApi,
-  type GstMode, type Quotation, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
+  SECTION_TITLES, UNITS, calcQuotation, companyGst, emptyQuotationItem, emptySection, oneMonthAfter, quotationItemAmount, quotationLines, quotationToInput, quotationsApi,
+  type Quotation, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
 } from '../lib/quotations'
 import { Req } from './ui'
 
@@ -37,7 +37,7 @@ interface QuotationEditorProps {
 }
 
 export function QuotationEditor({ id, initial, others, onClose }: QuotationEditorProps) {
-  const [form, setForm] = useState<QuotationInput>(initial)
+  const [form, setForm] = useState<QuotationInput>(() => ({ ...initial, gst_mode: companyGst(initial.company) }))
   const [savedId, setSavedId] = useState<number | null>(id)
   const [saving, setSaving] = useState(false)
   const [changed, setChanged] = useState(false)
@@ -47,6 +47,9 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
   /** Typed by hand: stop replacing with the suggestion */
   const manualNo = useRef(Boolean(id))
   const manualValid = useRef(Boolean(id))
+  const isNcs = form.company === 'ncs'
+  /** Made before GST was fixed at 18%: opening it shows the new total, so say so before it is saved */
+  const [gstChanged, setGstChanged] = useState(Boolean(id) && initial.gst_mode !== companyGst(initial.company))
   const t = calcQuotation(form)
 
   const patch = (changes: Partial<QuotationInput>) => {
@@ -61,11 +64,11 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
   useEffect(() => {
     if (manualNo.current) return
     let cancelled = false
-    quotationsApi.nextNumber(form.date)
+    quotationsApi.nextNumber(form.company, form.date)
       .then((res) => { if (!cancelled && !manualNo.current) setForm((f) => ({ ...f, quotation_no: res.data })) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [form.date])
+  }, [form.company, form.date])
 
   const showError = (text: string) => {
     setError(text)
@@ -100,6 +103,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
       setForm(saved)
       setChanged(true)
       setDirty(false)
+      setGstChanged(false)
       setNotice(`Saved quotation ${data.quotation_no}.`)
       return saved
     } catch (e) {
@@ -136,12 +140,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
   )
 
   // Amount summary in the same order as the print
-  const summaryRows: [string, string][] = [['Sub Total', money2(t.subtotal)]]
-  if (t.discount) summaryRows.push(['Discount', `− ${money2(t.discount)}`], ['Total after Discount', money2(t.taxable)])
-  if (form.gst_mode === 'add') summaryRows.push(['GST @ 18%', money2(t.gst)])
-  if (form.gst_mode === 'extra') summaryRows.push(['GST', 'Extra, as applicable'])
-  if (t.transport) summaryRows.push(['Transportation incl. Toll', money2(t.transport)])
-  if (t.roundOff) summaryRows.push(['Round Off', `${t.roundOff > 0 ? '' : '− '}${money2(Math.abs(t.roundOff))}`])
+  const summaryRows: [string, string][] = [['Sub Total', money2(t.subtotal)], ...quotationLines(form, money2).map(([k, v]): [string, string] => [k, v])]
   const withSections = others.filter((q) => q.sections.length && q.id !== savedId)
 
   return (
@@ -150,6 +149,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
         <button type="button" onClick={close} style={{ justifySelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: 0, color: '#475569', fontWeight: 600, cursor: 'pointer' }}><ArrowLeft size={16} /> Back</button>
         <h2 style={{ margin: 0, fontSize: '1.1rem', textAlign: 'center' }}>
           {savedId ? `Quotation ${form.quotation_no}` : 'New quotation'}
+          <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700, background: isNcs ? '#e0f2fe' : '#ede9fe', color: isNcs ? '#0369a1' : '#6d28d9' }}>{COMPANIES[form.company].short}</span>
           {dirty ? <span style={{ marginLeft: 8, fontSize: '0.75rem', color: '#b45309', fontWeight: 600 }}>● Unsaved</span> : null}
         </h2>
         <span />
@@ -157,14 +157,15 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
       {notice ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#f0fdf4', color: '#166534', fontSize: '0.85rem' }}>{notice}</p> : null}
       {error ? <p role="alert" style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: '0.85rem' }}>{error}</p> : null}
 
-      <datalist id="quotation-units">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
+      {gstChanged ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fffbeb', color: '#92400e', fontSize: '0.85rem' }}>This quotation was saved without 18% GST. The total below includes it, and saving will change the quotation. Go back without saving to keep it as it was.</p> : null}
+
       <datalist id="quotation-sections">{SECTION_TITLES.map((s) => <option key={s} value={s} />)}</datalist>
 
       <div style={card}>
         <p className="section-label" style={{ marginTop: 0 }}>Quotation</p>
         <div style={grid}>
           <label style={lbl}>Quotation No.
-            <input className="input" value={form.quotation_no} placeholder="NCS/2026/1058" onChange={(e) => { manualNo.current = true; patch({ quotation_no: e.target.value }) }} />
+            <input className="input" value={form.quotation_no} placeholder={isNcs ? 'NCS/2026/1058' : 'NCRC/2026/0001'} onChange={(e) => { manualNo.current = true; patch({ quotation_no: e.target.value }) }} />
           </label>
           <label style={lbl}><span>Date<Req /></span>
             <input className="input" type="date" value={form.date} onChange={(e) => patch({ date: e.target.value, ...(manualValid.current ? {} : { valid_until: oneMonthAfter(e.target.value) }) })} />
@@ -220,7 +221,12 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
                     <input className="input" value={it.description} aria-label={`Item ${i + 1} title`} placeholder="Title (bold)" onChange={(e) => setItem(i, { description: e.target.value })} style={{ width: '100%', fontWeight: 600, marginBottom: 6 }} />
                     <textarea className="input" rows={2} value={it.details} aria-label={`Item ${i + 1} details`} placeholder="Details (small grey text, optional)" onChange={(e) => setItem(i, { details: e.target.value })} style={area} />
                   </td>
-                  <td><input className="input" list="quotation-units" value={it.unit} aria-label={`Item ${i + 1} unit`} onChange={(e) => setItem(i, { unit: e.target.value })} /></td>
+                  <td>
+                    <select className="input" value={it.unit} aria-label={`Item ${i + 1} unit`} onChange={(e) => setItem(i, { unit: e.target.value })}>
+                      {/* A unit typed on an older quotation stays selectable */}
+                      {(UNITS.includes(it.unit) ? UNITS : [it.unit, ...UNITS]).map((u) => <option key={u} value={u}>{u || '-'}</option>)}
+                    </select>
+                  </td>
                   <td><input className="input" type="number" min={0} step="any" value={it.quantity} aria-label={`Item ${i + 1} quantity`} onChange={(e) => setItem(i, { quantity: numVal(e.target.value) })} /></td>
                   <td><input className="input" type="number" min={0} step="any" value={it.included ? '' : it.rate} disabled={it.included} aria-label={`Item ${i + 1} rate`} onChange={(e) => setItem(i, { rate: numVal(e.target.value) })} /></td>
                   <td style={{ textAlign: 'center' }}><input type="checkbox" checked={it.included} aria-label={`Item ${i + 1} included, no charge`} title="Prints “Included” instead of a rate" onChange={(e) => setItem(i, { included: e.target.checked })} /></td>
@@ -244,11 +250,14 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
           <div style={grid}>
             <label style={lbl}>Discount (₹)<input className="input" type="number" min={0} step="any" value={form.discount} onChange={(e) => patch({ discount: numVal(e.target.value) })} /></label>
             <label style={lbl}>Transportation incl. Toll<input className="input" type="number" min={0} step="any" value={form.transport} onChange={(e) => patch({ transport: numVal(e.target.value) })} /></label>
-            <label style={lbl}>GST
-              <select className="input" value={form.gst_mode} onChange={(e) => patch({ gst_mode: e.target.value as GstMode })}>
-                {GST_OPTIONS.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
-              </select>
-            </label>
+            {isNcs ? (
+              <label style={lbl}>GST on transportation
+                <select className="input" value={form.transport_gst ? 'yes' : 'no'} onChange={(e) => patch({ transport_gst: e.target.value === 'yes' })}>
+                  <option value="no">No (added after GST)</option>
+                  <option value="yes">Yes (added before GST)</option>
+                </select>
+              </label>
+            ) : null}
           </div>
           <div style={{ marginTop: 14, fontSize: '0.92rem', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
             {summaryRows.map(([k, v]) => (
@@ -269,10 +278,12 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
           <label style={lbl}>Payment Terms
             <textarea className="input" rows={3} value={form.payment_terms} onChange={(e) => patch({ payment_terms: e.target.value })} style={area} />
           </label>
-          <div style={{ ...grid, marginTop: 12 }}>
-            {text('Signatory Name', 'signatory_name')}
-            {text('Designation', 'signatory_designation')}
-          </div>
+          {isNcs ? (
+            <div style={{ ...grid, marginTop: 12 }}>
+              {text('Signatory Name', 'signatory_name')}
+              {text('Designation', 'signatory_designation')}
+            </div>
+          ) : null}
           <label style={{ ...lbl, marginTop: 12 }}>Remark (for the office, not printed)
             <textarea className="input" rows={2} value={form.notes} onChange={(e) => patch({ notes: e.target.value })} style={area} />
           </label>
@@ -317,8 +328,8 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
         </button>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <strong style={{ flex: 1, minWidth: 200 }}>Save and print / PDF</strong>
-          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button>
-          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> Without Sign</button>
+          {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
+          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> {COMPANIES[form.company].seal ? 'Without Sign' : 'Print'}</button>
         </div>
       </div>
     </div>

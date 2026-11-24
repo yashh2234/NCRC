@@ -1,12 +1,12 @@
 /**
- * Printable NCS LLP quotation in the Namotech bill design, over as many A4 pages as it needs.
+ * Printable NCS LLP / NCRC Pvt Ltd quotation in the Namotech bill design, over as many A4 pages as it needs.
  * The document is first laid out in one long strip, then paginate() moves it onto real A4 pages, so every
  * page has the brand bar, the footer with "Page 1 of 2", and (from page 2) the quotation no. at the top.
  * With / without sign is chosen before opening; the print dialog opens by itself.
  */
 import { BILL_CSS, esc, fmtQty } from './billPrint'
 import { COMPANIES, SERVICES, dotDate, money2 } from './bills'
-import { calcQuotation, quotationItemAmount, type QuotationInput, type QuotationSection } from './quotations'
+import { calcQuotation, quotationItemAmount, quotationLines, validityText, type QuotationInput, type QuotationSection } from './quotations'
 
 const CSS = `
 .page { display: block; padding: 0; }
@@ -59,12 +59,14 @@ table.items .incl { color: #6A7889; font-style: italic; }
 .terms-grid { margin-top: 5mm; display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
 .terms-grid.single { grid-template-columns: 1fr; }
 .terms-grid .box { border: 1px solid var(--line); border-radius: 2mm; padding: 3.2mm 4mm; }
-.terms-grid .text { font-size: 9.3pt; font-weight: 600; white-space: pre-line; }
+.terms-grid .text { white-space: pre-line; }
 .terms-grid table { border-collapse: collapse; font-size: 9.3pt; width: 100%; }
 .terms-grid td { padding: .7mm 0; vertical-align: top; }
 .terms-grid td.k { color: #6A7889; width: 30mm; }
 .terms-grid td.v { font-weight: 600; }
 .closing { margin-top: 5mm; display: flex; justify-content: space-between; align-items: flex-start; }
+/* On the last page the signatures stand at the bottom, right above the footer */
+.closing.at-bottom { position: absolute; left: 0; right: 0; bottom: 0; }
 .closing .sign { width: 70mm; }
 .closing .sign .for { white-space: nowrap; }
 .closing .sign .seal { height: 20mm; }
@@ -72,6 +74,9 @@ table.items .incl { color: #6A7889; font-style: italic; }
 .closing .sign .who { font-size: 9pt; color: #3F4B5A; margin-top: .6mm; min-height: 1.45em; }
 .closing .sign .who b { color: #14213D; }
 .page-body > :first-child { margin-top: 0; }
+/* NCRC Pvt Ltd has the longer name */
+.theme-ncrc .company-name { white-space: normal; }
+.theme-ncrc .closing .sign { width: 88mm; }
 
 /* Tighter spacing, used only when it saves a whole page */
 body.compact .header { padding-top: 1.5mm; }
@@ -96,7 +101,7 @@ body.compact .closing .sign .seal, body.compact .closing .sign .seal img { heigh
 
 export function quotationFileName(q: QuotationInput): string {
   const serial = (q.quotation_no.split('/').pop() || '').trim()
-  return ['Quotation', serial, q.client_name.split('\n')[0].trim()].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-')
+  return ['Quotation', q.company === 'ncrc' ? 'NCRC' : '', serial, q.client_name.split('\n')[0].trim()].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-')
 }
 
 const lines = (body: string) => body.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -129,7 +134,7 @@ function sectionsHtml(sections: QuotationSection[]): string {
 }
 
 function sourceHtml(q: QuotationInput): string {
-  const co = COMPANIES.ncs
+  const co = COMPANIES[q.company]
   const t = calcQuotation(q)
   const origin = window.location.origin
 
@@ -145,7 +150,7 @@ function sourceHtml(q: QuotationInput): string {
             <div class="company-line">${esc(co.address)}</div>
             <div class="company-line">Ph: ${esc(co.phones.join(' / '))} &nbsp;|&nbsp; ${esc(co.email)}</div>
             <div class="company-line">${esc(co.website)}</div>
-            <div class="company-ids"><span><b>GSTIN:</b> ${esc(co.gstin)}</span><span><b>PAN:</b> ${esc(co.pan)}</span></div>
+            <div class="company-ids">${co.gstin ? `<span><b>GSTIN:</b> ${esc(co.gstin)}</span>` : ''}<span><b>PAN:</b> ${esc(co.pan)}</span></div>
           </div>
         </div>
         <div class="doc-title">
@@ -191,11 +196,7 @@ function sourceHtml(q: QuotationInput): string {
 
   const tr = (label: string, value: string, cls = 'muted') => `<tr class="${cls}"><td>${label}</td><td class="v">${value}</td></tr>`
   const totals = [tr('Sub Total', money2(t.subtotal), '')]
-  if (t.discount) totals.push(tr('Discount', `− ${money2(t.discount)}`), tr('Total after Discount', money2(t.taxable), 'sub'))
-  if (q.gst_mode === 'add') totals.push(tr('GST @ 18%', money2(t.gst)))
-  if (q.gst_mode === 'extra') totals.push(tr('GST', 'Extra, as applicable'))
-  if (t.transport) totals.push(tr('Transportation incl. Toll', money2(t.transport)))
-  if (t.roundOff) totals.push(tr('Round Off', `${t.roundOff > 0 ? '' : '− '}${money2(Math.abs(t.roundOff))}`))
+  quotationLines(q, money2).forEach(([label, value, sum]) => totals.push(tr(esc(label), esc(value), sum ? 'sub' : 'muted')))
   totals.push(`<tr class="grand"><td colspan="2"><div class="grandbox"><span>${t.grandLabel}</span><span>₹ ${money2(t.grand)}</span></div></td></tr>`)
   const summary = `
     <div class="summary" data-flow="summary">
@@ -204,10 +205,13 @@ function sourceHtml(q: QuotationInput): string {
     </div>`
 
   const bank = co.bank
-  const payment = q.payment_terms.trim()
+  const commercial: [string, string][] = [
+    ['GSTIN', co.gstin], ['PAN', co.pan], ['Payment Terms', q.payment_terms.trim()], ['Validity', validityText(q.date, q.valid_until)],
+  ]
+  const commercialRows = commercial.filter(([, v]) => v).map(([k, v]) => `<tr><td class="k">${k}</td><td class="v text">${esc(v)}</td></tr>`).join('')
   const terms = `
-    <div class="terms-grid${payment ? '' : ' single'}">
-      ${payment ? `<div class="box"><div class="k-label">Payment Terms</div><div class="text">${esc(payment)}</div></div>` : ''}
+    <div class="terms-grid${commercialRows ? '' : ' single'}">
+      ${commercialRows ? `<div class="box"><div class="k-label">Commercial Terms</div><table>${commercialRows}</table></div>` : ''}
       <div class="box">
         <div class="k-label">Bank Details</div>
         <table>
@@ -215,12 +219,14 @@ function sourceHtml(q: QuotationInput): string {
           <tr><td class="k">Bank</td><td class="v">${esc(bank.name)}</td></tr>
           <tr><td class="k">A/C No.</td><td class="v">${esc(bank.account)}</td></tr>
           <tr><td class="k">IFSC</td><td class="v">${esc(bank.ifsc)}</td></tr>
+          ${bank.swift ? `<tr><td class="k">SWIFT</td><td class="v">${esc(bank.swift)}</td></tr>` : ''}
           <tr><td class="k">Branch</td><td class="v">${esc(bank.branch)}</td></tr>
         </table>
       </div>
     </div>`
 
-  const who = q.signatory_name.trim()
+  // NCRC Pvt Ltd: "Authorised Signatory" only, no name or designation
+  const who = q.company === 'ncrc' ? '' : q.signatory_name.trim()
     ? `<b>${esc(q.signatory_name)}</b>${q.signatory_designation.trim() ? ` · ${esc(q.signatory_designation)}` : ''}`
     : esc(q.signatory_designation)
   const closing = `
@@ -228,7 +234,7 @@ function sourceHtml(q: QuotationInput): string {
       <div class="sign"><div class="for">Accepted by Client</div><div class="seal"></div><div class="line">Signature, Name &amp; Seal</div><div class="who"></div></div>
       <div class="sign">
         <div class="for">For ${esc(co.name)}</div>
-        <div class="seal"><img src="${origin}/letterhead/${co.seal}" alt="" onerror="this.remove()"></div>
+        <div class="seal">${co.seal ? `<img src="${origin}/letterhead/${co.seal}" alt="" onerror="this.remove()">` : ''}</div>
         <div class="line">Authorised Signatory</div><div class="who">${who}</div>
       </div>
     </div>`
@@ -424,6 +430,18 @@ function paginate(): void {
           block.remove()
           Array.from(block.children).forEach((s) => addSection(s as HTMLElement))
         }
+      } else if (block.className === 'closing') {
+        body.appendChild(block)
+        if (!fits() && body.children.length > 1) {
+          // The signatures are never alone on a page: payment terms and bank details go with them
+          block.remove()
+          const terms = body.lastElementChild as HTMLElement
+          const withTerms = terms.classList.contains('terms-grid') && body.children.length > 1
+          newPage()
+          if (withTerms) body.appendChild(terms)
+          body.appendChild(block)
+        }
+        block.classList.add('at-bottom')
       } else addBlock(block)
     })
     return out.children.length
@@ -452,7 +470,7 @@ export function openPrintWindow(): Window | null {
 }
 
 export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) {
-  const co = COMPANIES.ncs
+  const co = COMPANIES[q.company]
   const pageTemplate = `
     <div class="page">
       <div class="brandbar"></div>

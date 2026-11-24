@@ -441,7 +441,14 @@ button.tb-col--icon { cursor: pointer; }
 .tb-compose__toggles { display: inline-flex; gap: 4px; }
 .tb-compose__toggles button { border: 0; background: none; color: var(--color-primary, #0061e0); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 6px; }
 .tb-compose__toggles button:hover { text-decoration: underline; }
-.tb-compose__body { min-height: 300px; margin-top: 4px; font-family: inherit; font-size: 14px; line-height: 1.5; }
+.tb-editor { margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #fff; }
+.tb-editor:focus-within { border-color: var(--color-primary, #0061e0); }
+.tb-editor__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px 6px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.tb-editor__bar button { display: inline-grid; place-content: center; width: 30px; height: 28px; border: 0; border-radius: 6px; background: none; color: #334155; cursor: pointer; }
+.tb-editor__bar button:hover { background: #e2e8f0; }
+.tb-editor__bar button.active { background: #dbeafe; color: #1d4ed8; }
+.tb-editor__sep { width: 1px; height: 18px; margin: 0 4px; background: #cbd5e1; }
+.tb-editor__frame { display: block; width: 100%; height: 46vh; min-height: 260px; border: 0; background: #fff; }
 .tb-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .tb-settings-grid label > span { display: block; margin-bottom: 4px; font-size: 0.8rem; font-weight: 600; color: var(--gray-700, #334155); }
 .tb-settings-grid small { display: block; margin-top: 4px; font-size: 0.75rem; }
