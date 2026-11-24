@@ -68,7 +68,7 @@ class AiRouter
 
             $status = $response->status();
             $message = (string) ($response->json('error.message') ?? '');
-            Log::warning('Inquiry AI request failed', ['provider' => $provider->provider, 'model' => $model, 'status' => $status, 'message' => mb_strimwidth($message, 0, 300, '…')]);
+            Log::warning('Free AI request failed', ['provider' => $provider->provider, 'model' => $model, 'status' => $status, 'message' => mb_strimwidth($message, 0, 300, '…')]);
 
             if ($status === 429) {
                 // The limit can be per model: try this service's other model before moving on

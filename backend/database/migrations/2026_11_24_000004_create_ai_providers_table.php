@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Free AI services that read WhatsApp inquiries, tried in sort_order: when one is full or not answering
+ * Free AI services, tried in sort_order: when one is full or not answering
  * the next is used. Separate from the Gemini key of Proposals / Tenders. Keys are stored encrypted.
  */
 return new class extends Migration

@@ -1,7 +1,6 @@
 import { UsersPage } from './UsersPage'
 import { AiProvidersPanel } from '../components/AiProvidersPanel'
 import { MailAccessPanel } from '../components/MailAccessPanel'
-import { WhatsappPanel } from '../components/WhatsappPanel'
 import { useAuth } from '../lib/auth'
 
 /** Administration: users and their per-user feature access (groups are no longer used). */
@@ -16,7 +15,7 @@ export function AdministrationPage() {
         </div>
       </div>
       <MailAccessPanel />
-      {user?.is_admin ? <><WhatsappPanel /><AiProvidersPanel /></> : null}
+      {user?.is_admin ? <AiProvidersPanel /> : null}
       <UsersPage />
     </div>
   )

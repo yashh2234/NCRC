@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Bold, Italic, Link2, List, ListOrdered, Redo2, RemoveFormatting, Underline, Undo2 } from 'lucide-react'
 import { cleanHtml } from '../lib/mailCompose'
+import { mailImage } from '../lib/mailImage'
 
 export interface MailEditorHandle {
   getHtml: () => string
@@ -23,7 +24,7 @@ const FRAME = `<!doctype html><html><head><meta charset="utf-8">
 <style>html{height:100%}body{min-height:100%;box-sizing:border-box;margin:0;padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a;overflow-wrap:break-word;outline:none}img{max-width:100%}</style>
 </head><body></body></html>`
 
-const MAX_IMAGE = 5 * 1024 * 1024
+const MAX_IMAGE = 20 * 1024 * 1024
 
 export const MailEditor = forwardRef<MailEditorHandle, MailEditorProps>(function MailEditor({ initialHtml, autoFocus = false, onChange }, ref) {
   const frameRef = useRef<HTMLIFrameElement>(null)
@@ -59,13 +60,11 @@ export const MailEditor = forwardRef<MailEditorHandle, MailEditorProps>(function
 
   const insertImages = (files: File[]) => {
     files.forEach((file) => {
-      if (file.size > MAX_IMAGE) { window.alert(`${file.name || 'The picture'} is larger than 5 MB. Attach it instead.`); return }
-      const reader = new FileReader()
-      reader.onload = () => {
-        doc()?.execCommand('insertHTML', false, cleanHtml(`<img src="${String(reader.result)}" alt="" style="max-width:100%">`))
+      if (file.size > MAX_IMAGE) { window.alert(`${file.name || 'The picture'} is larger than 20 MB. Attach it instead.`); return }
+      mailImage(file).then((src) => {
+        doc()?.execCommand('insertHTML', false, cleanHtml(`<img src="${src}" alt="" style="max-width:100%">`))
         changed.current()
-      }
-      reader.readAsDataURL(file)
+      }).catch((e: Error) => window.alert(e.message))
     })
   }
 

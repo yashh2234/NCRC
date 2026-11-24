@@ -16,7 +16,7 @@ function StatusText({ row }: { row: Row }) {
   return <span style={{ color, fontSize: '0.8rem', fontWeight: 600 }}>{text}</span>
 }
 
-/** Administration (full admins): keys and order of the free AI services that read WhatsApp inquiries. */
+/** Administration (full admins): keys and order of the free AI services. */
 export function AiProvidersPanel() {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,14 +78,14 @@ export function AiProvidersPanel() {
     <section className="surface" style={{ marginBottom: 16 }}>
       <div className="surface-heading">
         <div>
-          <p className="section-label"><Bot size={12} style={{ verticalAlign: '-1px' }} /> Inquiry AI</p>
+          <p className="section-label"><Bot size={12} style={{ verticalAlign: '-1px' }} /> AI</p>
           <h2>Free AI keys</h2>
         </div>
         <button type="button" className="btn btn-primary" disabled={!dirty || Boolean(busy)} onClick={() => void save()}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
       </div>
       <p className="text-muted" style={{ margin: '0 0 12px', fontSize: '0.8rem' }}>
-        They read WhatsApp inquiries that are not in the fixed format. The first one is asked; when it is full or not answering, the next. Proposals and Tenders keep their own key.
-        Free services may use what is sent to improve their products; phone numbers and emails are hidden before sending.
+        The first one is asked; when it is full or not answering, the next. No feature uses them at the moment; Proposals and Tenders keep their own key.
+        Free services may use what is sent to improve their products.
       </p>
       {error ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 10px' }}>{error}</p> : null}
       {notice ? <p style={{ color: '#15803d', margin: '0 0 10px' }}>{notice}</p> : null}

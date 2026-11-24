@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { FileText, Paperclip, X } from 'lucide-react'
-import { formatSize, mailApi, type MailAttachment } from '../lib/mail'
+import { formatSize, mailApi, type MailAttachment, type OutboxMail } from '../lib/mail'
 import { MailEditor, type MailEditorHandle } from './MailEditor'
 import { Modal } from './Modal'
 import { Req } from './ui'
@@ -26,7 +26,8 @@ interface MailComposeProps {
   draft: MailDraft
   from: string
   onClose: () => void
-  onSent: (warning?: string) => void
+  /** The mail is in the outbox and goes out in the background */
+  onQueued: (mail: OutboxMail) => void
   /** The Drafts folder changed */
   onDraftSaved: () => void
 }
@@ -34,8 +35,9 @@ interface MailComposeProps {
 const MAX_FILE = 20 * 1024 * 1024
 /** New files per save; the server refuses a bigger upload */
 const MAX_UPLOAD = 22 * 1024 * 1024
+const MAX_REQUEST = 24 * 1024 * 1024
 
-export function MailCompose({ draft, from, onClose, onSent, onDraftSaved }: MailComposeProps) {
+export function MailCompose({ draft, from, onClose, onQueued, onDraftSaved }: MailComposeProps) {
   const [form, setForm] = useState({ to: draft.to, cc: draft.cc, bcc: draft.bcc, subject: draft.subject })
   const [showCc, setShowCc] = useState(Boolean(draft.cc))
   const [showBcc, setShowBcc] = useState(Boolean(draft.bcc))
@@ -43,6 +45,7 @@ export function MailCompose({ draft, from, onClose, onSent, onDraftSaved }: Mail
   const [kept, setKept] = useState(draft.kept)
   const [draftUid, setDraftUid] = useState(draft.draftUid)
   const [busy, setBusy] = useState<'' | 'send' | 'draft'>('')
+  const [progress, setProgress] = useState(0)
   const [dirty, setDirty] = useState(false)
   const [asking, setAsking] = useState(false)
   const [notice, setNotice] = useState('')
@@ -85,11 +88,20 @@ export function MailCompose({ draft, from, onClose, onSent, onDraftSaved }: Mail
     return data
   }
 
+  /** Files and the text with its pictures travel together */
+  const tooLarge = () => {
+    const bytes = files.reduce((sum, f) => sum + f.size, 0) + (editor.current?.getHtml().length ?? 0)
+    return bytes > MAX_REQUEST ? `The new files and the pictures in the text are ${formatSize(bytes)} together; ${formatSize(MAX_REQUEST)} can be uploaded at once.` : ''
+  }
+
   const saveDraft = async (): Promise<boolean> => {
+    const problem = tooLarge()
+    if (problem) { setError(`${problem} Remove some files, save the draft, then add them.`); return false }
     setBusy('draft')
+    setProgress(0)
     setError('')
     try {
-      const saved = await mailApi.saveDraft(payload())
+      const saved = await mailApi.saveDraft(payload(), setProgress)
       // Everything attached now lives in the saved draft
       if (saved.uid) {
         const uid = saved.uid
@@ -113,11 +125,13 @@ export function MailCompose({ draft, from, onClose, onSent, onDraftSaved }: Mail
     e.preventDefault()
     if (busy) return
     if (!form.subject.trim() && !window.confirm('Send this message without a subject?')) return
+    const problem = tooLarge()
+    if (problem) { setError(`${problem} Remove some files, save the draft, add them and then send.`); return }
     setBusy('send')
+    setProgress(0)
     setError('')
     try {
-      const result = await mailApi.send(payload())
-      onSent(result.saved === false ? 'The mail was sent, but a copy could not be saved in the Sent folder.' : undefined)
+      onQueued(await mailApi.send(payload(), setProgress))
     } catch (err) {
       setError((err as Error).message)
       setBusy('')
@@ -144,11 +158,11 @@ export function MailCompose({ draft, from, onClose, onSent, onDraftSaved }: Mail
           <Paperclip size={14} /> Attach
           <input type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
         </label>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => void saveDraft()} disabled={Boolean(busy)}><FileText size={14} /> {busy === 'draft' ? 'Saving…' : 'Save draft'}</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void saveDraft()} disabled={Boolean(busy)}><FileText size={14} /> {busy === 'draft' ? `Saving… ${progress < 100 ? `${progress}%` : ''}` : 'Save draft'}</button>
         {notice ? <span className="tb-muted">{notice}</span> : null}
       </div>
       <button type="button" className="btn btn-outline" onClick={close} disabled={Boolean(busy)}>Cancel</button>
-      <button type="submit" className="btn btn-primary" disabled={Boolean(busy)}>{busy === 'send' ? 'Sending…' : 'Send'}</button>
+      <button type="submit" className="btn btn-primary" disabled={Boolean(busy)}>{busy === 'send' ? (progress < 100 ? `Uploading ${progress}%` : 'Almost done…') : 'Send'}</button>
     </>
   )
 

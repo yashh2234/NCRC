@@ -14,7 +14,7 @@ class Inquiry extends Model
         'inquiry_no', 'client_name', 'agency_name', 'contact_person',
         'mobile_no', 'email', 'inquiry_type', 'scope_of_work',
         'source_location', 'budget', 'work_categories', 'priority', 'status', 'notes',
-        'received_date', 'contacted_at', 'next_follow_up', 'assigned_to', 'created_by', 'needs_check',
+        'received_date', 'contacted_at', 'next_follow_up', 'assigned_to', 'created_by',
     ];
 
     /** Call pipeline, in order. Keep in sync with INQUIRY_STATUSES in frontend/src/lib/inquiries.ts. */
@@ -25,7 +25,6 @@ class Inquiry extends Model
     protected $casts = [
         'contacted_at' => 'datetime',
         'work_categories' => 'array',
-        'needs_check' => 'boolean',
         'received_date' => 'date:Y-m-d',
         'next_follow_up' => 'date:Y-m-d',
     ];

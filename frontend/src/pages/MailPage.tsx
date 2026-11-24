@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft, Inbox, Send, FileText, Archive, AlertOctagon, Trash2, Folder, PenSquare, RefreshCw, Settings,
-  Search, Reply, ReplyAll, Forward, Paperclip, Download, X, Mail, Star, ChevronDown, ChevronLeft, ChevronRight,
+  ArrowLeft, Inbox, Send, FileText, Archive, AlertOctagon, Trash2, Folder, PenSquare, RefreshCw, UserPlus,
+  Search, Reply, ReplyAll, Forward, Paperclip, Download, X, Mail, Star, CheckCircle2, AlertTriangle, Loader2, ChevronDown, ChevronLeft, ChevronRight,
   Columns2, Rows2, Filter, CornerUpLeft, Circle,
 } from 'lucide-react'
+import { MailAccountDialog, MailAccountMenu } from '../components/MailAccounts'
 import { MailCompose, type MailDraft } from '../components/MailCompose'
-import { Modal } from '../components/Modal'
-import { Req } from '../components/ui'
+import { useAuth } from '../lib/auth'
 import {
-  mailApi, DEFAULT_MAIL_SETTINGS, formatAddress, formatListDate, formatSize,
-  type MailFilter, type MailFolder, type MailMessage, type MailSettings, type MailSummary,
+  mailApi, defaultBcc, formatAddress, formatListDate, formatSize, setOpenMailAccount,
+  type MailAccount, type MailFilter, type MailFolder, type MailMessage, type MailSummary, type OutboxMail,
 } from '../lib/mail'
 import { draftHtml, forwardHtml, newMailHtml, replyHtml } from '../lib/mailCompose'
 
@@ -33,9 +33,18 @@ function isTyping(target: EventTarget | null) {
   return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 }
 
-export function MailPage({ onBack }: { onBack: () => void }) {
-  const [status, setStatus] = useState<{ configured: boolean; email: string | null; can_configure: boolean } | null>(null)
-  const [statusError, setStatusError] = useState('')
+interface MailboxProps {
+  account: MailAccount
+  appbar: React.ReactNode
+  /** A dialog of the account menu is open: no keyboard shortcuts */
+  blocked: boolean
+  /** Grows when a mail has gone out, so the open folder is loaded again */
+  sentCount: number
+  onQueued: (mail: OutboxMail) => void
+}
+
+/** One account: folders, messages, reading and writing */
+function Mailbox({ account, appbar, blocked, sentCount, onQueued }: MailboxProps) {
   const [folders, setFolders] = useState<MailFolder[]>([])
   const [folder, setFolder] = useState('INBOX')
   const [page, setPage] = useState(1)
@@ -52,7 +61,6 @@ export function MailPage({ onBack }: { onBack: () => void }) {
   const [message, setMessage] = useState<MailMessage | null>(null)
   const [messageLoading, setMessageLoading] = useState(false)
   const [draft, setDraft] = useState<MailDraft | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [checking, setChecking] = useState(false)
   const [layout, setLayout] = useState<Layout>(() => {
     try { return localStorage.getItem(LAYOUT_KEY) === 'vertical' ? 'vertical' : 'classic' } catch { return 'classic' }
@@ -62,11 +70,6 @@ export function MailPage({ onBack }: { onBack: () => void }) {
     setLayout(next)
     try { localStorage.setItem(LAYOUT_KEY, next) } catch { /* ignore */ }
   }
-
-  const loadStatus = useCallback(() => {
-    mailApi.status().then((s) => { setStatus(s); setStatusError('') }).catch((e: Error) => setStatusError(e.message))
-  }, [])
-  useEffect(loadStatus, [loadStatus])
 
   const loadFolders = useCallback(() => mailApi.folders().then(({ data }) => setFolders(data)).catch(() => undefined), [])
 
@@ -79,8 +82,8 @@ export function MailPage({ onBack }: { onBack: () => void }) {
       .finally(() => setListLoading(false))
   }, [folder, page, search, filter])
 
-  useEffect(() => { if (status?.configured) void loadFolders() }, [status?.configured, loadFolders])
-  useEffect(() => { if (status?.configured) void loadList() }, [status?.configured, loadList])
+  useEffect(() => { void loadFolders() }, [loadFolders])
+  useEffect(() => { void loadList() }, [loadList])
 
   const getMessages = useCallback(async () => {
     setChecking(true)
@@ -90,12 +93,16 @@ export function MailPage({ onBack }: { onBack: () => void }) {
 
   // Check for new mail every couple of minutes while the page is visible, like Thunderbird's auto-check
   useEffect(() => {
-    if (!status?.configured) return
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void getMessages()
     }, AUTO_CHECK_MS)
     return () => window.clearInterval(timer)
-  }, [status?.configured, getMessages])
+  }, [getMessages])
+
+  // A mail went out: Sent and the counts have changed
+  const refresh = useRef(getMessages)
+  useEffect(() => { refresh.current = getMessages }, [getMessages])
+  useEffect(() => { if (sentCount > 0) void refresh.current() }, [sentCount])
 
   const visibleList = useMemo(() => onlyAttachments ? list.filter((m) => m.has_attachment) : list, [list, onlyAttachments])
   const currentFolder = folders.find((f) => f.path === folder)
@@ -182,19 +189,21 @@ export function MailPage({ onBack }: { onBack: () => void }) {
     }
   }
 
-  const ownEmail = (status?.email || '').toLowerCase()
-  const newMail = () => setDraft({ title: 'Write', to: '', cc: '', bcc: '', subject: '', html: newMailHtml(), kept: [] })
+  const ownEmail = account.email.toLowerCase()
+  const newMail = () => setDraft({ title: 'Write', to: '', cc: '', bcc: defaultBcc(account), subject: '', html: newMailHtml(), kept: [] })
   const reply = (all: boolean) => {
     if (!message) return
     const primary = message.reply_to[0] ?? message.from
     const others = all
       ? [...message.to, ...message.cc].filter((a) => a.email.toLowerCase() !== ownEmail && a.email !== primary?.email)
       : []
+    const to = formatAddress(primary)
+    const cc = others.map(formatAddress).join(', ')
     setDraft({
       title: all ? 'Reply All' : 'Reply',
-      to: formatAddress(primary),
-      cc: others.map(formatAddress).join(', '),
-      bcc: '',
+      to,
+      cc,
+      bcc: defaultBcc(account, to, cc),
       subject: /^re:/i.test(message.subject) ? message.subject : `Re: ${message.subject}`,
       html: replyHtml(message),
       kept: [],
@@ -205,7 +214,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
   const forward = () => {
     if (!message) return
     setDraft({
-      title: 'Forward', to: '', cc: '', bcc: '',
+      title: 'Forward', to: '', cc: '', bcc: defaultBcc(account),
       subject: /^fwd?:/i.test(message.subject) ? message.subject : `Fwd: ${message.subject}`,
       html: forwardHtml(message),
       kept: message.attachments.map((a) => ({ ...a, folder, uid: message.uid })),
@@ -233,7 +242,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
   // Thunderbird keyboard shortcuts
   const keyHandler = useRef<(e: KeyboardEvent) => void>(() => undefined)
   keyHandler.current = (e: KeyboardEvent) => {
-    if (!status?.configured || draft || showSettings || isTyping(e.target)) return
+    if (blocked || draft || isTyping(e.target)) return
     const ctrl = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
     const index = visibleList.findIndex((m) => m.uid === selectedUid)
@@ -270,48 +279,6 @@ export function MailPage({ onBack }: { onBack: () => void }) {
 
   // ---------------------------------------------------------------- render
 
-  const appbar = (
-    <header className="tb-appbar">
-      <button type="button" className="tb-back" onClick={onBack}>
-        <ArrowLeft size={16} /> Back to NCRC
-      </button>
-      <div className="tb-brand">
-        <img className="tb-logo" src={`${import.meta.env.BASE_URL}ncrc-logo.png`} alt="NCRC" />
-        <span className="tb-appname"><Mail size={16} /> Mail</span>
-      </div>
-      <div className="tb-appbar__end">
-        {status?.can_configure ? (
-          <button type="button" className="tb-tool" title="Account settings" onClick={() => setShowSettings(true)}>
-            <Settings size={16} /> <span>Account Settings</span>
-          </button>
-        ) : null}
-      </div>
-    </header>
-  )
-
-  if (statusError || !status || !status.configured) {
-    return (
-      <div className="tb-app">
-        {appbar}
-        <div className="tb-setup">
-          <Mail size={40} />
-          {statusError ? <p>{statusError}</p> : !status ? <p>Loading…</p> : (
-            <>
-              <h2>Office mailbox not connected</h2>
-              {status.can_configure ? (
-                <>
-                  <p>Connect info@namotech.in once and everyone with Mail access can read and send from it here.</p>
-                  <button type="button" className="btn btn-primary" onClick={() => setShowSettings(true)}><Settings size={15} /> Set up mailbox</button>
-                </>
-              ) : <p>Ask an administrator to connect the office mailbox.</p>}
-            </>
-          )}
-        </div>
-        {showSettings ? <SettingsModal onClose={() => setShowSettings(false)} onSaved={() => { setShowSettings(false); loadStatus() }} /> : null}
-      </div>
-    )
-  }
-
   return (
     <div className="tb-app">
       {appbar}
@@ -337,7 +304,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
 
       <div className={`tb-main${selectedUid ? ' has-selection' : ''}`}>
         <aside className="tb-folders" aria-label="Folders">
-          <div className="tb-account"><ChevronDown size={14} /> <Mail size={15} /> <span title={status.email ?? ''}>{status.email}</span></div>
+          <div className="tb-account"><ChevronDown size={14} /> <Mail size={15} /> <span title={account.email}>{account.email}</span></div>
           {(folders.length ? folders : [{ path: 'INBOX', name: 'Inbox', depth: 0, role: 'inbox', unread: null, total: null } as MailFolder]).map((f) => {
             const Icon = FOLDER_ICONS[f.role]
             return (
@@ -491,7 +458,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
       </div>
 
       <footer className="tb-statusbar">
-        <span>{checking ? 'Checking for new messages…' : listError ? 'Not connected' : `Connected · ${status.email}`}</span>
+        <span>{checking ? 'Checking for new messages…' : listError ? 'Not connected' : `Connected · ${account.email}`}</span>
         <span className="tb-spacer" />
         {totalPages > 1 ? (
           <span className="tb-pager">
@@ -507,13 +474,12 @@ export function MailPage({ onBack }: { onBack: () => void }) {
       {draft ? (
         <MailCompose
           draft={draft}
-          from={status.email ?? ''}
+          from={account.email}
           onClose={() => setDraft(null)}
-          onSent={(warning) => { setDraft(null); draftsChanged(); if (warning) window.alert(warning) }}
+          onQueued={(mail) => { setDraft(null); if (isDrafts) { setSelectedUid(null); setMessage(null) } onQueued(mail) }}
           onDraftSaved={draftsChanged}
         />
       ) : null}
-      {showSettings ? <SettingsModal onClose={() => setShowSettings(false)} onSaved={() => { setShowSettings(false); loadStatus(); void getMessages() }} /> : null}
     </div>
   )
 }
@@ -544,65 +510,133 @@ function MessageBody({ message }: { message: MailMessage }) {
   )
 }
 
-function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<MailSettings>(DEFAULT_MAIL_SETTINGS)
-  const [hasPassword, setHasPassword] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+const ACCOUNT_KEY = 'ncrc_mail_account'
+/** How long the page watches a mail that is still on its way; the server goes on without it */
+const WATCH_MS = 15 * 60 * 1000
 
-  useEffect(() => {
-    mailApi.settings().then(({ data }) => {
-      if (data) { setForm({ ...DEFAULT_MAIL_SETTINGS, ...data, password: '' }); setHasPassword(true) }
-    }).catch((e: Error) => setError(e.message))
-  }, [])
+/** Mail: the account menu on top, the chosen account below, and what is being sent in the background */
+export function MailPage({ onBack }: { onBack: () => void }) {
+  const { user } = useAuth()
+  const storageKey = `${ACCOUNT_KEY}_${user?.id ?? ''}`
+  const [accounts, setAccounts] = useState<MailAccount[] | null>(null)
+  const [canShare, setCanShare] = useState(false)
+  const [newBcc, setNewBcc] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [currentId, setCurrentId] = useState<number | null>(() => {
+    try { return Number(localStorage.getItem(storageKey)) || null } catch { return null }
+  })
+  /** Account dialog: 'new', or the id to change */
+  const [dialog, setDialog] = useState<'new' | number | null>(null)
+  const [sends, setSends] = useState<OutboxMail[]>([])
+  const [sentCount, setSentCount] = useState(0)
 
-  const set = <K extends keyof MailSettings>(key: K, value: MailSettings[K]) => setForm((f) => ({ ...f, [key]: value }))
+  const loadAccounts = useCallback(() => mailApi.accounts()
+    .then((res) => {
+      setAccounts(res.data)
+      setCanShare(res.can_share)
+      setNewBcc(res.default_bcc)
+      setLoadError('')
+    })
+    .catch((e: Error) => setLoadError(e.message)), [])
+  useEffect(() => { void loadAccounts() }, [loadAccounts])
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      // cPanel mailboxes log in with the full email address as the username
-      await mailApi.saveSettings({ ...form, username: form.email.trim() })
-      onSaved()
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setSaving(false)
-    }
+  const current = accounts?.find((a) => a.id === currentId) ?? accounts?.[0] ?? null
+  // Before the mailbox below loads anything: every request goes to this account
+  setOpenMailAccount(current?.id ?? null)
+
+  const open = (id: number) => {
+    setCurrentId(id)
+    try { localStorage.setItem(storageKey, String(id)) } catch { /* ignore */ }
   }
 
-  const encryption = (key: 'imap_encryption' | 'smtp_encryption') => (
-    <select className="input" value={form[key]} onChange={(e) => set(key, e.target.value as MailSettings[typeof key])}>
-      <option value="ssl">SSL/TLS</option>
-      <option value="tls">STARTTLS</option>
-      <option value="none">None</option>
-    </select>
+  const updateSend = (mail: OutboxMail) => setSends((list) => list.map((m) => (m.id === mail.id ? mail : m)))
+  const dropSend = (id: number) => setSends((list) => list.filter((m) => m.id !== id))
+
+  const sendNow = async (queued: OutboxMail) => {
+    setSends((list) => [...list, queued])
+    const started = Date.now()
+    let mail = queued
+    // The answer may be lost on the way; what counts is what the server says about the mail
+    try { mail = await mailApi.runOutbox(queued.id) } catch { /* ask below */ }
+    while ((mail.status === 'queued' || mail.status === 'sending') && Date.now() - started < WATCH_MS) {
+      updateSend(mail)
+      await new Promise((resolve) => window.setTimeout(resolve, 5000))
+      try { mail = await mailApi.outbox(queued.id) } catch { /* try again */ }
+    }
+    updateSend(mail)
+    setSentCount((n) => n + 1)
+    if (mail.status === 'sent') window.setTimeout(() => dropSend(mail.id), 6000)
+  }
+
+  // Leaving the site while a mail is still being handed over: the server sends it, but the result would not be seen
+  const sending = sends.some((m) => m.status === 'queued' || m.status === 'sending')
+
+  const appbar = (
+    <header className="tb-appbar">
+      <button type="button" className="tb-back" onClick={onBack}>
+        <ArrowLeft size={16} /> Back to NCRC
+      </button>
+      <div className="tb-brand">
+        <img className="tb-logo" src={`${import.meta.env.BASE_URL}ncrc-logo.png`} alt="NCRC" />
+        <span className="tb-appname"><Mail size={16} /> Mail</span>
+      </div>
+      <div className="tb-appbar__end">
+        {accounts && current ? (
+          <MailAccountMenu accounts={accounts} current={current} onSwitch={open} onAdd={() => setDialog('new')} onSettings={() => setDialog(current.id)} />
+        ) : null}
+      </div>
+    </header>
   )
 
   return (
-    <Modal title="Account Settings" subtitle="Office mailbox" onClose={onClose} size="lg" onSubmit={save} saving={saving} saveLabel="Test & save">
-      <p className="tb-muted" style={{ margin: '0 0 14px' }}>
-        Same details as Thunderbird (cPanel → Email Accounts → Connect Devices). NCRC logs in to check them before saving; the password is stored encrypted.
-      </p>
-      {error ? <p className="tb-error" style={{ margin: '0 0 12px' }}>{error}</p> : null}
-      <div className="tb-settings-grid">
-        <label><span>Email address<Req /></span><input className="input" type="email" required value={form.email} onChange={(e) => set('email', e.target.value)} /></label>
-        <label><span>Password{hasPassword ? null : <Req />}</span><input className="input" type="password" autoComplete="new-password" required={!hasPassword} value={form.password ?? ''} onChange={(e) => set('password', e.target.value)} placeholder={hasPassword ? 'Leave blank to keep the saved password' : ''} /></label>
-        <label><span>Sender name</span><input className="input" value={form.from_name} onChange={(e) => set('from_name', e.target.value)} placeholder="Namotech" /></label>
-        <span />
-        <label><span>Incoming (IMAP) server<Req /></span><input className="input" required value={form.imap_host} onChange={(e) => set('imap_host', e.target.value)} /></label>
-        <div className="tb-settings-pair">
-          <label><span>Port<Req /></span><input className="input" type="number" required value={form.imap_port} onChange={(e) => set('imap_port', Number(e.target.value))} /></label>
-          <label><span>Security</span>{encryption('imap_encryption')}</label>
+    <>
+      {current ? (
+        <Mailbox key={current.id} account={current} appbar={appbar} blocked={dialog !== null} sentCount={sentCount} onQueued={(mail) => void sendNow(mail)} />
+      ) : (
+        <div className="tb-app">
+          {appbar}
+          <div className="tb-setup">
+            <Mail size={40} />
+            {loadError ? <p>{loadError}</p> : !accounts ? <p>Loading…</p> : (
+              <>
+                <h2>No mail account yet</h2>
+                <p>{canShare ? 'Add the office mailbox once; everyone with Mail access can then read and send from it here.' : 'Add your own mail account, or ask an administrator to add the office mailbox.'}</p>
+                <button type="button" className="btn btn-primary" onClick={() => setDialog('new')}><UserPlus size={15} /> Add account</button>
+              </>
+            )}
+          </div>
         </div>
-        <label><span>Outgoing (SMTP) server<Req /></span><input className="input" required value={form.smtp_host} onChange={(e) => set('smtp_host', e.target.value)} /></label>
-        <div className="tb-settings-pair">
-          <label><span>Port<Req /></span><input className="input" type="number" required value={form.smtp_port} onChange={(e) => set('smtp_port', Number(e.target.value))} /></label>
-          <label><span>Security</span>{encryption('smtp_encryption')}</label>
+      )}
+
+      {sends.length ? (
+        <div className="tb-sends" role="status">
+          {sends.map((m) => (
+            <div key={m.id} className={`tb-send tb-send--${m.status}`}>
+              {m.status === 'sent' ? <CheckCircle2 size={16} /> : m.status === 'failed' ? <AlertTriangle size={16} /> : <Loader2 size={16} className="tb-spin" />}
+              <span>
+                <strong>{m.status === 'sent' ? 'Sent' : m.status === 'failed' ? 'Not sent' : m.error ? 'Trying again…' : 'Sending…'}</strong> {m.subject || '(no subject)'}
+                {m.status === 'failed' ? <small>{m.error}{m.in_drafts ? ' The mail is in Drafts.' : ' The mail is kept and will be put in Drafts.'}</small> : null}
+                {m.status === 'sent' && !m.in_sent ? <small>A copy could not be saved in the Sent folder.</small> : null}
+              </span>
+              {m.status === 'failed' || m.status === 'sent' ? <button type="button" aria-label="Close" onClick={() => dropSend(m.id)}><X size={14} /></button> : null}
+            </div>
+          ))}
+          {sending ? <p className="tb-sends__hint">You can go on working.</p> : null}
         </div>
-      </div>
-    </Modal>
+      ) : null}
+
+      {dialog !== null ? (
+        <MailAccountDialog
+          key={String(dialog)}
+          id={dialog === 'new' ? null : dialog}
+          canShare={canShare}
+          first={!accounts?.length}
+          defaultBcc={newBcc}
+          onClose={() => setDialog(null)}
+          onSaved={(id) => { setDialog(null); void loadAccounts().then(() => open(id)) }}
+          onRemoved={() => { setDialog(null); void loadAccounts() }}
+        />
+      ) : null}
+    </>
   )
 }

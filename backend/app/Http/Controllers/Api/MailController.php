@@ -4,19 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MailAccount;
+use App\Models\MailOutbox;
 use App\Models\User;
+use App\Services\MailAddresses;
 use App\Services\MailComposer;
+use App\Services\MailFolders;
 use App\Services\MailInboxWatcher;
 use App\Services\MailReader;
+use App\Services\MailSender;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
-use Symfony\Component\Mime\Address as MimeAddress;
-use Symfony\Component\Mime\Email;
+use RuntimeException;
 use Throwable;
 use Webklex\PHPIMAP\Address;
 use Webklex\PHPIMAP\Client;
@@ -24,94 +26,19 @@ use Webklex\PHPIMAP\Folder;
 use Webklex\PHPIMAP\Message;
 
 /**
- * Shared office mailbox: read it over IMAP and send over SMTP, the same way
- * Thunderbird does. Sent mail is also saved to the server's Sent folder so it
- * shows up in Thunderbird too.
+ * Mail accounts (shared office mailboxes and the user's own): read over IMAP and send over SMTP, the same way
+ * Thunderbird does. The account comes in the X-Mail-Account header. Sending goes through the outbox.
  */
 class MailController extends Controller
 {
     private const PER_PAGE = 25;
 
-    /** All attachments of one mail together, before encoding */
-    private const MAX_ATTACHMENTS = 35 * 1024 * 1024;
-
-    // ---------------------------------------------------------------- settings
-
-    public function settings(): JsonResponse
-    {
-        $this->requireAdmin();
-        $account = MailAccount::current();
-
-        return response()->json(['data' => $account ? $account->toArray() + ['has_password' => true] : null]);
-    }
-
-    public function saveSettings(Request $request): JsonResponse
-    {
-        $this->requireAdmin();
-        $account = MailAccount::current();
-
-        $values = $request->validate([
-            'email' => 'required|email|max:255',
-            'from_name' => 'nullable|string|max:255',
-            'username' => 'required|string|max:255',
-            'password' => [$account ? 'nullable' : 'required', 'string', 'max:500'],
-            'imap_host' => 'required|string|max:255',
-            'imap_port' => 'required|integer|min:1|max:65535',
-            'imap_encryption' => 'required|in:ssl,tls,none',
-            'smtp_host' => 'required|string|max:255',
-            'smtp_port' => 'required|integer|min:1|max:65535',
-            'smtp_encryption' => 'required|in:ssl,tls,none',
-            'sent_folder' => 'nullable|string|max:255',
-        ]);
-        $values['from_name'] = trim((string) ($values['from_name'] ?? '')) ?: 'Namotech';
-        $values['sent_folder'] ??= '';
-        if (blank($values['password'] ?? null)) {
-            unset($values['password']); // keep the saved password
-        }
-        $values['updated_by'] = Auth::id();
-
-        $candidate = ($account ?? new MailAccount())->fill($values);
-
-        // Only save details that actually log in.
-        try {
-            $this->connect($candidate)->disconnect();
-        } catch (Throwable $e) {
-            return response()->json(['message' => 'Could not log in to the mail server: '.$e->getMessage()], 422);
-        }
-
-        if ($account && $account->email !== $candidate->email) {
-            $candidate->inbox_last_uid = null;
-            $candidate->inbox_uidvalidity = null;
-        }
-        $candidate->save();
-        Cache::forget('mail_inbox_status');
-
-        return response()->json(['data' => $candidate->toArray() + ['has_password' => true]]);
-    }
-
     // ---------------------------------------------------------------- reading
-
-    public function status(): JsonResponse
-    {
-        $this->requireMailAccess();
-        $account = MailAccount::current();
-
-        return response()->json([
-            'configured' => (bool) $account,
-            'email' => $account?->email,
-            'can_configure' => $this->isAdmin(),
-        ]);
-    }
 
     /** Inbox unread count for the top-bar Mail button; also sends new-mail bell notifications. */
     public function unread(Request $request, MailInboxWatcher $watcher): JsonResponse
     {
-        $this->requireMailAccess();
-        try {
-            return response()->json($watcher->status($request->boolean('fresh')));
-        } catch (Throwable $e) {
-            return response()->json(['configured' => true, 'unread' => null, 'error' => $e->getMessage()]);
-        }
+        return response()->json($watcher->status($this->user(), $request->boolean('fresh')));
     }
 
     /** Admin: who can open Mail. */
@@ -173,12 +100,12 @@ class MailController extends Controller
                 'path' => $folder->path,
                 'name' => $folder->name,
                 'depth' => $folder->delimiter ? substr_count($folder->path, $folder->delimiter) : 0,
-                'role' => $this->folderRole($folder->path),
+                'role' => MailFolders::role($folder->path),
                 'unread' => $counts['unseen'],
                 'total' => $counts['messages'],
             ];
         }
-        usort($folders, fn ($a, $b) => [$this->roleOrder($a['role']), $a['path']] <=> [$this->roleOrder($b['role']), $b['path']]);
+        usort($folders, fn ($a, $b) => [MailFolders::order($a['role']), $a['path']] <=> [MailFolders::order($b['role']), $b['path']]);
 
         return response()->json(['data' => $folders]);
     }
@@ -263,7 +190,7 @@ class MailController extends Controller
     {
         $client = $this->client();
         $path = $request->input('folder', 'INBOX');
-        $trash = $this->findFolder($client, 'trash');
+        $trash = MailFolders::find($client, 'trash');
         $reader = $this->reader($client, $path);
 
         if ($trash && $trash !== $path) {
@@ -299,7 +226,7 @@ class MailController extends Controller
         $to = $request->input('to');
 
         if (in_array($to, ['archive', 'junk'], true)) {
-            $to = $this->findFolder($client, $to) ?? $this->createFolder($client, $to === 'archive' ? 'Archive' : 'Junk');
+            $to = MailFolders::find($client, $to) ?? MailFolders::create($client, $to === 'archive' ? 'Archive' : 'Junk');
         } else {
             $this->folder($client, $to);
         }
@@ -312,121 +239,100 @@ class MailController extends Controller
 
     // ---------------------------------------------------------------- sending
 
+    /** Takes the mail into the outbox, which is quick; the browser then asks for it to be sent (or the scheduler does). */
     public function send(Request $request): JsonResponse
     {
-        $this->requireMailAccess();
+        $user = $this->user();
         $account = $this->account();
-        $this->validateCompose($request);
+        $payload = $this->payload($request, $account);
 
-        $to = $this->parseAddressList($request->input('to'));
-        $cc = $this->parseAddressList($request->input('cc'));
-        $bcc = $this->parseAddressList($request->input('bcc'));
-        if (! $to) {
+        if (! MailAddresses::parse($payload['to'])) {
             return response()->json(['message' => 'Enter at least one valid email address in To.', 'errors' => ['to' => ['Enter a valid email address.']]], 422);
         }
-        foreach (['to' => $to, 'cc' => $cc, 'bcc' => $bcc] as $field => $list) {
-            if ($bad = $this->invalidAddresses($request->input($field))) {
+        foreach (['to', 'cc', 'bcc'] as $field) {
+            if ($bad = MailAddresses::invalid($payload[$field])) {
                 return response()->json(['message' => 'This email address is not valid: '.implode(', ', $bad)], 422);
             }
         }
 
-        $client = $this->client();
-        [$email, $temporary] = $this->compose($request, $account, $client);
+        $row = MailOutbox::create(['user_id' => $user->id, 'mail_account_id' => $account->id, 'subject' => mb_substr($payload['subject'], 0, 490), 'status' => 'preparing']);
         try {
-            $email->to(...$to)->cc(...$cc)->bcc(...$bcc);
+            File::ensureDirectoryExists($row->dir(), 0700);
+            foreach ($payload['files'] as $i => $file) {
+                $path = $row->dir()."/{$i}.bin";
+                if (! move_uploaded_file($file['path'], $path) && ! copy($file['path'], $path)) {
+                    throw new RuntimeException('The attachment could not be stored.');
+                }
+                $payload['files'][$i]['path'] = $path;
+            }
+            if (file_put_contents($row->dir().'/payload.json', json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)) === false) {
+                throw new RuntimeException('The mail could not be stored.');
+            }
+        } catch (Throwable $e) {
+            report($e);
+            File::deleteDirectory($row->dir());
+            $row->delete();
 
-            try {
-                $transport = new EsmtpTransport($account->smtp_host, $account->smtp_port, $account->smtp_encryption === 'ssl');
-                if ($account->smtp_encryption === 'none') {
-                    $transport->setAutoTls(false);
-                }
-                $transport->setLocalDomain(MailComposer::domain($account));
-                $transport->setUsername($account->username);
-                $transport->setPassword($account->password);
-                $transport->send($email);
-            } catch (Throwable $e) {
-                return response()->json(['message' => 'The mail server did not accept the message: '.$e->getMessage()], 502);
-            }
-
-            // The mail is out: nothing below may make it look as if sending failed.
-            try {
-                if ($request->filled('reply_uid')) {
-                    $this->reader($client, $request->input('reply_folder') ?: 'INBOX')->flag((int) $request->input('reply_uid'), 'Answered', true);
-                }
-            } catch (Throwable) {
-            }
-            // Keep a copy in Sent so it also appears in Thunderbird.
-            $saved = true;
-            try {
-                $sent = $account->sent_folder ?: $this->findFolder($client, 'sent');
-                if ($sent) {
-                    $this->folder($client, $sent)->appendMessage($email->toString(), ['\\Seen']);
-                }
-            } catch (Throwable) {
-                $saved = false;
-            }
-            try {
-                if ($request->filled('draft_uid') && ($drafts = $this->findFolder($client, 'drafts'))) {
-                    $this->reader($client, $drafts)->delete((int) $request->input('draft_uid'));
-                }
-            } catch (Throwable) {
-            }
-        } finally {
-            array_map('unlink', array_filter($temporary, 'is_file'));
+            return response()->json(['message' => 'The mail could not be taken for sending (the server may be out of space). Nothing was sent.'], 500);
         }
+        $row->update(['status' => 'queued']);
 
-        return response()->json(['message' => 'Sent', 'saved' => $saved]);
+        return response()->json(['data' => $row->toApi()], 202);
+    }
+
+    /** Sends a mail of the outbox now; goes on when the browser is closed. */
+    public function runOutbox(MailOutbox $outbox, MailSender $sender): JsonResponse
+    {
+        abort_unless($outbox->user_id === (int) $this->user()->id, 404);
+        $this->allowBigMail();
+
+        return response()->json(['data' => $sender->run($outbox)->toApi()]);
+    }
+
+    public function outbox(MailOutbox $outbox): JsonResponse
+    {
+        abort_unless($outbox->user_id === (int) $this->user()->id, 404);
+
+        return response()->json(['data' => $outbox->toApi()]);
     }
 
     /** Saves the compose window in the Drafts folder, in place of the draft it was opened from. */
-    public function saveDraft(Request $request): JsonResponse
+    public function saveDraft(Request $request, MailSender $sender): JsonResponse
     {
-        $this->requireMailAccess();
+        $this->user();
         $account = $this->account();
-        $this->validateCompose($request);
+        $payload = $this->payload($request, $account);
+        $this->allowBigMail();
 
-        $client = $this->client();
-        $path = $this->findFolder($client, 'drafts') ?? $this->createFolder($client, 'Drafts');
-        [$email, $temporary] = $this->compose($request, $account, $client);
         try {
-            $email->to(...$this->parseAddressList($request->input('to')))->cc(...$this->parseAddressList($request->input('cc')));
-            $bcc = $this->parseAddressList($request->input('bcc'));
-            $messageId = $email->getHeaders()->get('Message-ID')?->getBodyAsString() ?? '';
-            // Symfony leaves Bcc out of the finished mail; a draft has to keep it
-            $source = ($bcc ? 'Bcc: '.implode(', ', array_map(fn (MimeAddress $a) => $a->getName() === '' ? $a->getAddress() : $a->toString(), $bcc))."\r\n" : '').$email->toString();
-            $this->folder($client, $path)->appendMessage($source, ['\\Seen', '\\Draft']);
-
-            $reader = $this->reader($client, $path);
-            $uid = $reader->findByMessageId($messageId);
-            if ($request->filled('draft_uid') && (int) $request->input('draft_uid') !== $uid) {
-                $reader->delete((int) $request->input('draft_uid'));
-            }
-        } finally {
-            array_map('unlink', array_filter($temporary, 'is_file'));
+            $saved = $sender->saveDraft($account, $payload);
+            $attachments = $saved['uid'] ? $this->reader($this->client(), $saved['folder'])->content($saved['uid'])['attachments'] : [];
+        } catch (Throwable $e) {
+            return response()->json(['message' => 'The draft could not be saved: '.$e->getMessage()], 502);
         }
 
-        return response()->json(['data' => [
-            'uid' => $uid,
-            'folder' => $path,
-            'attachments' => $uid ? $reader->content($uid)['attachments'] : [],
-        ]]);
+        return response()->json(['data' => $saved + ['attachments' => $attachments]]);
     }
 
-    private function validateCompose(Request $request): void
+    private function allowBigMail(): void
     {
-        // Forwarding can carry a mail of 48 MB
         ini_set('memory_limit', '512M');
-        set_time_limit(300);
+        set_time_limit(900);
+        ignore_user_abort(true);
+    }
 
+    /** What was written, checked, as MailSender takes it */
+    private function payload(Request $request, MailAccount $account): array
+    {
         $request->validate([
             'to' => 'nullable|string|max:5000',
             'cc' => 'nullable|string|max:5000',
             'bcc' => 'nullable|string|max:5000',
             'subject' => 'nullable|string|max:500',
-            'html' => 'nullable|string|max:15000000',
+            'html' => 'nullable|string|max:20000000',
             'body' => 'nullable|string|max:200000',
             'reply_uid' => 'nullable|integer',
-            'reply_folder' => 'nullable|string',
+            'reply_folder' => 'nullable|string|max:255',
             'draft_uid' => 'nullable|integer',
             'attachments' => 'nullable|array|max:20',
             'attachments.*' => 'file|max:20480',
@@ -434,97 +340,40 @@ class MailController extends Controller
             'keep.*.folder' => 'required|string|max:255',
             'keep.*.uid' => 'required|integer',
             'keep.*.part' => ['required', 'string', 'regex:/^\d+(\.\d+)*$/'],
+        ], [
+            'html.max' => 'The text with its pictures is too large. Attach the pictures as files instead.',
+            'attachments.max' => 'At most 20 new files at a time. Save the draft and add the rest.',
+            'attachments.*.max' => 'A file is larger than 20 MB.',
+            'attachments.*.uploaded' => 'A file could not be uploaded (maximum 20 MB each).',
         ]);
-    }
 
-    /**
-     * The mail as written, with new files and the attachments kept from another mail (forward, draft).
-     *
-     * @return array{0: Email, 1: list<string>} the mail and the temporary files to delete afterwards
-     */
-    private function compose(Request $request, MailAccount $account, Client $client): array
-    {
+        $files = [];
+        foreach ($request->file('attachments', []) as $file) {
+            $files[] = [
+                'path' => $file->getRealPath(),
+                'name' => str_replace(["\r", "\n", '/', '\\'], ' ', $file->getClientOriginalName()),
+                'type' => preg_match('#^[\w.+-]+/[\w.+-]+$#', (string) $file->getClientMimeType()) ? $file->getClientMimeType() : 'application/octet-stream',
+            ];
+        }
+        abort_if(array_sum(array_map(fn ($f) => filesize($f['path']), $files)) > MailSender::MAX_ATTACHMENTS, 422, 'The attachments are too large together (maximum 35 MB).');
+
         $html = (string) $request->input('html', '');
-        if ($html === '') {
-            $html = MailComposer::fromPlainText((string) $request->input('body', ''));
-        }
-        $email = MailComposer::build($account, (string) $request->input('subject', ''), $html);
 
-        $bytes = 0;
-        $temporary = [];
-        try {
-            foreach ($request->file('attachments', []) as $file) {
-                $bytes += $file->getSize();
-                $email->attachFromPath($file->getRealPath(), $file->getClientOriginalName(), $file->getClientMimeType());
-            }
-            foreach ($request->input('keep', []) as $keep) {
-                $reader = $this->reader($client, $keep['folder']);
-                $attachment = $reader->attachment((int) $keep['uid'], $keep['part']);
-                abort_unless($attachment, 422, 'An attachment of the original mail is no longer there. Remove it and try again.');
-                $bytes += $attachment['bytes'];
-                abort_if($bytes > self::MAX_ATTACHMENTS, 422, 'The attachments are too large together (maximum 35 MB).');
-
-                $path = tempnam(sys_get_temp_dir(), 'mail');
-                $temporary[] = $path;
-                $handle = fopen($path, 'wb');
-                $reader->stream((int) $keep['uid'], $keep['part'], function (string $data) use ($handle): void {
-                    fwrite($handle, $data);
-                }, $attachment['encoding']);
-                fclose($handle);
-                // A forwarded mail (.eml) travels as a plain file: message/rfc822 may not be base64
-                $type = preg_match('#^[\w.+-]+/[\w.+-]+$#', $attachment['type']) && ! str_starts_with($attachment['type'], 'message/') ? $attachment['type'] : 'application/octet-stream';
-                $email->attachFromPath($path, $attachment['name'], $type);
-            }
-            abort_if($bytes > self::MAX_ATTACHMENTS, 422, 'The attachments are too large together (maximum 35 MB).');
-            $this->addThreadHeaders($request, $email, $client);
-        } catch (Throwable $e) {
-            array_map('unlink', array_filter($temporary, 'is_file'));
-            throw $e;
-        }
-
-        return [$email, $temporary];
-    }
-
-    /** In-Reply-To / References, so the reply lands in the same conversation; a draft keeps the ones it was saved with. */
-    private function addThreadHeaders(Request $request, Email $email, Client $client): void
-    {
-        try {
-            $ids = fn (?string $value): array => preg_match_all('/<([^<>\s]+)>/', (string) $value, $m) ? $m[1] : [];
-            if ($request->filled('reply_uid')) {
-                $h = $this->reader($client, $request->input('reply_folder') ?: 'INBOX')->headers((int) $request->input('reply_uid'), ['Message-ID', 'References']);
-                $replyTo = $ids($h['message-id'] ?? null);
-                $references = [...$ids($h['references'] ?? null), ...$replyTo];
-            } elseif ($request->filled('draft_uid') && ($drafts = $this->findFolder($client, 'drafts'))) {
-                $h = $this->reader($client, $drafts)->headers((int) $request->input('draft_uid'), ['In-Reply-To', 'References']);
-                $replyTo = $ids($h['in-reply-to'] ?? null);
-                $references = $ids($h['references'] ?? null);
-            } else {
-                return;
-            }
-            if ($replyTo) {
-                $email->getHeaders()->addTextHeader('In-Reply-To', '<'.$replyTo[0].'>');
-            }
-            if ($references) {
-                $email->getHeaders()->addTextHeader('References', implode(' ', array_map(fn ($id) => "<{$id}>", array_slice(array_unique($references), -20))));
-            }
-        } catch (Throwable) {
-            // Threading headers are a nicety; send anyway.
-        }
+        return [
+            'to' => (string) $request->input('to', ''),
+            'cc' => (string) $request->input('cc', ''),
+            'bcc' => (string) $request->input('bcc', ''),
+            'subject' => (string) $request->input('subject', ''),
+            'html' => $html !== '' ? $html : MailComposer::fromPlainText((string) $request->input('body', '')),
+            'reply_uid' => $request->integer('reply_uid') ?: null,
+            'reply_folder' => (string) $request->input('reply_folder', ''),
+            'draft_uid' => $request->integer('draft_uid') ?: null,
+            'keep' => array_map(fn ($k) => ['folder' => $k['folder'], 'uid' => (int) $k['uid'], 'part' => $k['part']], array_values($request->input('keep', []))),
+            'files' => $files,
+        ];
     }
 
     // ---------------------------------------------------------------- helpers
-
-    private function isAdmin(): bool
-    {
-        $user = Auth::user();
-
-        return $user instanceof User && $user->isFullAdmin();
-    }
-
-    private function requireAdmin(): void
-    {
-        abort_unless($this->isAdmin(), 403, 'Only an administrator can change the mail settings.');
-    }
 
     private function requireUserAdmin(): void
     {
@@ -532,7 +381,7 @@ class MailController extends Controller
         abort_unless($user instanceof User && $user->canManageUsers(), 403, 'Only an administrator can change who can open Mail.');
     }
 
-    private function requireMailAccess(): void
+    private function user(): User
     {
         $user = Auth::user();
         abort_unless(
@@ -540,21 +389,26 @@ class MailController extends Controller
             403,
             'You do not have access to Mail.',
         );
+
+        return $user;
     }
 
+    /** The account chosen in the page, if the user may open it */
     private function account(): MailAccount
     {
-        $account = MailAccount::current();
-        abort_unless($account, 409, 'The office mailbox has not been set up yet.');
+        $user = $this->user();
+        $id = (int) request()->header('X-Mail-Account');
+        // A wrong account must never be used silently: the mail would go out from another address
+        $account = $id ? MailAccount::visibleTo($user)->whereKey($id)->first() : MailAccount::forUser($user);
+        abort_unless($account, $id ? 404 : 409, $id ? 'This mail account was removed. Choose another one.' : 'No mail account has been added yet.');
 
         return $account;
     }
 
     private function client(): Client
     {
-        $this->requireMailAccess();
         try {
-            return $this->connect($this->account());
+            return MailInboxWatcher::connect($this->account());
         } catch (Throwable $e) {
             abort(response()->json(['message' => 'Could not connect to the mail server: '.$e->getMessage()], 502));
         }
@@ -573,62 +427,12 @@ class MailController extends Controller
         return new MailReader($client, $path);
     }
 
-    private function connect(MailAccount $account): Client
-    {
-        return MailInboxWatcher::connect($account);
-    }
-
     private function folder(Client $client, string $path): Folder
     {
         $folder = $client->getFolderByPath($path, false, true);
         abort_unless($folder, 404, 'Folder not found');
 
         return $folder;
-    }
-
-    /** First folder whose name looks like the given role (sent / trash / ...). */
-    private function findFolder(Client $client, string $role): ?string
-    {
-        foreach ($client->getFolders(false) as $folder) {
-            if ($this->folderRole($folder->path) === $role) {
-                return $folder->path;
-            }
-        }
-
-        return null;
-    }
-
-    private function createFolder(Client $client, string $name): string
-    {
-        // cPanel/Dovecot keeps folders under "INBOX." — follow whatever the server already uses.
-        /** @var Folder|null $sample */
-        $sample = collect($client->getFolders(false))->first(fn (Folder $f) => $f->path !== 'INBOX');
-        $path = $sample && str_starts_with($sample->path, 'INBOX'.$sample->delimiter)
-            ? 'INBOX'.$sample->delimiter.$name
-            : $name;
-        $client->createFolder($path, false);
-
-        return $path;
-    }
-
-    private function folderRole(string $path): string
-    {
-        $name = strtolower($path);
-
-        return match (true) {
-            $name === 'inbox' => 'inbox',
-            (bool) preg_match('/\bsent\b|sent items|sent mail/', $name) => 'sent',
-            (bool) preg_match('/draft/', $name) => 'drafts',
-            (bool) preg_match('/junk|spam/', $name) => 'junk',
-            (bool) preg_match('/trash|deleted|bin\b/', $name) => 'trash',
-            (bool) preg_match('/archive/', $name) => 'archive',
-            default => 'other',
-        };
-    }
-
-    private function roleOrder(string $role): int
-    {
-        return ['inbox' => 0, 'sent' => 1, 'drafts' => 2, 'archive' => 3, 'junk' => 4, 'trash' => 5][$role] ?? 6;
     }
 
     private function summary(Message $message): array
@@ -669,43 +473,5 @@ class MailController extends Controller
             fn (Address $a) => ['name' => MailInboxWatcher::decodeHeader($a->personal), 'email' => $a->mail],
             array_filter($list, fn ($a) => $a instanceof Address),
         ));
-    }
-
-    /** Parts of an address list that are not valid addresses, so nobody is silently left out. */
-    private function invalidAddresses(?string $input): array
-    {
-        $parts = array_filter(array_map('trim', $this->splitAddressList($input)), fn ($p) => $p !== '');
-
-        return array_values(array_filter($parts, fn ($p) => ! $this->parseAddressList($p)));
-    }
-
-    /** Splits at , and ; but not inside "quoted, names". */
-    private function splitAddressList(?string $input): array
-    {
-        return preg_split('/[,;]+(?=(?:[^"]*"[^"]*")*[^"]*$)/', (string) $input) ?: [];
-    }
-
-    /** "a@x.com, Name <b@y.com>; c@z.com" => list of valid addresses. */
-    private function parseAddressList(?string $input): array
-    {
-        $out = [];
-        foreach ($this->splitAddressList($input) as $part) {
-            $part = trim($part);
-            if ($part === '') {
-                continue;
-            }
-            if (preg_match('/^(.*)<([^>]+)>$/', $part, $m)) {
-                $name = trim($m[1], " \"'");
-                $mail = trim($m[2]);
-            } else {
-                $name = '';
-                $mail = $part;
-            }
-            if (filter_var($mail, FILTER_VALIDATE_EMAIL)) {
-                $out[] = new MimeAddress($mail, $name);
-            }
-        }
-
-        return $out;
     }
 }

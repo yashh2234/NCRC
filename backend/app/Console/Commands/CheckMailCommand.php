@@ -4,26 +4,23 @@ namespace App\Console\Commands;
 
 use App\Services\MailInboxWatcher;
 use Illuminate\Console\Command;
-use Throwable;
 
-/** Checks the office Inbox and sends bell notifications for new mail. */
+/** Checks the Inbox of every mail account and sends bell notifications for new mail. */
 class CheckMailCommand extends Command
 {
     protected $signature = 'mail:check';
 
-    protected $description = 'Check the office mailbox and notify Mail users about new mail';
+    protected $description = 'Check the mail accounts and notify their users about new mail';
 
     public function handle(MailInboxWatcher $watcher): int
     {
-        try {
-            $status = $watcher->status(fresh: true);
-        } catch (Throwable $e) {
-            $this->error('Mail check failed: '.$e->getMessage());
-
-            return self::FAILURE;
+        $accounts = $watcher->checkAll();
+        foreach ($accounts as $name => $unread) {
+            $this->info($unread === null ? "{$name}: could not be reached" : "{$name}: {$unread} unread");
         }
-
-        $this->info($status['configured'] ? "Inbox unread: {$status['unread']}" : 'Office mailbox not set up.');
+        if (! $accounts) {
+            $this->info('No mail account set up.');
+        }
 
         return self::SUCCESS;
     }

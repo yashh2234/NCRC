@@ -7,6 +7,7 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 use Webklex\PHPIMAP\Address;
 use Webklex\PHPIMAP\Client;
@@ -14,8 +15,8 @@ use Webklex\PHPIMAP\ClientManager;
 use Webklex\PHPIMAP\Message;
 
 /**
- * Watches the office Inbox: reports the unread count and sends a bell notification
- * to everyone with Mail access when new mail arrives. Used by the top-bar poll and
+ * Watches the Inbox of every mail account: reports the unread count and sends a bell notification when
+ * new mail arrives: for a shared account to everyone with Mail access, for an own account to its owner. Used by the top-bar poll and
  * by the mail:check scheduled command.
  */
 class MailInboxWatcher
@@ -57,27 +58,50 @@ class MailInboxWatcher
         return $client->connect();
     }
 
-    /**
-     * Unread count for the Inbox, shared for 60 seconds so many open tabs cost one
-     * server login per minute. Also announces new mail.
-     *
-     * @return array{configured: bool, unread: int}
-     */
-    public function status(bool $fresh = false): array
+    public static function cacheKey(MailAccount $account): string
     {
-        $account = MailAccount::current();
-        if (! $account) {
-            return ['configured' => false, 'unread' => 0];
-        }
+        return 'mail_inbox_status_'.$account->id;
+    }
 
-        if ($fresh) {
-            Cache::forget('mail_inbox_status');
-        }
+    /**
+     * Unread count of all the user's accounts together.
+     *
+     * @return array{configured: bool, unread: ?int}
+     */
+    public function status(User $user, bool $fresh = false): array
+    {
+        $accounts = MailAccount::visibleTo($user)->get();
+        $counts = $accounts->map(fn (MailAccount $a) => $this->unread($a, $fresh))->filter(fn ($n) => $n !== null);
 
-        return Cache::remember('mail_inbox_status', 60, fn () => [
-            'configured' => true,
-            'unread' => $this->check($account),
-        ]);
+        return ['configured' => $accounts->isNotEmpty(), 'unread' => $counts->isEmpty() ? null : (int) $counts->sum()];
+    }
+
+    /** Checks every account, for the scheduler. @return array<string, ?int> email => unread */
+    public function checkAll(): array
+    {
+        return MailAccount::query()->orderBy('id')->get()->mapWithKeys(fn (MailAccount $a) => ["{$a->id} {$a->email}" => $this->unread($a, true)])->all();
+    }
+
+    /**
+     * Unread count of one Inbox, kept for 60 seconds so many open tabs cost one server login per minute. An account
+     * that cannot be reached is left alone for 5 minutes, so it does not slow the others down; null = not known.
+     */
+    private function unread(MailAccount $account, bool $fresh): ?int
+    {
+        $key = self::cacheKey($account);
+        $known = Cache::get($key);
+        if (is_array($known) && (! $fresh || $known['unread'] === null)) {
+            return $known['unread'];
+        }
+        try {
+            $unread = $this->check($account);
+        } catch (Throwable $e) {
+            Log::info('Mail account could not be checked', ['account' => $account->id, 'error' => $e->getMessage()]);
+            $unread = null;
+        }
+        Cache::put($key, ['unread' => $unread], $unread === null ? 300 : 60);
+
+        return $unread;
     }
 
     /** Connects, notifies about new mail, and returns the Inbox unread count. */
@@ -90,7 +114,7 @@ class MailInboxWatcher
             $uidNext = (int) ($status['uidnext'] ?? 0);
             $validity = (int) ($status['uidvalidity'] ?? 0);
 
-            $lock = Cache::lock('mail_inbox_announce', 30);
+            $lock = Cache::lock('mail_inbox_announce_'.$account->id, 30);
             if ($uidNext > 0 && $lock->get()) {
                 try {
                     $this->announce($account->fresh(), $inbox->query(), $uidNext, $validity);
@@ -134,7 +158,7 @@ class MailInboxWatcher
             return;
         }
 
-        $recipients = $this->recipients();
+        $recipients = $account->isShared() ? $this->recipients() : collect([$account->owner_id]);
         if ($recipients->isEmpty()) {
             return;
         }
@@ -146,7 +170,7 @@ class MailInboxWatcher
                 'data' => ['mail' => true, 'count' => $messages->count()],
             ]]
             : $messages->map(fn (Message $m) => [
-                'title' => 'New mail from '.$this->sender($m),
+                'title' => 'New mail from '.$this->sender($m).(MailAccount::query()->count() > 1 ? " ({$account->email})" : ''),
                 'message' => self::decodeHeader((string) $m->getSubject()) ?: '(no subject)',
                 'data' => ['mail' => true, 'uid' => (int) $m->getUid()],
             ])->all();

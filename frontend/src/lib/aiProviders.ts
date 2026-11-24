@@ -1,4 +1,4 @@
-/** Keys and order of the free AI services that read WhatsApp inquiries. */
+/** Keys and order of the free AI services. */
 import { request } from './api'
 
 export interface AiProvider {

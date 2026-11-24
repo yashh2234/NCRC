@@ -128,7 +128,7 @@ export function InquiriesPage() {
   }, [])
 
   const filtered = useMemo(() => inquiries.filter((inq) => {
-    if (statusFilter === 'check') { if (!inq.needs_check) return false } else if (statusFilter === 'open' ? CLOSED_STATUSES.includes(inq.status) : statusFilter && inq.status !== statusFilter) return false
+    if (statusFilter === 'open' ? CLOSED_STATUSES.includes(inq.status) : statusFilter && inq.status !== statusFilter) return false
     if (categoryFilter && !inq.work_categories.includes(categoryFilter)) return false
     if (handoverFilter === 'me' ? inq.assigned_to !== myId : handoverFilter === 'none' ? inq.assigned_to !== null : handoverFilter && String(inq.assigned_to) !== handoverFilter) return false
     if (dueOnly && !followUpState(inq)) return false
@@ -258,7 +258,6 @@ export function InquiriesPage() {
           <select className="input" style={{ width: 190 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">All statuses</option>
             <option value="open">Open (not won / lost)</option>
-            <option value="check">Needs check</option>
             {INQUIRY_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
           <select className="input" style={{ width: 190 }} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
@@ -299,13 +298,13 @@ export function InquiriesPage() {
                       <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{formatDate(inq.received_date)}</div>
                     </td>
                     <td style={{ fontWeight: 600, minWidth: 140 }}>{inq.client_name}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{inq.mobile_no ? <a href={`tel:${inq.mobile_no.replace(/\s+/g, '')}`}>{inq.mobile_no}</a> : <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 6, fontSize: '0.74rem', fontWeight: 600 }}>No mobile</span>}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{inq.mobile_no ? <a href={`tel:${inq.mobile_no.replace(/\s+/g, '')}`}>{inq.mobile_no}</a> : '-'}</td>
                     <td style={{ maxWidth: 160, whiteSpace: 'normal' }}>{inq.location || '-'}</td>
                     <td style={{ color: '#15803d', fontWeight: 700, whiteSpace: 'nowrap' }}>{inq.budget || '-'}</td>
                     <td style={{ maxWidth: 220, whiteSpace: 'normal' }}><CategoryChips categories={inq.work_categories} /></td>
                     <td style={{ maxWidth: 240, whiteSpace: 'normal' }}><span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={inq.notes}>{inq.notes || '-'}</span></td>
                     <td style={{ whiteSpace: 'nowrap', fontWeight: inq.assigned_to === myId ? 700 : undefined }}>{inq.assigned_to_name ? (inq.assigned_to === myId ? `${inq.assigned_to_name} (me)` : inq.assigned_to_name) : '-'}</td>
-                    <td><StatusBadge status={inq.status} />{inq.needs_check ? <div style={{ marginTop: 4, fontSize: '0.74rem', fontWeight: 700, color: '#b45309', whiteSpace: 'nowrap' }} title="Came from WhatsApp and was not clear. Edit, check and save it.">⚠ Needs check</div> : null}</td>
+                    <td><StatusBadge status={inq.status} /></td>
                     <td style={{ whiteSpace: 'nowrap', fontWeight: due ? 700 : undefined, color: due ? FOLLOW_UP_STYLES[due].color : undefined }}>
                       {CLOSED_STATUSES.includes(inq.status) ? '-' : formatDate(inq.next_follow_up)}
                       {due ? <div style={{ fontSize: '0.72rem' }}>{due === 'overdue' ? 'Overdue' : 'Today'}</div> : null}

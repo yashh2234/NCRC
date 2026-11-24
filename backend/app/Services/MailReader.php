@@ -26,7 +26,8 @@ class MailReader
 
     private int $tag = 0;
 
-    public function __construct(Client $client, string $folder)
+    /** The client is kept: it closes the connection as soon as nothing refers to it any more */
+    public function __construct(private Client $client, string $folder)
     {
         $client->openFolder($folder, true);
         // Same connection as the library, which has no way to ask for a single part of a mail
@@ -179,6 +180,48 @@ class MailReader
         $answer = $this->command('UID SEARCH HEADER Message-ID "'.addcslashes($messageId, '"\\').'"');
 
         return preg_match('/^\* SEARCH((?: \d+)+)/mi', $answer, $m) ? (int) max(array_map('intval', explode(' ', trim($m[1])))) : null;
+    }
+
+    /** Puts a mail file into a folder piece by piece. @return ?int its UID, when the server tells it */
+    public function append(string $folder, string $file, string $flags): ?int
+    {
+        $tag = 'NCRC'.(++$this->tag);
+        $this->write("{$tag} APPEND \"".addcslashes($folder, '"\\')."\" ({$flags}) {".filesize($file)."}\r\n");
+        $line = fgets($this->stream);
+        if ($line === false || ! str_starts_with($line, '+')) {
+            throw new RuntimeException('Mail server: '.trim((string) $line));
+        }
+        $handle = fopen($file, 'rb');
+        try {
+            while (! feof($handle) && ($bytes = fread($handle, 65536)) !== false) {
+                $this->write($bytes);
+            }
+        } finally {
+            fclose($handle);
+        }
+        $this->write("\r\n");
+        while (($line = fgets($this->stream)) !== false) {
+            if (str_starts_with($line, $tag.' ')) {
+                if (! str_starts_with(substr($line, strlen($tag) + 1), 'OK')) {
+                    throw new RuntimeException('Mail server: '.trim(substr($line, strlen($tag) + 1)));
+                }
+
+                return preg_match('/\[APPENDUID \d+ (\d+)\]/i', $line, $m) ? (int) $m[1] : null;
+            }
+        }
+
+        throw new RuntimeException('The mail server did not answer in time.');
+    }
+
+    private function write(string $bytes): void
+    {
+        while ($bytes !== '') {
+            $written = fwrite($this->stream, $bytes);
+            if ($written === false || $written === 0) {
+                throw new RuntimeException('The connection to the mail server was lost.');
+            }
+            $bytes = substr($bytes, $written);
+        }
     }
 
     // ---------------------------------------------------------------- mail structure
@@ -414,9 +457,7 @@ class MailReader
     private function command(string $command): string
     {
         $tag = 'NCRC'.(++$this->tag);
-        if (fwrite($this->stream, "{$tag} {$command}\r\n") === false) {
-            throw new RuntimeException('The connection to the mail server was lost.');
-        }
+        $this->write("{$tag} {$command}\r\n");
         $answer = '';
         while (($line = fgets($this->stream)) !== false) {
             if (str_starts_with($line, $tag.' ')) {

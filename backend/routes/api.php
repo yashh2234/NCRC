@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\WhatsappController;
 use App\Http\Controllers\Api\AiProviderController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
@@ -22,6 +21,7 @@ use App\Http\Controllers\Api\FinalReportsController;
 use App\Http\Controllers\Api\UlrLinkController;
 use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\TenderController;
+use App\Http\Controllers\Api\MailAccountController;
 use App\Http\Controllers\Api\MailController;
 use App\Http\Controllers\Api\WorkflowTemplateController;
 use App\Http\Controllers\Api\WorkflowStageController;
@@ -67,10 +67,6 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // Public report view (QR on the print -> reports.namotech.in/r/{token}); no login, token is the key
 Route::get('/public/reports/{token}', [\App\Http\Controllers\Api\PublicReportController::class, 'show'])->middleware('throttle:60,1');
-
-// WhatsApp inquiries: called by Meta; checked by signature, no login
-Route::get('/whatsapp/webhook', [WhatsappController::class, 'verify'])->middleware('throttle:30,1');
-Route::post('/whatsapp/webhook', [WhatsappController::class, 'receive'])->middleware('throttle:300,1');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
@@ -185,12 +181,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('stores', StoreController::class)->only(['index', 'store', 'update', 'destroy']);
 
     Route::prefix('mail')->group(function (): void {
-        Route::get('status', [MailController::class, 'status']);
         Route::get('unread', [MailController::class, 'unread']);
         Route::get('access', [MailController::class, 'access']);
         Route::put('access/{user}', [MailController::class, 'setAccess'])->whereNumber('user');
-        Route::get('settings', [MailController::class, 'settings']);
-        Route::put('settings', [MailController::class, 'saveSettings']);
+        Route::get('accounts', [MailAccountController::class, 'index']);
+        Route::post('accounts', [MailAccountController::class, 'store'])->middleware('throttle:20,1');
+        Route::get('accounts/{account}', [MailAccountController::class, 'show'])->whereNumber('account');
+        Route::put('accounts/{account}', [MailAccountController::class, 'update'])->whereNumber('account')->middleware('throttle:20,1');
+        Route::delete('accounts/{account}', [MailAccountController::class, 'destroy'])->whereNumber('account');
         Route::get('folders', [MailController::class, 'folders']);
         Route::get('messages', [MailController::class, 'messages']);
         Route::get('messages/{uid}', [MailController::class, 'show'])->whereNumber('uid');
@@ -200,6 +198,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('messages/{uid}/move', [MailController::class, 'move'])->whereNumber('uid');
         Route::post('send', [MailController::class, 'send']);
         Route::post('drafts', [MailController::class, 'saveDraft']);
+        Route::get('outbox/{outbox}', [MailController::class, 'outbox'])->whereNumber('outbox');
+        Route::post('outbox/{outbox}/run', [MailController::class, 'runOutbox'])->whereNumber('outbox');
     });
     Route::post('tenders/import', [TenderController::class, 'import']);
     Route::get('tenders/{tender}/summary', [TenderController::class, 'summary']);
@@ -374,9 +374,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::prefix('client-management')->group(function (): void {
         Route::put('{client}/addresses', [ClientManagementController::class, 'updateAddresses']);
     });
-
-    Route::get('whatsapp/settings', [WhatsappController::class, 'settings']);
-    Route::put('whatsapp/settings', [WhatsappController::class, 'saveSettings']);
 
     Route::get('ai-providers', [AiProviderController::class, 'index']);
     Route::put('ai-providers', [AiProviderController::class, 'update']);
