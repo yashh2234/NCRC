@@ -5,192 +5,220 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jobs;
 use App\Models\Quotation;
-use App\Models\QuotationItem;
 use App\Models\WorkOrder;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTemplate;
 use App\Models\WorkflowTransition;
 use App\Services\WorkflowEngine;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class QuotationController extends Controller
 {
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
-        $query = Quotation::with(['inquiry', 'items']);
+        $quotations = Quotation::with('items')->orderByDesc('date')->orderByDesc('id')->get()
+            ->map(fn (Quotation $q) => $q->toApi());
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-        if ($request->filled('inquiry_id')) {
-            $query->where('inquiry_id', $request->inquiry_id);
-        }
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('quotation_no', 'like', "%{$search}%")
-                  ->orWhere('client_name', 'like', "%{$search}%")
-                  ->orWhere('agency_name', 'like', "%{$search}%");
-            });
-        }
-
-        $quotations = $query->orderByDesc('id')->paginate($request->get('per_page', 25));
-        return response()->json($quotations);
+        return response()->json(['data' => $quotations]);
     }
 
-    public function store(Request $request)
+    public function nextNumber(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'inquiry_id' => 'nullable|integer',
-            'client_name' => 'required|string|max:222',
-            'agency_name' => 'nullable|string|max:222',
-            'contact_person' => 'nullable|string|max:222',
-            'mobile_no' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:222',
-            'location' => 'required|string|max:222',
-            'date' => 'required|date',
-            'valid_until' => 'nullable|date',
-            'discount' => 'nullable|numeric|min:0',
-            'tax_amount' => 'nullable|numeric|min:0',
-            'terms_and_conditions' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.description' => 'required|string',
-            'items.*.quantity' => 'required|numeric|min:0',
-            'items.*.unit' => 'nullable|string|max:50',
-            'items.*.rate' => 'required|numeric|min:0',
-        ]);
+        $request->validate(['date' => ['nullable', 'date']]);
 
-        return DB::transaction(function () use ($validated) {
-            $totalAmount = 0;
-            foreach ($validated['items'] as $item) {
-                $totalAmount += $item['quantity'] * $item['rate'];
-            }
+        return response()->json(['data' => Quotation::nextNumber($request->query('date'))]);
+    }
 
-            $discount = $validated['discount'] ?? 0;
-            $taxableAmount = max(0, $totalAmount - $discount);
-            $taxAmount = $this->calculateTaxAmount($validated['location'] ?? null, $taxableAmount);
-            $netAmount = $totalAmount - $discount + $taxAmount;
+    public function store(Request $request): JsonResponse
+    {
+        [$data, $items] = $this->validated($request);
 
-            $quotation = Quotation::create([
-                'inquiry_id' => $validated['inquiry_id'] ?? null,
-                'quotation_no' => Quotation::generateQuotationNo(),
-                'date' => $validated['date'],
-                'valid_until' => $validated['valid_until'] ?? null,
-                'client_name' => $validated['client_name'],
-                'agency_name' => $validated['agency_name'] ?? null,
-                'contact_person' => $validated['contact_person'] ?? null,
-                'mobile_no' => $validated['mobile_no'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'location' => $validated['location'] ?? null,
-                'total_amount' => $totalAmount,
-                'discount' => $discount,
-                'tax_amount' => $taxAmount,
-                'net_amount' => $netAmount,
-                'terms_and_conditions' => $validated['terms_and_conditions'] ?? null,
-                'notes' => $validated['notes'] ?? null,
+        $quotation = DB::transaction(function () use ($data, $items, $request) {
+            $quotation = Quotation::create($data + [
                 'status' => 'draft',
-                'created_by' => auth()->id(),
+                'created_by' => $request->user()?->id,
+                'updated_by' => $request->user()?->id,
             ]);
+            $quotation->items()->createMany($items);
 
-            foreach ($validated['items'] as $index => $item) {
-                QuotationItem::create([
-                    'quotation_id' => $quotation->id,
-                    'description' => $item['description'],
-                    'quantity' => $item['quantity'],
-                    'unit' => $item['unit'] ?? 'nos',
-                    'rate' => $item['rate'],
-                    'amount' => $item['quantity'] * $item['rate'],
-                    'sort_order' => $index,
-                ]);
-            }
-
-            return response()->json($quotation->load('items'), 201);
+            return $quotation;
         });
+
+        return response()->json(['data' => $quotation->fresh('items')->toApi()], 201);
     }
 
-    public function show(Quotation $quotation)
+    public function show(Quotation $quotation): JsonResponse
     {
-        return response()->json($quotation->load(['inquiry', 'items', 'workOrders']));
+        return response()->json(['data' => $quotation->toApi()]);
     }
 
-    public function update(Request $request, Quotation $quotation)
+    public function update(Request $request, Quotation $quotation): JsonResponse
     {
-        $validated = $request->validate([
-            'client_name' => 'sometimes|string|max:222',
-            'agency_name' => 'nullable|string|max:222',
-            'contact_person' => 'nullable|string|max:222',
-            'mobile_no' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:222',
-            'location' => 'nullable|string|max:222',
-            'date' => 'sometimes|date',
-            'valid_until' => 'nullable|date',
-            'discount' => 'nullable|numeric|min:0',
-            'tax_amount' => 'nullable|numeric|min:0',
-            'terms_and_conditions' => 'nullable|string',
-            'status' => 'sometimes|in:draft,sent,accepted,rejected,expired',
-            'sent_via' => 'nullable|in:email,phone,hand_delivery,courier',
-            'notes' => 'nullable|string',
-            'items' => 'sometimes|array|min:1',
-        ]);
+        [$data, $items] = $this->validated($request, $quotation);
 
-        if (isset($validated['items'])) {
+        DB::transaction(function () use ($quotation, $data, $items, $request): void {
+            $quotation->update($data + ['updated_by' => $request->user()?->id]);
             $quotation->items()->delete();
-            $totalAmount = 0;
-            foreach ($validated['items'] as $index => $item) {
-                $amount = $item['quantity'] * $item['rate'];
-                $totalAmount += $amount;
-                QuotationItem::create([
-                    'quotation_id' => $quotation->id,
-                    'description' => $item['description'],
-                    'quantity' => $item['quantity'],
-                    'unit' => $item['unit'] ?? 'nos',
-                    'rate' => $item['rate'],
-                    'amount' => $amount,
-                    'sort_order' => $index,
-                ]);
-            }
-            $validated['total_amount'] = $totalAmount;
-            $discount = $validated['discount'] ?? $quotation->discount;
-            $taxAmount = $this->calculateTaxAmount(
-                $validated['location'] ?? $quotation->location,
-                max(0, $totalAmount - $discount)
-            );
-            $validated['net_amount'] = $totalAmount - $discount + $taxAmount;
-            unset($validated['items']);
-        }
+            $quotation->items()->createMany($items);
+        });
 
-        if (array_key_exists('location', $validated) || array_key_exists('discount', $validated)) {
-            $discount = $validated['discount'] ?? $quotation->discount;
-            $validated['tax_amount'] = $this->calculateTaxAmount(
-                $validated['location'] ?? $quotation->location,
-                max(0, $quotation->total_amount - $discount)
-            );
-            $validated['net_amount'] = $quotation->total_amount - $discount + $validated['tax_amount'];
-        }
-
-        if (isset($validated['status']) && $validated['status'] === 'sent' && !$quotation->sent_at) {
-            $validated['sent_at'] = now();
-        }
-        if (isset($validated['status']) && $validated['status'] === 'accepted' && !$quotation->accepted_at) {
-            $validated['accepted_at'] = now();
-        }
-
-        $quotation->update($validated);
-        return response()->json($quotation->load('items'));
+        return response()->json(['data' => $quotation->fresh('items')->toApi()]);
     }
 
-    public function destroy(Quotation $quotation)
+    public function setStatus(Request $request, Quotation $quotation): JsonResponse
     {
-        $quotation->items()->delete();
-        $quotation->delete();
+        $status = $request->validate(['status' => ['required', Rule::in(Quotation::STATUSES)]])['status'];
+
+        $quotation->status = $status;
+        if ($status === 'sent') {
+            $quotation->sent_at ??= now();
+        }
+        if ($status === 'accepted') {
+            $quotation->accepted_at ??= now();
+        }
+        $quotation->save();
+
+        return response()->json(['data' => $quotation->toApi()]);
+    }
+
+    public function destroy(Quotation $quotation): JsonResponse
+    {
+        DB::transaction(function () use ($quotation): void {
+            $quotation->items()->delete();
+            $quotation->delete();
+        });
+
         return response()->json(['message' => 'Quotation deleted']);
     }
 
-    private function calculateTaxAmount(?string $location, float $taxableAmount): float
+    /** @return array{0: array, 1: array} quotation columns and item rows, with the totals worked out */
+    private function validated(Request $request, ?Quotation $quotation = null): array
     {
-        return round($taxableAmount * 0.18, 2);
+        $v = $request->validate([
+            'inquiry_id' => ['nullable', 'integer', 'exists:inquiries,id'],
+            'quotation_no' => ['nullable', 'string', 'max:50', Rule::unique('quotations', 'quotation_no')->ignore($quotation?->id)],
+            'date' => ['required', 'date'],
+            'valid_until' => ['nullable', 'date'],
+            'client_name' => ['required', 'string', 'max:222'],
+            'client_address' => ['nullable', 'string', 'max:3000'],
+            'client_gstin' => ['nullable', 'string', 'max:50'],
+            'contact_person' => ['nullable', 'string', 'max:222'],
+            'mobile_no' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:222'],
+            'location' => ['nullable', 'string', 'max:222'],
+            'ref_no' => ['nullable', 'string', 'max:255'],
+            'ref_date' => ['nullable', 'date'],
+            'prepared_by' => ['nullable', 'string', 'max:222'],
+            'subject' => ['nullable', 'string', 'max:1000'],
+            'intro' => ['nullable', 'string', 'max:3000'],
+            'discount' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'gst_mode' => ['nullable', Rule::in(Quotation::GST_MODES)],
+            'transport' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'payment_terms' => ['nullable', 'string', 'max:2000'],
+            'sections' => ['nullable', 'array', 'max:30'],
+            'sections.*.title' => ['nullable', 'string', 'max:200'],
+            'sections.*.style' => ['nullable', Rule::in(['text', 'bullets', 'numbers'])],
+            'sections.*.body' => ['nullable', 'string', 'max:10000'],
+            'sections.*.half' => ['nullable', 'boolean'],
+            'signatory_name' => ['nullable', 'string', 'max:222'],
+            'signatory_designation' => ['nullable', 'string', 'max:222'],
+            'notes' => ['nullable', 'string', 'max:3000'],
+            'items' => ['required', 'array', 'min:1', 'max:200'],
+            'items.*.description' => ['nullable', 'string', 'max:2000'],
+            'items.*.details' => ['nullable', 'string', 'max:6000'],
+            'items.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:9999999'],
+            'items.*.unit' => ['nullable', 'string', 'max:50'],
+            'items.*.rate' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'items.*.included' => ['nullable', 'boolean'],
+        ], [
+            'quotation_no.unique' => 'This quotation number is already used.',
+            'client_name.required' => 'Enter the client name.',
+            'date.required' => 'Enter the quotation date.',
+            'email.email' => 'Enter a valid email address.',
+        ]);
+
+        // Items: amount = qty × rate; an "Included" item carries no amount
+        $items = [];
+        foreach ($v['items'] as $it) {
+            $description = trim((string) ($it['description'] ?? ''));
+            $details = trim((string) ($it['details'] ?? ''));
+            $included = (bool) ($it['included'] ?? false);
+            $quantity = round((float) ($it['quantity'] ?? 0), 2);
+            $rate = $included ? 0.0 : round((float) ($it['rate'] ?? 0), 2);
+            if ($description === '' && $details === '' && $rate == 0.0) {
+                continue;
+            }
+            if ($description === '') {
+                throw ValidationException::withMessages(['items' => 'Enter the description of work for every item.']);
+            }
+            $items[] = [
+                'description' => $description,
+                'details' => $details === '' ? null : $details,
+                'quantity' => $quantity,
+                'unit' => trim((string) ($it['unit'] ?? '')),
+                'rate' => $rate,
+                'amount' => round($quantity * $rate, 2),
+                'included' => $included,
+                'sort_order' => count($items),
+            ];
+        }
+        if (! $items) {
+            throw ValidationException::withMessages(['items' => 'Add at least one item.']);
+        }
+
+        $subtotal = round(array_sum(array_column($items, 'amount')), 2);
+        $discount = round((float) ($v['discount'] ?? 0), 2);
+        if ($discount > $subtotal) {
+            throw ValidationException::withMessages(['discount' => 'Discount cannot be more than the sub total.']);
+        }
+        // GST on the items less discount; transport is added after GST (as on the invoices)
+        $mode = $v['gst_mode'] ?? 'add';
+        $transport = round((float) ($v['transport'] ?? 0), 2);
+        $tax = $mode === 'add' ? round(($subtotal - $discount) * 0.18, 2) : 0.0;
+        $net = round($subtotal - $discount + $tax + $transport);
+        // Highest value the amount columns hold
+        if (max($subtotal, $net) > 9999999999) {
+            throw ValidationException::withMessages(['items' => 'The total is too large. Check the quantities and rates.']);
+        }
+
+        $sections = [];
+        foreach ($v['sections'] ?? [] as $s) {
+            $title = trim((string) ($s['title'] ?? ''));
+            $body = trim((string) ($s['body'] ?? ''));
+            if ($title === '' && $body === '') {
+                continue;
+            }
+            $sections[] = ['title' => $title, 'style' => $s['style'] ?? 'text', 'body' => $body, 'half' => (bool) ($s['half'] ?? false)];
+        }
+
+        $data = [];
+        foreach (['client_name', 'client_address', 'client_gstin', 'contact_person', 'mobile_no', 'email', 'location',
+            'ref_no', 'prepared_by', 'subject', 'intro', 'payment_terms', 'signatory_name', 'signatory_designation', 'notes'] as $key) {
+            $value = trim((string) ($v[$key] ?? ''));
+            $data[$key] = $value === '' ? null : $value;
+        }
+        foreach (['date', 'valid_until', 'ref_date'] as $key) {
+            $data[$key] = $v[$key] ?? null;
+        }
+        if (array_key_exists('inquiry_id', $v)) {
+            $data['inquiry_id'] = $v['inquiry_id'];
+        }
+        $no = trim((string) ($v['quotation_no'] ?? ''));
+        $data['quotation_no'] = $no !== '' ? $no : ($quotation?->quotation_no ?? Quotation::nextNumber($data['date']));
+
+        return [$data + [
+            'total_amount' => $subtotal,
+            'discount' => $discount,
+            'gst_mode' => $mode,
+            'tax_amount' => $tax,
+            'transport' => $transport,
+            'net_amount' => $net,
+            'sections' => $sections,
+        ], $items];
     }
 
     public function convertToWorkOrder(Quotation $quotation)

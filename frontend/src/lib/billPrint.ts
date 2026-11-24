@@ -14,14 +14,14 @@ import { COMPANIES, DEFAULT_HSN, DEFAULT_SAC, SERVICES, amountWords, calcBill, d
 /** Credit note against a cancelled invoice */
 export interface CreditNote { no: string; date: string }
 
-const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string))
-const fmtQty = (v: unknown) => {
+export const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string))
+export const fmtQty = (v: unknown) => {
   const n = Number(v)
   if (v === '' || v === null || v === undefined || Number.isNaN(n)) return ''
   return Number.isInteger(n) ? String(n) : String(+n.toFixed(2))
 }
 
-const CSS = `
+export const BILL_CSS = `
 @page { size: A4; margin: 0; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -294,7 +294,7 @@ export function openBillPrint(b: BillInput, withSign: boolean, cn?: CreditNote) 
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>${CSS}</style></head>
+    <style>${BILL_CSS}</style></head>
     <body class="theme-${co.theme}${withSign ? '' : ' nosign'}">
       ${billHtml(b, cn)}
       <script>

@@ -1,326 +1,172 @@
-import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { request } from '../lib/api';
-import { softTone } from '../lib/utils'
-import { Req } from '../components/ui'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Copy, Download, Pencil, Plus, Printer, Search, Stamp, Trash2 } from 'lucide-react'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 import { Modal } from '../components/Modal'
+import { QuotationEditor } from '../components/QuotationEditor'
+import { dotDate, money2 } from '../lib/bills'
+import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
+import {
+  QUOTATION_STATUSES, copyQuotation, emptyQuotation, quotationToInput, quotationsApi,
+  type Quotation, type QuotationInput, type QuotationStatus,
+} from '../lib/quotations'
+import { useTracking } from '../lib/useTracking'
+import { softTone } from '../lib/utils'
 
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
-  'Andaman and Nicobar Islands', 'Dadra and Nagar Haveli and Daman and Diu',
-  'Lakshadweep',
-];
+type Editing = { id: number | null; form: QuotationInput }
 
-type QuotationItem = {
-  id?: number;
-  description: string;
-  quantity: number;
-  unit: string;
-  rate: number;
-  amount: number;
-};
-
-type Quotation = {
-  id: number;
-  quotation_no: string;
-  inquiry_id: number | null;
-  date: string;
-  valid_until: string | null;
-  client_name: string;
-  agency_name: string | null;
-  location?: string | null;
-  total_amount: number;
-  discount: number;
-  tax_amount: number;
-  net_amount: number;
-  status: string;
-  sent_via: string | null;
-  items: QuotationItem[];
-  created_at: string;
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: '#9e9e9e', sent: '#2196f3', accepted: '#4caf50', rejected: '#f44336', expired: '#ff9800',
-};
+const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
+const statusColor = (s: QuotationStatus) => QUOTATION_STATUSES.find((o) => o.key === s)?.color ?? '#64748b'
 
 export default function QuotationsPage() {
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Quotation | null>(null);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState('');
-  const [form, setForm] = useState({
-    client_name: '', agency_name: '', contact_person: '', mobile_no: '', email: '', location: '',
-    date: new Date().toISOString().slice(0, 10), valid_until: '', discount: 0, tax_amount: 0,
-    terms_and_conditions: '', notes: '', inquiry_id: null as number | null,
-  });
-  const [items, setItems] = useState<QuotationItem[]>([
-    { description: '', quantity: 1, unit: 'nos', rate: 0, amount: 0 },
-  ]);
+  useTracking('quotations')
+  const [list, setList] = useState<Quotation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<'' | QuotationStatus>('')
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+  const [editing, setEditing] = useState<Editing | null>(null)
+  const [printing, setPrinting] = useState<Quotation | null>(null)
+  const [version, setVersion] = useState(0)
+  const reload = useCallback(() => setVersion((v) => v + 1), [])
 
-  const fetchQuotations = async () => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false
+    quotationsApi.list()
+      .then((res) => { if (!cancelled) { setList(res.data); setError('') } })
+      .catch((e) => { if (!cancelled) setError(message(e, 'Could not load quotations')) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [version])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return list.filter((r) =>
+      (!status || r.status === status) &&
+      (!start || r.date >= start) && (!end || r.date <= end) &&
+      (!q || [r.quotation_no, r.client_name, r.subject, r.location, r.mobile_no].some((v) => (v ?? '').toLowerCase().includes(q))))
+  }, [list, search, status, start, end])
+
+  const changeStatus = async (row: Quotation, next: QuotationStatus) => {
     try {
-      const params = new URLSearchParams();
-      if (statusFilter) params.set('status', statusFilter);
-      if (search) params.set('search', search);
-      const data = await request<any>(`/quotations?${params}`);
-      setQuotations(data.data || []);
-    } catch { setQuotations([]); }
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchQuotations(); }, [statusFilter, search]);
-
-  const openCreate = () => {
-    setEditing(null);
-    setForm({
-      client_name: '', agency_name: '', contact_person: '', mobile_no: '', email: '', location: '',
-      date: new Date().toISOString().slice(0, 10), valid_until: '', discount: 0, tax_amount: 0,
-      terms_and_conditions: '', notes: '', inquiry_id: null,
-    });
-    setItems([{ description: '', quantity: 1, unit: 'nos', rate: 0, amount: 0 }]);
-    setShowModal(true);
-  };
-
-  const openEdit = (q: Quotation) => {
-    setEditing(q);
-    setForm({
-      client_name: q.client_name, agency_name: q.agency_name || '',
-      contact_person: '', mobile_no: '', email: '', location: q.location || '',
-      date: q.date, valid_until: q.valid_until || '', discount: q.discount,
-      tax_amount: q.tax_amount, terms_and_conditions: '', notes: '', inquiry_id: q.inquiry_id,
-    });
-    setItems(q.items.length > 0 ? q.items.map(i => ({
-      description: i.description, quantity: i.quantity, unit: i.unit, rate: i.rate, amount: i.amount,
-    })) : [{ description: '', quantity: 1, unit: 'nos', rate: 0, amount: 0 }]);
-    setShowModal(true);
-  };
-
-  const updateItem = (idx: number, field: string, value: string | number) => {
-    const newItems = [...items];
-    (newItems[idx] as any)[field] = value;
-    if (field === 'quantity' || field === 'rate') {
-      newItems[idx].amount = newItems[idx].quantity * newItems[idx].rate;
+      const { data } = await quotationsApi.setStatus(row.id, next)
+      setList((rows) => rows.map((r) => (r.id === data.id ? data : r)))
+    } catch (e) {
+      window.alert(message(e, 'Could not change the status'))
     }
-    setItems(newItems);
-  };
+  }
 
-  const addItem = () => setItems([...items, { description: '', quantity: 1, unit: 'nos', rate: 0, amount: 0 }]);
-  const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
-
-  const totalAmount = items.reduce((sum, i) => sum + i.amount, 0);
-  const taxableAmount = Math.max(0, totalAmount - (form.discount || 0));
-  const isRajasthan = form.location === 'Rajasthan';
-  const cgstAmount = isRajasthan ? taxableAmount * 0.09 : 0;
-  const sgstAmount = isRajasthan ? taxableAmount * 0.09 : 0;
-  const igstAmount = isRajasthan ? 0 : taxableAmount * 0.18;
-  const taxAmount = cgstAmount + sgstAmount + igstAmount;
-  const netAmount = taxableAmount + taxAmount;
-
-  const handleSave = async () => {
+  const remove = async (row: Quotation) => {
+    if (!window.confirm(`Delete quotation ${row.quotation_no} (${row.client_name})?`)) return
     try {
-      const method = editing ? 'PUT' : 'POST';
-      const url = editing ? `/quotations/${editing.id}` : '/quotations';
-      await request(url, { method, body: JSON.stringify({ ...form, tax_amount: taxAmount, items }) });
-      setShowModal(false);
-      fetchQuotations();
-    } catch (e: any) { alert(e.message || 'Save failed'); }
-  };
+      await quotationsApi.remove(row.id)
+      reload()
+    } catch (e) {
+      window.alert(message(e, 'Could not delete'))
+    }
+  }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this quotation?')) return;
-    try {
-      await request(`/quotations/${id}`, { method: 'DELETE' });
-      fetchQuotations();
-    } catch { /* ignore */ }
-  };
+  const exportCsv = () => {
+    const head = ['Date', 'Quotation No', 'Client', 'Subject', 'Site / Location', 'Sub Total', 'Discount', 'GST', 'Transport', 'Total', 'Valid Till', 'Status']
+    const rows = filtered.map((r) => [dotDate(r.date), r.quotation_no, r.client_name, r.subject, r.location, r.total_amount, r.discount, r.tax_amount, r.transport, r.net_amount, dotDate(r.valid_until), r.status])
+    const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }))
+    a.download = `quotations-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
-  const handleStatusChange = async (id: number, status: string) => {
-    try {
-      await request(`/quotations/${id}`, {
-        method: 'PUT', body: JSON.stringify({ status }),
-      });
-      fetchQuotations();
-    } catch { /* ignore */ }
-  };
+  if (editing) {
+    return (
+      <QuotationEditor
+        key={editing.id ?? 'new'}
+        id={editing.id}
+        initial={editing.form}
+        others={list}
+        onClose={(changed) => { setEditing(null); if (changed) reload() }}
+      />
+    )
+  }
 
   return (
-    <div className="page-container">
+    <div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1 1 260px' }}>
+          <Search size={16} style={{ position: 'absolute', left: 10, top: 11, color: '#82909a' }} />
+          <input className="input" style={{ paddingLeft: 32 }} aria-label="Search quotations" placeholder="Search quotation no., client, subject, location, mobile..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <select className="input" style={{ width: 150 }} aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value as '' | QuotationStatus)}>
+          <option value="">All status</option>
+          {QUOTATION_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+        <DateRangeFilter start={start} end={end} onApply={(s, e) => { setStart(s); setEnd(e) }} onClear={() => { setStart(''); setEnd('') }} />
+      </div>
 
-      {/* Search, status and New in one box */}
-      <div className="dt-toolbar dt-toolbar--box" style={{ marginBottom: 16 }}>
-        <div className="dt-toolbar__start">
-          <div className="search-field dt-search">
-            <Search size={15} />
-            <input type="search" placeholder="Search quotations..." value={search} aria-label="Search quotations"
-              onChange={(e) => setSearch(e.target.value)} />
+      <section className="surface">
+        <div className="surface-heading">
+          <div><p className="section-label">Clients</p><h2>Quotations ({filtered.length})</h2></div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={!filtered.length}><Download size={16} /> Export</button>
+            <button type="button" className="btn btn-primary" onClick={() => setEditing({ id: null, form: emptyQuotation() })}><Plus size={16} /> Create Quotation</button>
           </div>
-            <select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="sent">Sent</option>
-              <option value="accepted">Accepted</option>
-              <option value="rejected">Rejected</option>
-              <option value="expired">Expired</option>
-            </select>
         </div>
-        <div className="dt-toolbar__meta">
-          <button className="btn btn-primary btn-sm" type="button" onClick={openCreate}>+ New Quotation</button>
-        </div>
-      </div>
-
-      <div className="table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Quotation No</th>
-              <th>Client</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Net Amount</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={7}>Loading...</td></tr>
-            ) : quotations.length === 0 ? (
-              <tr><td colSpan={7}>No quotations found</td></tr>
-            ) : quotations.map((q) => (
-              <tr key={q.id}>
-                <td><strong>{q.quotation_no}</strong></td>
-                <td>{q.client_name}</td>
-                <td>{q.date}</td>
-                <td>₹{Number(q.total_amount).toLocaleString()}</td>
-                <td>₹{Number(q.net_amount).toLocaleString()}</td>
-                <td>
-                  <span className="badge" style={softTone(STATUS_COLORS[q.status] || '#64748b')}>
-                    {q.status}
-                  </span>
-                </td>
-                <td>
-                  <button className="btn btn-sm" onClick={() => openEdit(q)}>Edit</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(q.id)}>Delete</button>
-                  {q.status === 'draft' && (
-                    <button className="btn btn-sm" style={softTone('#2196f3')}
-                      onClick={() => handleStatusChange(q.id, 'sent')}>Send</button>
-                  )}
-                  {q.status === 'sent' && (
-                    <button className="btn btn-sm" style={softTone('#4caf50')}
-                      onClick={() => handleStatusChange(q.id, 'accepted')}>Accept</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <Modal title={editing ? 'Edit Quotation' : 'New Quotation'} onClose={() => setShowModal(false)} size={800} onSave={handleSave} saveLabel={editing ? 'Update' : 'Create'}>
-            <div className="form-grid">
-              <div className="form-group">
-                <label><span>Client Name<Req /></span></label>
-                <input className="form-input" value={form.client_name}
-                  onChange={(e) => setForm({ ...form, client_name: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Agency Name</label>
-                <input className="form-input" value={form.agency_name}
-                  onChange={(e) => setForm({ ...form, agency_name: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label><span>Date<Req /></span></label>
-                <input className="form-input" type="date" value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Valid Until</label>
-                <input className="form-input" type="date" value={form.valid_until}
-                  onChange={(e) => setForm({ ...form, valid_until: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label><span>Client Location<Req /></span></label>
-                <select className="form-input" value={form.location} required
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}>
-                  <option value="">-- Select State --</option>
-                  {INDIAN_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <h3 style={{ marginTop: 16 }}>Line Items</h3>
-            <table className="data-table" style={{ fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '40%' }}>Description<Req /></th>
-                  <th>Qty<Req /></th>
-                  <th>Unit</th>
-                  <th>Rate<Req /></th>
-                  <th>Amount</th>
-                  <th></th>
+        {error ? <p style={{ color: '#b91c1c', margin: '0 0 12px' }}>{error} <button type="button" className="ghost-button" onClick={() => { setLoading(true); reload() }}>Retry</button></p> : null}
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table" style={{ minWidth: 1000 }}>
+            <thead>
+              <tr><th>Date</th><th>Quotation No</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Valid Till</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} className="empty-state">{loading ? 'Loading quotations…' : list.length === 0 ? 'No quotations yet. Click “Create Quotation” to make the first one.' : 'No quotations match the filters.'}</td></tr>
+              ) : filtered.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.date)}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{r.quotation_no}</td>
+                  <td style={{ minWidth: 160, maxWidth: 260, whiteSpace: 'normal' }}>{r.client_name}</td>
+                  <td style={{ minWidth: 180, maxWidth: 320, whiteSpace: 'normal' }}>{r.subject || '-'}{r.location ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{r.location}</div> : null}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{money2(r.net_amount)}{r.gst_mode === 'extra' ? <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>+ GST</div> : null}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.valid_until) || '-'}</td>
+                  <td>
+                    <select className="input" aria-label={`Status of ${r.quotation_no}`} value={r.status} onChange={(e) => void changeStatus(r, e.target.value as QuotationStatus)}
+                      style={{ width: 118, minHeight: 32, padding: '2px 8px', fontSize: '0.8rem', fontWeight: 700, ...softTone(statusColor(r.status)) }}>
+                      {QUOTATION_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button className="icon-button" type="button" title="Print / PDF" onClick={() => setPrinting(r)}><Printer size={16} /></button>
+                    <button className="icon-button" type="button" title="Edit" onClick={() => setEditing({ id: r.id, form: quotationToInput(r) })}><Pencil size={16} /></button>
+                    <button className="icon-button" type="button" title="Copy to a new quotation" onClick={() => setEditing({ id: null, form: copyQuotation(r) })}><Copy size={16} /></button>
+                    <button className="icon-button" type="button" title="Delete" onClick={() => void remove(r)}><Trash2 size={16} /></button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td><input className="form-input" value={item.description}
-                      onChange={(e) => updateItem(idx, 'description', e.target.value)} /></td>
-                    <td><input className="form-input" type="number" value={item.quantity} style={{ width: 70 }}
-                      onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)} /></td>
-                    <td><input className="form-input" value={item.unit} style={{ width: 60 }}
-                      onChange={(e) => updateItem(idx, 'unit', e.target.value)} /></td>
-                    <td><input className="form-input" type="number" value={item.rate} style={{ width: 100 }}
-                      onChange={(e) => updateItem(idx, 'rate', parseFloat(e.target.value) || 0)} /></td>
-                    <td>₹{item.amount.toLocaleString()}</td>
-                    <td>{items.length > 1 && (
-                      <button className="btn btn-sm btn-danger" onClick={() => removeItem(idx)}>X</button>
-                    )}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button className="btn btn-sm" onClick={addItem} style={{ marginTop: 8 }}>+ Add Item</button>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-            <div className="form-grid" style={{ marginTop: 16 }}>
-              <div className="form-group">
-                <label>Discount</label>
-                <input className="form-input" type="number" value={form.discount}
-                  onChange={(e) => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} />
-              </div>
-              <div className="form-group">
-                <label>{isRajasthan ? 'CGST 9% + SGST 9%' : 'IGST 18%'}</label>
-                <div style={{ fontWeight: 600 }}>₹{taxAmount.toLocaleString()}</div>
-                <small style={{ color: '#666' }}>
-                  {isRajasthan
-                    ? `CGST: ₹${cgstAmount.toLocaleString()} | SGST: ₹${sgstAmount.toLocaleString()}`
-                    : `IGST: ₹${igstAmount.toLocaleString()}`}
-                </small>
-              </div>
-              <div className="form-group">
-                <label>Total: ₹{totalAmount.toLocaleString()}</label>
-              </div>
-              <div className="form-group">
-                <label><strong>Net: ₹{netAmount.toLocaleString()}</strong></label>
-              </div>
-            </div>
-
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Notes</label>
-              <textarea className="form-input" rows={2} value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </div>
-
-        </Modal>
-      )}
+      {printing ? <PrintChooser quotation={printing} onClose={() => setPrinting(null)} /> : null}
     </div>
-  );
+  )
+}
+
+const choiceBtn: React.CSSProperties = { flex: 1, padding: '12px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }
+
+function PrintChooser({ quotation, onClose }: { quotation: Quotation; onClose: () => void }) {
+  const go = (withSign: boolean) => {
+    const w = openPrintWindow()
+    if (w) printQuotation(w, quotationToInput(quotation), withSign)
+    onClose()
+  }
+  return (
+    <Modal title="Print Quotation" subtitle={`${quotation.quotation_no} · ${quotation.client_name}`} onClose={onClose} size="sm" footer={null}>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button type="button" style={{ ...choiceBtn, borderColor: '#2563eb', color: '#1d4ed8' }} onClick={() => go(true)}><Stamp size={18} /> With Sign</button>
+        <button type="button" style={choiceBtn} onClick={() => go(false)}><Printer size={18} /> Without Sign</button>
+      </div>
+    </Modal>
+  )
 }

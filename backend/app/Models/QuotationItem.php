@@ -10,10 +10,15 @@ class QuotationItem extends Model
     protected $table = 'quotation_items';
 
     protected $fillable = [
-        'quotation_id', 'description', 'quantity', 'unit', 'rate', 'amount', 'sort_order',
+        'quotation_id', 'description', 'details', 'quantity', 'unit', 'rate', 'amount', 'included', 'sort_order',
     ];
 
-    protected $casts = [];
+    protected $casts = [
+        'quantity' => 'float',
+        'rate' => 'float',
+        'amount' => 'float',
+        'included' => 'boolean',
+    ];
 
     public function quotation(): BelongsTo
     {

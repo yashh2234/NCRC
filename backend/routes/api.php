@@ -391,7 +391,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::prefix('quotations')->group(function (): void {
         Route::get('/', [QuotationController::class, 'index']);
         Route::post('/', [QuotationController::class, 'store']);
+        Route::get('next-number', [QuotationController::class, 'nextNumber']);
         Route::get('{quotation}', [QuotationController::class, 'show']);
+        Route::put('{quotation}/status', [QuotationController::class, 'setStatus']);
         Route::put('{quotation}', [QuotationController::class, 'update']);
         Route::delete('{quotation}', [QuotationController::class, 'destroy']);
         Route::get('{quotation}/print', [QuotationController::class, 'printDiv']);
