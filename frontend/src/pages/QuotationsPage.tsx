@@ -14,6 +14,7 @@ import {
   type Quotation, type QuotationApproval, type QuotationInput, type QuotationStatus,
 } from '../lib/quotations'
 import { useTracking } from '../lib/useTracking'
+import { Select } from '../components/Select'
 
 type Editing = { id: number | null; form: QuotationInput; approval: QuotationApproval | null; remark?: string | null }
 
@@ -136,14 +137,14 @@ export default function QuotationsPage() {
           <Search size={16} style={{ position: 'absolute', left: 10, top: 11, color: '#82909a' }} />
           <input className="input" style={{ paddingLeft: 32 }} aria-label="Search quotations" placeholder="Search quotation no., client, subject, location, mobile..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <select className="input" style={{ width: 160 }} aria-label="Filter by company" value={company} onChange={(e) => setCompany(e.target.value as '' | BillCompany)}>
+        <Select className="input" style={{ width: 160 }} aria-label="Filter by company" value={company} onChange={(e) => setCompany(e.target.value as '' | BillCompany)}>
           <option value="">All companies</option>
           {QUOTATION_COMPANY_KEYS.map((c) => <option key={c} value={c}>{COMPANIES[c].short}</option>)}
-        </select>
-        <select className="input" style={{ width: 150 }} aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value as '' | QuotationStatus)}>
+        </Select>
+        <Select className="input" style={{ width: 150 }} aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value as '' | QuotationStatus)}>
           <option value="">All status</option>
           {QUOTATION_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
+        </Select>
         <DateRangeFilter start={start} end={end} onApply={(s, e) => { setStart(s); setEnd(e) }} onClear={() => { setStart(''); setEnd('') }} />
       </div>
 
@@ -182,10 +183,10 @@ export default function QuotationsPage() {
                   <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{money2(r.net_amount)}{r.gst_mode === 'extra' ? <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>+ GST</div> : null}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.valid_until) || '-'}</td>
                   <td>
-                    <select className="input" aria-label={`Status of ${r.quotation_no}`} value={r.status} onChange={(e) => void changeStatus(r, e.target.value as QuotationStatus)}
+                    <Select className="input" aria-label={`Status of ${r.quotation_no}`} value={r.status} onChange={(e) => void changeStatus(r, e.target.value as QuotationStatus)}
                       style={{ width: 118, minHeight: 32, padding: '2px 8px', fontSize: '0.8rem', fontWeight: 600, background: '#fff', color: '#0f172a' }}>
                       {QUOTATION_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                    </select>
+                    </Select>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {canApprove && r.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(r)}><ClipboardCheck size={16} /></button> : null}

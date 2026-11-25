@@ -1,6 +1,7 @@
 import React from 'react'
 import type { TableProps } from './CubeTable'
 import { formatDateForInput } from '../../lib/utils'
+import { Select } from '../Select'
 
 export function InterlockingTilesTable({ details, updateDetail }: TableProps) {
   return (
@@ -33,11 +34,11 @@ export function InterlockingTilesTable({ details, updateDetail }: TableProps) {
                     {num === 1 && <td rowSpan={8} style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="text" className="input" value={row.size || ''} onChange={e => updateDetail(i, 'size', e.target.value)} style={{ width: 100 }} /></td>}
                     {num === 1 && <td rowSpan={8} style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="date" className="input" value={formatDateForInput(row.date_of_testing)} onChange={e => updateDetail(i, 'date_of_testing', e.target.value)} style={{ width: 130 }} /></td>}
                     {num === 1 && <td rowSpan={8} style={{ border: '1px solid #e2e8f0', padding: 8 }}>
-                      <select className="input" value={row.age_of_specimen || '28 Days'} onChange={e => updateDetail(i, 'age_of_specimen', e.target.value)} style={{ width: 110 }}>
+                      <Select className="input" value={row.age_of_specimen || '28 Days'} onChange={e => updateDetail(i, 'age_of_specimen', e.target.value)} style={{ width: 110 }}>
                         <option value="7 Days">7 Days</option>
                         <option value="28 Days">28 Days</option>
                         <option value="After 28 Days">After 28 Days</option>
-                      </select>
+                      </Select>
                     </td>}
                     
                     <td style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="text" className="input" value={row[`crushing_load_${num}`] || ''} onChange={e => updateDetail(i, `crushing_load_${num}`, e.target.value)} style={{ width: 80 }} /></td>

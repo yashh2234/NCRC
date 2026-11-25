@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * Inquiry menu: client leads that are called, followed up and handed over between users.
+ * Enquiries: client leads that are called, followed up and handed over between users.
  * Every status change / handover is written to inquiry_activities as the call log.
  */
 class InquiryController extends Controller
@@ -29,7 +29,7 @@ class InquiryController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $this->validateInquiry($request);
+        $validated = $this->validateInquiry($request, true);
 
         $inquiry = Inquiry::create([
             ...$this->toColumns($validated),
@@ -45,7 +45,7 @@ class InquiryController extends Controller
             'status' => $inquiry->status,
             'assigned_to' => $inquiry->assigned_to,
             'next_follow_up' => $inquiry->next_follow_up,
-            'remark' => 'Inquiry created',
+            'remark' => 'Enquiry created',
         ]);
         $this->notifyHandover($inquiry);
 
@@ -120,14 +120,18 @@ class InquiryController extends Controller
         InquiryActivity::where('inquiry_id', $inquiry->id)->delete();
         $inquiry->delete();
 
-        return response()->json(['message' => 'Inquiry deleted']);
+        return response()->json(['message' => 'Enquiry deleted']);
     }
 
-    private function validateInquiry(Request $request): array
+    /** The source is compulsory, except on an old enquiry made before it was asked for */
+    private function validateInquiry(Request $request, bool $sourceRequired = false): array
     {
         return $request->validate([
             'client_name' => 'required|string|max:222',
             'mobile_no' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:190',
+            'source' => [$sourceRequired ? 'required' : 'nullable', Rule::in(Inquiry::SOURCES)],
+            'source_detail' => 'nullable|string|max:200',
             'location' => 'nullable|string|max:222',
             'budget' => 'nullable|string|max:100',
             'work_categories' => 'nullable|array',
@@ -136,7 +140,7 @@ class InquiryController extends Controller
             'assigned_to' => 'nullable|integer|exists:users,id',
             'status' => ['nullable', Rule::in(Inquiry::STATUSES)],
             'next_follow_up' => 'nullable|date',
-        ]);
+        ], ['source.required' => 'Choose the source of the enquiry.']);
     }
 
     /** Map request fields to table columns (location is stored in source_location). */
@@ -145,6 +149,9 @@ class InquiryController extends Controller
         return [
             'client_name' => trim($validated['client_name']),
             'mobile_no' => $validated['mobile_no'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'source' => $validated['source'] ?? null,
+            'source_detail' => $validated['source_detail'] ?? null,
             'source_location' => $validated['location'] ?? null,
             'budget' => $validated['budget'] ?? null,
             'work_categories' => array_values(array_unique($validated['work_categories'] ?? [])),
@@ -174,10 +181,11 @@ class InquiryController extends Controller
         Notification::create([
             'user_id' => $inquiry->assigned_to,
             'type' => 'inquiry_handover',
-            'title' => "Inquiry {$inquiry->inquiry_no} handed over to you",
-            'message' => "{$from} handed over the inquiry from {$inquiry->client_name}"
+            'title' => "Enquiry {$inquiry->inquiry_no} handed over to you",
+            'message' => "{$from} handed over the enquiry from {$inquiry->client_name}"
                 .($inquiry->mobile_no ? " ({$inquiry->mobile_no})" : '').'.',
             'data' => ['inquiry_id' => $inquiry->id],
+            'created_at' => now(),
         ]);
     }
 
@@ -188,6 +196,9 @@ class InquiryController extends Controller
             'inquiry_no' => $inquiry->inquiry_no,
             'client_name' => $inquiry->client_name,
             'mobile_no' => $inquiry->mobile_no ?? '',
+            'email' => $inquiry->email ?? '',
+            'source' => $inquiry->source ?? '',
+            'source_detail' => $inquiry->source_detail ?? '',
             'location' => $inquiry->source_location ?? '',
             'budget' => $inquiry->budget ?? '',
             'work_categories' => $inquiry->work_categories ?? [],

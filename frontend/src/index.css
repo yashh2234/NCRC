@@ -9,6 +9,8 @@
 @import "./css/theme.css";
 @import "./css/mail.css";
 @import "./css/tender-summary.css";
+@import "./css/hr.css";
+@import "./css/dropdown.css";
 @import "./css/responsive.css";
 
 /* Semantic color tokens used by Tailwind utilities in pages (bg-content1, text-default-900, …) */

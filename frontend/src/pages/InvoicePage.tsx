@@ -4,6 +4,7 @@ import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import type { Invoice } from '../lib/types'
+import { Select } from '../components/Select'
 
 interface FormData {
   date: string
@@ -260,10 +261,10 @@ export function InvoicePage() {
           <label className="form-field"><span>Agency GST</span><input value={form.agency_gst} onChange={(e) => updateField('agency_gst', e.target.value)} /></label>
           <label className="form-field"><span>Reporting Address *</span><input value={form.reporting_address} onChange={(e) => updateField('reporting_address', e.target.value)} /></label>
           <label className="form-field"><span>State</span>
-            <select value={form.agency_state} onChange={(e) => updateField('agency_state', e.target.value)}>
+            <Select value={form.agency_state} onChange={(e) => updateField('agency_state', e.target.value)}>
               <option value="Rajasthan">Rajasthan</option>
               <option value="Out Of Rajasthan">Out Of Rajasthan</option>
-            </select>
+            </Select>
           </label>
           <label className="form-field"><span>Terms of Delivery</span><input value={form.terms_of_delivery} onChange={(e) => updateField('terms_of_delivery', e.target.value)} /></label>
         </div>

@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { Modal } from '../components/Modal'
 import { DateRangeFilter } from '../components/DateRangeFilter'
+import { Select } from '../components/Select'
 
 /**
  * Manage ULR Register. Same features as the old software's ulrlink/ulr_register:
@@ -243,14 +244,14 @@ export function UlrRegisterPage() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', margin: 0 }}>
               Show
-              <select
+              <Select
                 value={perPage}
                 onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
                 aria-label="Entries per page"
                 style={{ width: 'auto', minWidth: 0, minHeight: 0, height: 30, flex: 'none', padding: '2px 26px 2px 8px', backgroundPosition: 'right 6px center', backgroundSize: 14, borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.8rem', boxShadow: 'none' }}
               >
                 {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
+              </Select>
               entries
             </label>
             <span>

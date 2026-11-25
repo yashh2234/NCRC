@@ -70,11 +70,12 @@ class UserController extends Controller
                 'lastname' => $validated['lastname'] ?? '',
                 'phone' => $validated['phone'] ?? '',
                 'gender' => (int) $validated['gender'],
+                'date_of_birth' => $validated['date_of_birth'] ?? null,
                 'is_admin' => array_key_exists('is_admin', $validated)
                     ? (bool) $validated['is_admin']
                     : (int) ($validated['group_id'] ?? 0) === 1,
                 'tracker_role' => $validated['tracker_role'] ?? null,
-                'allowed_modules' => $this->normalizeModules($validated['allowed_modules'] ?? null),
+                'allowed_modules' => $this->normalizeModules($validated['allowed_modules'] ?? null, []),
             ]);
 
             if (! empty($validated['group_id'])) {
@@ -127,6 +128,9 @@ class UserController extends Controller
                 'is_active' => (bool) ($validated['is_active'] ?? true),
             ];
 
+            if (array_key_exists('date_of_birth', $validated)) {
+                $payload['date_of_birth'] = $validated['date_of_birth'];
+            }
             if (array_key_exists('is_admin', $validated)) {
                 $payload['is_admin'] = (bool) $validated['is_admin'];
             } elseif (! empty($validated['group_id'])) {
@@ -136,7 +140,7 @@ class UserController extends Controller
                 $payload['tracker_role'] = $validated['tracker_role'];
             }
             if (array_key_exists('allowed_modules', $validated)) {
-                $payload['allowed_modules'] = $this->normalizeModules($validated['allowed_modules']);
+                $payload['allowed_modules'] = $this->normalizeModules($validated['allowed_modules'], $user->fresh()?->allowed_modules ?? []);
             }
 
             if (! empty($validated['password'])) {
@@ -191,12 +195,17 @@ class UserController extends Controller
         abort_unless($user && ($user->canManageUsers() || in_array($permission, $user->legacyPermissions(), true)), 403, 'Unauthorized');
     }
 
-    /** Keep only known feature keys; null means "not configured, use job-role defaults". */
-    private function normalizeModules(?array $modules): ?array
+    /**
+     * Keep only known feature keys; null means "not configured, use job-role defaults".
+     * What is switched on in "Access and approvals" stays as it is ($current).
+     */
+    private function normalizeModules(?array $modules, array $current): ?array
     {
         if ($modules === null) {
             return null;
         }
+
+        $modules = [...array_diff($modules, User::BOX_KEYS), ...array_intersect($current, User::BOX_KEYS)];
 
         return array_values(array_intersect(User::FEATURE_KEYS, $modules));
     }
@@ -214,6 +223,7 @@ class UserController extends Controller
             'lastname' => $user->lastname,
             'phone' => $user->phone,
             'gender' => (int) $user->gender,
+            'date_of_birth' => $user->date_of_birth?->format('Y-m-d'),
             'is_admin' => $user->isFullAdmin(),
             'name' => $user->name,
             'is_active' => (bool) ($user->is_active ?? true),

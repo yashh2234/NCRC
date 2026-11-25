@@ -160,16 +160,13 @@ export function isModuleAllowed(role: TrackerRole, moduleKey: string): boolean {
 
 // ─── Per-user feature access ────────────────────────────────────────────
 
-/** Features an admin can switch on per user in Manage Users (keys must match backend User::FEATURE_KEYS). */
+/** Pages an admin can switch on per user in the user form (with BOX_FEATURES: backend User::FEATURE_KEYS). */
 export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'tenders', label: 'Tenders', group: 'General' },
-  { key: 'mail', label: 'Mail (office mailbox)', group: 'General' },
-  { key: 'documents_site', label: 'Documents (documents.namotech.in)', group: 'General' },
-  { key: 'inquiries', label: 'Inquiries', group: 'Clients' },
+  { key: 'inquiries', label: 'Enquiries', group: 'Clients' },
   { key: 'proposals', label: 'Proposals', group: 'Clients' },
   { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
   { key: 'quotations', label: 'Quotations', group: 'Clients' },
-  { key: 'quotation_approve', label: 'Approve Quotations', group: 'Clients' },
   { key: 'work_orders', label: 'Work Orders', group: 'Clients' },
   { key: 'outsource', label: 'Outsource', group: 'Clients' },
   { key: 'reports', label: 'Lab Reports', group: 'Reports' },
@@ -177,18 +174,28 @@ export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'ulr_register', label: 'ULR Register', group: 'Reports' },
   { key: 'final_reports', label: 'Final Reports', group: 'Reports' },
   { key: 'due_reports', label: 'UID w/o Report', group: 'Reports' },
-  { key: 'report_approve', label: 'Approve Reports', group: 'Reports' },
   { key: 'billing', label: 'Invoice', group: 'Accounts' },
-  { key: 'bill_approve', label: 'Approve Invoices', group: 'Accounts' },
   { key: 'expenses', label: 'Daily Expenses', group: 'Accounts' },
   { key: 'purchase_orders', label: 'Purchase Order', group: 'Accounts' },
   { key: 'admin', label: 'Administration (manage users)', group: 'Admin' },
 ]
 
+/** Switched on per user in the "Access and approvals" table (backend User::BOX_KEYS); the first two are opened, the others approved. */
+export const BOX_FEATURES = [
+  { key: 'mail', label: 'Mail', help: 'Can open Mail. Sees the Mail button, reads and sends from the office mailbox, and gets a bell notification when new mail arrives.' },
+  { key: 'documents_site', label: 'Documents', help: 'Sees the Documents button. It opens documents.namotech.in in a new tab, where users sign in with their document login.' },
+  { key: 'quotation_approve', label: 'Quotations', help: 'Can approve quotations. Quotations made or changed by others wait for approval; until then they cannot be printed or mailed. Also needs access to Quotations.' },
+  { key: 'report_approve', label: 'Lab reports', help: 'Can approve lab reports. Until approved a report prints with DRAFT across it and cannot be mailed; a changed one needs approval again. Also needs access to Lab Reports.' },
+  { key: 'bill_approve', label: 'Invoices', help: 'Can approve invoices, performa invoices and credit notes. What others make or change waits for approval; recording a payment does not. Also needs access to Invoice.' },
+  { key: 'leave_approve', label: 'Leave', help: 'Can approve leave. Nobody decides their own.' },
+] as const
+
+export type BoxFeature = (typeof BOX_FEATURES)[number]['key']
+
 const FEATURE_KEYS = new Set(FEATURES.map((f) => f.key))
 
 /** Always available to every signed-in user. */
-const ALWAYS_ALLOWED = ['dashboard', 'help_guide']
+const ALWAYS_ALLOWED = ['dashboard', 'help_guide', 'my_attendance', 'leave', 'holidays']
 
 /** Job roles selectable per user (admin is the separate "Full admin access" switch). */
 export const JOB_ROLES: Array<{ key: Exclude<TrackerRole, 'admin'>; label: string }> = [
@@ -202,6 +209,7 @@ export const JOB_ROLES: Array<{ key: Exclude<TrackerRole, 'admin'>; label: strin
 
 interface AccessUser {
   is_admin?: boolean
+  is_super_admin?: boolean
   tracker_role?: TrackerRole
   allowed_modules?: string[] | null
 }
@@ -220,6 +228,7 @@ export function canUserAccess(user: AccessUser | null | undefined, requestedKey:
   if (!user) return false
   // Credit notes come from cancelled invoices: same access as Invoice. So have performa invoices
   const moduleKey = requestedKey === 'credit_notes' || requestedKey === 'performa' ? 'billing' : requestedKey
+  if (moduleKey === 'my_attendance' && user.is_super_admin) return false
   if (ALWAYS_ALLOWED.includes(moduleKey)) return true
   const role = user.tracker_role ?? 'staff'
   if (user.is_admin || role === 'admin') return true

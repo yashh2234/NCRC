@@ -74,7 +74,40 @@ export const proposalApi = {
   create: (data: ProposalInput) => request<{ data: Proposal }>('/proposals', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: ProposalInput) => request<{ data: Proposal }>(`/proposals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id: number) => request<{ message: string }>(`/proposals/${id}`, { method: 'DELETE' }),
-  generate: (brief: string) => request<{ data: ProposalDraft & { model?: string } }>('/proposals/generate', { method: 'POST', body: JSON.stringify({ brief }) }),
+  /** What the AI still needs to know; empty when the brief is enough */
+  questions: (brief: string) => request<{ data: AiQuestion[] }>('/proposals/questions', { method: 'POST', body: JSON.stringify({ brief }) }).then((r) => r.data),
+  /** open: questions left unanswered, written as [to be confirmed] */
+  generate: (brief: string, open: string[] = []) => request<{ data: ProposalDraft & { model?: string } }>('/proposals/generate', { method: 'POST', body: JSON.stringify({ brief, open }) }),
+}
+
+export interface AiQuestion {
+  question: string
+  why: string
+  suggestions: string[]
+  /** The answer is about Namotech itself, so it can be kept for later proposals */
+  company: boolean
+}
+
+export interface Knowledge {
+  id: number
+  kind: 'website' | 'fact'
+  title: string
+  content: string
+  url: string | null
+  status: 'approved' | 'pending' | 'rejected'
+  created_by: string | null
+  updated_at: string | null
+}
+
+/** What the proposal AI knows about the company */
+export const knowledgeApi = {
+  list: () => request<{ data: Knowledge[] }>('/company-knowledge').then((r) => r.data),
+  /** From a user who is no admin it waits for an admin's approval */
+  add: (title: string, content: string) => request<{ data: Knowledge }>('/company-knowledge', { method: 'POST', body: JSON.stringify({ title, content }) }).then((r) => r.data),
+  update: (id: number, title: string, content: string) => request<{ data: Knowledge }>(`/company-knowledge/${id}`, { method: 'PUT', body: JSON.stringify({ title, content }) }).then((r) => r.data),
+  decide: (id: number, approve: boolean) => request<{ data: Knowledge }>(`/company-knowledge/${id}/decide`, { method: 'POST', body: JSON.stringify({ approve }) }).then((r) => r.data),
+  remove: (id: number) => request<{ message: string }>(`/company-knowledge/${id}`, { method: 'DELETE' }),
+  refresh: () => request<{ message: string }>('/company-knowledge/refresh', { method: 'POST' }),
 }
 
 // ─── Money ───────────────────────────────────────────────────────────────

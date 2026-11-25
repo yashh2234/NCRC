@@ -13,6 +13,7 @@ import {
 } from '../lib/mail'
 import { MAIL_COMPOSE } from '../lib/mailTab'
 import { draftHtml, forwardHtml, newMailHtml, replyHtml } from '../lib/mailCompose'
+import { Select } from '../components/Select'
 
 type Layout = 'classic' | 'vertical'
 
@@ -332,11 +333,11 @@ function Mailbox({ account, appbar, blocked, sentCount, onQueued, prepared, onPr
               </button>
             )
           })}
-          <select className="tb-folder-select" value={folder} onChange={(e) => changeFolder(e.target.value)} aria-label="Folder">
+          <Select className="tb-folder-select" value={folder} onChange={(e) => changeFolder(e.target.value)} aria-label="Folder">
             {(folders.length ? folders : [{ path: 'INBOX', name: 'Inbox', role: 'inbox' } as MailFolder]).map((f) => (
               <option key={f.path} value={f.path}>{folderLabel(f)}{f.unread ? ` (${f.unread})` : ''}</option>
             ))}
-          </select>
+          </Select>
         </aside>
 
         <div className={`tb-content tb-content--${layout}`}>

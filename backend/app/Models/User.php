@@ -34,14 +34,18 @@ class User extends Authenticatable
         'is_active',
         'tracker_role',
         'allowed_modules',
+        'date_of_birth',
     ];
 
     /** Sidebar features that can be switched on per user (must match the frontend FEATURES list). */
     public const FEATURE_KEYS = [
         'tenders', 'inquiries', 'registrations', 'quotations', 'proposals', 'work_orders', 'outsource', 'reports',
         'ulr_add', 'ulr_register', 'final_reports', 'billing', 'due_reports', 'expenses',
-        'purchase_orders', 'admin', 'mail', 'documents_site', 'quotation_approve', 'report_approve', 'bill_approve',
+        'purchase_orders', 'admin', 'mail', 'documents_site', 'quotation_approve', 'report_approve', 'bill_approve', 'leave_approve',
     ];
+
+    /** Of the FEATURE_KEYS: switched on in "Access and approvals", not in the user form */
+    public const BOX_KEYS = ['mail', 'documents_site', 'quotation_approve', 'report_approve', 'bill_approve', 'leave_approve'];
 
     /** Job roles that drive the dashboard and the job queues. */
     public const JOB_ROLES = ['registration', 'lab', 'report_staff', 'technical', 'manager', 'staff'];
@@ -71,7 +75,14 @@ class User extends Authenticatable
             'is_admin' => 'boolean',
             'is_active' => 'boolean',
             'allowed_modules' => 'array',
+            'date_of_birth' => 'date:Y-m-d',
         ];
+    }
+
+    /** The system's own account: not in the user list, without attendance and leave of its own */
+    public function isSuperAdmin(): bool
+    {
+        return (int) $this->id === 1;
     }
 
     public function isFullAdmin(): bool
@@ -101,6 +112,12 @@ class User extends Authenticatable
     public function canApproveBills(): bool
     {
         return $this->isFullAdmin() || in_array('bill_approve', $this->allowed_modules ?? [], true);
+    }
+
+    /** Full admins, and users given "Approve Leave" */
+    public function canApproveLeave(): bool
+    {
+        return $this->isFullAdmin() || in_array('leave_approve', $this->allowed_modules ?? [], true);
     }
 
     public function getNameAttribute(): string

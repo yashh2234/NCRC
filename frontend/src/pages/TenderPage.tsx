@@ -9,6 +9,7 @@ import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { TenderPdfPicker, TenderSummaryModal, TenderSummaryView } from '../components/TenderSummaryModal'
 import { tenderAnalysesApi, useTenderAnalyses, type TenderAnalysisResult } from '../lib/tenderAnalyses'
+import { Select } from '../components/Select'
 
 type TenderField = keyof TenderInput
 type ColumnKey = TenderField | 'daysLeft' | 'dates' | 'contact'
@@ -307,17 +308,17 @@ export function TenderPage() {
       )
     }
     if (key.endsWith('Date')) return <input className="input" type="date" value={form[key]} onChange={(e) => update(key, e.target.value)} />
-    if (key === 'eligibility') return <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></select>
-    if (key === 'decision') return <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></select>
-    if (key === 'submissionStatus') return <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Not Started</option><option>In Progress</option><option>Submitted</option><option>Won</option><option>Lost</option><option>Not Participated</option></select>
+    if (key === 'eligibility') return <Select searchable={false} className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></Select>
+    if (key === 'decision') return <Select searchable={false} className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></Select>
+    if (key === 'submissionStatus') return <Select searchable={false} className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Not Started</option><option>In Progress</option><option>Submitted</option><option>Won</option><option>Lost</option><option>Not Participated</option></Select>
     if (key === 'responsible') {
       // An older free-text name stays selectable, so editing a tender does not drop it
       const names = form.responsible && !userNames.includes(form.responsible) ? [form.responsible, ...userNames] : userNames
       return (
-        <select className="input" value={form.responsible} onChange={(e) => update('responsible', e.target.value)}>
+        <Select searchable={false} className="input" value={form.responsible} onChange={(e) => update('responsible', e.target.value)}>
           <option value="">-- Select user --</option>
           {names.map((name) => <option key={name} value={name}>{name}</option>)}
-        </select>
+        </Select>
       )
     }
     if (key === 'bidValue') {
@@ -326,10 +327,10 @@ export function TenderPage() {
         <>
           <div style={{ display: 'flex', gap: 6 }}>
             <input className="input" style={{ flex: 1, minWidth: 0 }} inputMode="decimal" placeholder={form.bidType === 'percent' ? 'e.g. 92.5' : 'e.g. 1250000'} value={form.bidValue} onChange={(e) => update('bidValue', e.target.value)} />
-            <select className="input" style={{ width: 118 }} value={form.bidType || 'amount'} onChange={(e) => update('bidType', e.target.value)} aria-label="Bid entered as">
+            <Select searchable={false} className="input" style={{ width: 118 }} value={form.bidType || 'amount'} onChange={(e) => update('bidType', e.target.value)} aria-label="Bid entered as">
               <option value="amount">₹ Amount</option>
               <option value="percent">% of value</option>
-            </select>
+            </Select>
           </div>
           {form.bidValue.trim() ? (
             <small style={{ display: 'block', marginTop: 4, color: amount === null ? '#b91c1c' : '#475569' }}>
@@ -344,16 +345,16 @@ export function TenderPage() {
     if (key === 'emdDeposited') {
       return (
         <div style={{ display: 'flex', gap: 6 }}>
-          <select className="input" style={{ flex: 1, minWidth: 0 }} value={form.emdDeposited} onChange={(e) => { const value = e.target.value; setForm((prev) => ({ ...prev, emdDeposited: value, emdMode: value === 'Yes' ? prev.emdMode || 'Online' : '' })) }}>
+          <Select searchable={false} className="input" style={{ flex: 1, minWidth: 0 }} value={form.emdDeposited} onChange={(e) => { const value = e.target.value; setForm((prev) => ({ ...prev, emdDeposited: value, emdMode: value === 'Yes' ? prev.emdMode || 'Online' : '' })) }}>
             <option value="">-- Select --</option>
             <option>Yes</option>
             <option>No</option>
-          </select>
+          </Select>
           {form.emdDeposited === 'Yes' ? (
-            <select className="input" style={{ flex: 1, minWidth: 0 }} value={form.emdMode || 'Online'} onChange={(e) => update('emdMode', e.target.value)} aria-label="EMD deposit mode">
+            <Select searchable={false} className="input" style={{ flex: 1, minWidth: 0 }} value={form.emdMode || 'Online'} onChange={(e) => update('emdMode', e.target.value)} aria-label="EMD deposit mode">
               <option>Online</option>
               <option>Offline</option>
-            </select>
+            </Select>
           ) : null}
         </div>
       )
@@ -423,7 +424,7 @@ export function TenderPage() {
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: '1 1 280px' }}><Search size={16} style={{ position: 'absolute', left: 10, top: 11, color: '#82909a' }} /><input className="input" style={{ paddingLeft: 32 }} placeholder="Search Sr. No., tender ID, title, client..." value={search} onChange={(e) => setSearch(e.target.value)} /></div>
-        <select className="input" style={{ width: 220 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <Select searchable={false} className="input" style={{ width: 250 }} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All submission statuses</option>
           <optgroup label="Active tenders">
             <option value="__active">All active</option>
@@ -437,7 +438,7 @@ export function TenderPage() {
             <option>Lost</option>
             <option>Not Participated</option>
           </optgroup>
-        </select>
+        </Select>
         <span style={{ display: 'inline-flex', gap: 12, fontSize: '0.75rem', color: '#475569' }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: URGENCY_STYLES.yellow.background, border: `1px solid ${URGENCY_STYLES.yellow.border}`, marginRight: 4 }} />5–7 days left</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: URGENCY_STYLES.red.background, border: `1px solid ${URGENCY_STYLES.red.border}`, marginRight: 4 }} />≤ 4 days left</span>

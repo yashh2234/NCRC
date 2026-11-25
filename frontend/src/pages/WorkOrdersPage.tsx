@@ -4,6 +4,7 @@ import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { Select } from '../components/Select'
 
 type Registration = {
   iClientId?: number;
@@ -173,14 +174,14 @@ export default function WorkOrdersPage() {
             <input type="search" placeholder="Search work orders..." value={search} aria-label="Search work orders"
               onChange={(e) => setSearch(e.target.value)} />
           </div>
-            <select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All Status</option>
               <option value="draft">Draft</option>
               <option value="active">Active</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
-            </select>
+            </Select>
         </div>
         <div className="dt-toolbar__meta">
           <button className="btn btn-primary btn-sm" type="button" onClick={openCreate}>+ New Work Order</button>
@@ -259,20 +260,9 @@ export default function WorkOrdersPage() {
                     }
                   }} />
                 {uidSearch && !form.registration_id && filteredRegistrations.length > 0 && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                    background: '#fff', border: '1px solid var(--color-border, #ddd)',
-                    borderRadius: 8, maxHeight: 200, overflowY: 'auto',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  }}>
+                  <div className="dd-sugg">
                     {filteredRegistrations.slice(0, 20).map((reg) => (
                       <div key={reg.iClientId ?? reg.id}
-                        style={{
-                          padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
-                          transition: 'background 0.15s',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f5ff')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
                         onClick={() => handleUidSelect(reg)}
                       >
                         <strong style={{ color: '#8b5cf6' }}>{reg.uid_no}</strong>

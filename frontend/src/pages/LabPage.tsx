@@ -3,6 +3,7 @@ import { FlaskConical, Play, FileText } from 'lucide-react'
 import { api } from '../lib/api'
 import { TestingScreen } from '../components/TestingScreen'
 import { EXCEL_TEMPLATE_OPTIONS } from '../components/ExcelLabReportEditor'
+import { Select } from '../components/Select'
 
 interface AssignedReport {
   iReportId: number
@@ -169,12 +170,12 @@ export function LabPage() {
               <button type="button" className="ghost-button" onClick={() => setShowCreate(false)}>Close</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <label>Report type<select className="input" value={createForm.report_type} onChange={(event) => updateCreate('report_type', event.target.value)}>
+              <label>Report type<Select className="input" value={createForm.report_type} onChange={(event) => updateCreate('report_type', event.target.value)}>
                 {Object.entries(LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-              </select></label>
-              <label>Excel format<select className="input" value={createForm.template} onChange={(event) => updateCreate('template', event.target.value)}>
+              </Select></label>
+              <label>Excel format<Select className="input" value={createForm.template} onChange={(event) => updateCreate('template', event.target.value)}>
                 {EXCEL_TEMPLATE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-              </select></label>
+              </Select></label>
               {([
                 ['uid_no', 'UID No.'], ['ulr_no', 'ULR No.'], ['customer_details', 'Customer name & address'],
                 ['agency_name', 'Agency name'], ['reference_no', 'Reference no.'], ['material_details', 'Material details'],

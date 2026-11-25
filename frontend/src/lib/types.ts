@@ -9,6 +9,8 @@ export interface User {
   phone: string
   gender: number
   is_admin: boolean
+  /** The system's own account: no attendance and leave of its own */
+  is_super_admin?: boolean
   name: string
   tracker_role: TrackerRole
   /** Features this user can open; null = not configured, use job-role defaults */
@@ -99,9 +101,11 @@ export interface UserRecord {
   /** Job role saved on the user (null = derived from legacy group) */
   job_role?: Exclude<TrackerRole, 'admin'> | null
   allowed_modules?: string[] | null
+  date_of_birth?: string | null
 }
 
 export interface UserFormData {
+  date_of_birth: string
   username: string
   email: string
   password: string
@@ -412,7 +416,7 @@ export interface PurchaseOrderListItem {
   set_count: number
 }
 
-export type ModuleKey = 'dashboard' | 'tenders' | 'admin' | 'lab' | 'users' | 'roles' | 'permissions' | 'clients' | 'inquiries' | 'quotations' | 'proposals' | 'work_orders' | 'registrations' | 'billing' | 'performa' | 'credit_notes' | 'reports' | 'expenses' | 'purchase_orders' | 'invoices' | 'due_reports' | 'final_reports' | 'dispatches' | 'outsource' | 'ulr_add' | 'ulr_register' | 'ulr_links' | 'stores' | 'settings' | 'audit' | 'user_tracking' | 'analytics' | 'workflow_templates' | 'jobs' | 'documents' | 'job_types' | 'help_guide' | 'mail'
+export type ModuleKey = 'dashboard' | 'tenders' | 'admin' | 'lab' | 'users' | 'roles' | 'permissions' | 'clients' | 'inquiries' | 'quotations' | 'proposals' | 'work_orders' | 'registrations' | 'billing' | 'performa' | 'credit_notes' | 'reports' | 'expenses' | 'purchase_orders' | 'invoices' | 'due_reports' | 'final_reports' | 'dispatches' | 'outsource' | 'ulr_add' | 'ulr_register' | 'ulr_links' | 'stores' | 'settings' | 'audit' | 'user_tracking' | 'analytics' | 'workflow_templates' | 'jobs' | 'documents' | 'job_types' | 'help_guide' | 'mail' | 'my_attendance' | 'leave' | 'holidays' | 'team'
 
 export interface WorkflowTemplate {
   id: number

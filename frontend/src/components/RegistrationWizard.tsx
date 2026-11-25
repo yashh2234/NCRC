@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
 import {
   ClipboardList, ArrowLeft, ArrowRight, Save, Plus, X, Building2,
   FlaskConical, Paperclip, IndianRupee, Briefcase, Calculator,
@@ -10,6 +9,8 @@ import { api, request, resolveFileUrl } from '../lib/api'
 import { FormField, DatePicker } from './ui'
 import { SearchableSelect } from './SearchableSelect'
 import { RATE_LIST } from '../data/rateList'
+import { Select } from './Select'
+import { MultiDropdown } from './MultiDropdown'
 
 const WORK_TYPES = ['', 'Audit', 'SPT / Outsource', 'Lab', 'Consultancy', 'Survey', 'Field Test']
 const NEW_BACK_OPTIONS = ['', 'new', 'back']
@@ -231,86 +232,10 @@ function SubTypeMultiSelect({ options, selected, onToggle, disabled }: {
   onToggle: (name: string) => void
   disabled?: boolean
 }) {
-  const [open, setOpen] = useState(false)
-  const boxRef = useRef<HTMLDivElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
-  // The list is drawn on <body> with fixed position so the popup's scroll area can't clip it;
-  // it opens below the box, or above it when there isn't enough room below.
-  const [menuPos, setMenuPos] = useState<React.CSSProperties>({})
-
-  useEffect(() => {
-    if (!open) return
-    const place = () => {
-      const rect = boxRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const margin = 8
-      const below = window.innerHeight - rect.bottom - margin
-      const above = rect.top - margin
-      const openUp = below < 260 && above > below
-      const maxHeight = Math.max(160, Math.min(380, (openUp ? above : below) - 4))
-      setMenuPos({
-        left: rect.left,
-        width: Math.max(rect.width, 280),
-        maxHeight,
-        ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-      })
-    }
-    place()
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (boxRef.current?.contains(target) || menuRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    // Close when the page/popup scrolls (but not when the list itself scrolls)
-    const onScroll = (e: Event) => {
-      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', onScroll, true)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', onScroll, true)
-    }
-  }, [open])
-
-  const visible = options
-  const chosen = options.filter((o) => selected.some((s) => sameText(s, o.name))).map((o) => o.name)
-
   return (
-    <div ref={boxRef} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        title={chosen.join(', ')}
-        style={{ width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--color-input-border, #cbd5e1)', background: disabled ? '#f1f5f9' : '#fff', color: chosen.length ? '#0f172a' : '#94a3b8', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.88rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {disabled ? 'Choose a category first' : chosen.length ? chosen.join(', ') : 'Select tests...'}
-        </span>
-        <span style={{ color: '#64748b', flexShrink: 0 }}>{chosen.length > 1 ? `${chosen.length} ▾` : '▾'}</span>
-      </button>
-      {open && !disabled ? createPortal(
-        <div ref={menuRef} style={{ position: 'fixed', zIndex: 10000, ...menuPos, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, boxShadow: '0 10px 24px rgba(15,23,42,0.18)', padding: 6 }}>
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-            {visible.map((o) => {
-              const checked = selected.some((s) => sameText(s, o.name))
-              return (
-                <label key={o.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: '0.84rem', background: checked ? '#eff6ff' : undefined }}>
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(o.name)} style={{ width: 'auto', minHeight: 'auto', marginTop: 2 }} />
-                  <span>{o.name}{o.rate !== undefined ? <span style={{ color: '#64748b' }}> (₹{o.rate})</span> : null}</span>
-                </label>
-              )
-            })}
-            {visible.length === 0 ? <p style={{ margin: 0, padding: '6px 8px', fontSize: '0.82rem', color: '#94a3b8' }}>No tests in this category</p> : null}
-          </div>
-        </div>,
-        document.body,
-      ) : null}
-    </div>
+    <MultiDropdown disabled={disabled} placeholder={disabled ? 'Choose a category first' : 'Select tests...'} emptyText="No tests in this category"
+      options={options.map((o) => ({ value: o.name, note: o.rate !== undefined ? `(₹${o.rate})` : undefined }))}
+      isChosen={(name) => selected.some((x) => sameText(x, name))} onToggle={onToggle} />
   )
 }
 
@@ -767,9 +692,9 @@ export function RegistrationWizard({
 
             <div className="field-row">
               <FormField label="Work Category">
-                <select value={form.work ?? ''} onChange={(e) => update({ work: e.target.value })}>
+                <Select value={form.work ?? ''} onChange={(e) => update({ work: e.target.value })}>
                   {WORK_TYPES.map((w) => <option key={w} value={w}>{w || 'Select Work Category'}</option>)}
-                </select>
+                </Select>
               </FormField>
 
               <FormField label="Report Status / Remarks">
@@ -808,22 +733,10 @@ export function RegistrationWizard({
                   placeholder="Type agency name, contact number, or previous UID..."
                 />
                 {searchResults.length > 0 ? (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    boxShadow: 'var(--shadow-lg)',
-                    maxHeight: 220, overflowY: 'auto', marginTop: 4,
-                  }}>
+                  <div className="dd-sugg">
                     {searchResults.map((r) => (
                       <div
                         key={r.iClientId}
-                        style={{
-                          padding: '10px 14px', cursor: 'pointer',
-                          borderBottom: '1px solid var(--color-border-light)',
-                          fontSize: '0.84rem',
-                        }}
                         onClick={() => {
                           update({
                             agency_name: r.agency_name,
@@ -920,9 +833,9 @@ export function RegistrationWizard({
 
                   <div className="field-row" style={{ marginBottom: 8 }}>
                     <FormField label="Type">
-                      <select value={row.newBack} onChange={(e) => updateNewBack(i, e.target.value)}>
+                      <Select value={row.newBack} onChange={(e) => updateNewBack(i, e.target.value)}>
                         {NEW_BACK_OPTIONS.map((v) => <option key={v} value={v}>{v || 'New'}</option>)}
-                      </select>
+                      </Select>
                     </FormField>
 
                     <FormField label="Test Category" required={i === 0}>
@@ -1046,9 +959,9 @@ export function RegistrationWizard({
 
             <div className="field-row">
               <FormField label="Report Status">
-                <select value={form.report_status ?? ''} onChange={(e) => update({ report_status: e.target.value })}>
+                <Select value={form.report_status ?? ''} onChange={(e) => update({ report_status: e.target.value })}>
                   {REPORT_STATUS_OPTIONS.map((v) => <option key={v} value={v}>{v || 'Select Report Status'}</option>)}
-                </select>
+                </Select>
               </FormField>
             </div>
           </div>
@@ -1122,9 +1035,9 @@ export function RegistrationWizard({
               />
 
               <FormField label="Mode of Payment">
-                <select value={form.mode_of_payment ?? ''} onChange={(e) => update({ mode_of_payment: e.target.value })}>
+                <Select value={form.mode_of_payment ?? ''} onChange={(e) => update({ mode_of_payment: e.target.value })}>
                   {PAYMENT_MODES.map((v) => <option key={v} value={v}>{v ? v.toUpperCase() : 'Select Mode'}</option>)}
-                </select>
+                </Select>
               </FormField>
             </div>
 
@@ -1304,13 +1217,13 @@ export function RegistrationWizard({
 
             <div className="field-row">
               <FormField label="Current Stage" required>
-                <select
+                <Select
                   value={form.current_stage ?? '1. Registered'}
                   onChange={(e) => update({ current_stage: e.target.value })}
                   style={{ fontWeight: 600 }}
                 >
                   {WORKFLOW_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                </Select>
               </FormField>
 
               <FormField
@@ -1318,7 +1231,7 @@ export function RegistrationWizard({
                 required
                 error={currentlyWithError}
               >
-                <select
+                <Select
                   value={form.currently_with ?? ''}
                   onChange={(e) => update({ currently_with: e.target.value })}
                   style={{
@@ -1336,18 +1249,18 @@ export function RegistrationWizard({
                       </option>
                     )
                   })}
-                </select>
+                </Select>
               </FormField>
             </div>
 
             <div className="field-row">
               <FormField label="Priority Level">
-                <select
+                <Select
                   value={form.priority ?? 'Medium'}
                   onChange={(e) => update({ priority: e.target.value })}
                 >
                   {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
+                </Select>
               </FormField>
 
               <DatePicker
@@ -1359,12 +1272,12 @@ export function RegistrationWizard({
 
             <div className="field-row">
               <FormField label="Payment Status">
-                <select
+                <Select
                   value={form.payment_status ?? 'Not Invoiced'}
                   onChange={(e) => update({ payment_status: e.target.value })}
                 >
                   {PAYMENT_STATUS_OPTIONS.map((ps) => <option key={ps} value={ps}>{ps}</option>)}
-                </select>
+                </Select>
               </FormField>
 
               <FormField label="Handover Note / Remarks" description="Optional reason for stage handover">

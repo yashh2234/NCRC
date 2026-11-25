@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, X, Save, FlaskConical } from 'lucide-react'
 import { request } from '../lib/api'
+import { Select } from './Select'
 
 interface ObservationRow {
   parameter: string
@@ -69,12 +70,12 @@ export function ReportObservations({ reportId, existing, onSaved }: ReportObserv
             <input value={row.value} onChange={e => updateRow(idx, 'value', e.target.value)} placeholder="Value" style={{ fontSize: '0.78rem', padding: '4px 6px' }} />
             <input value={row.unit} onChange={e => updateRow(idx, 'unit', e.target.value)} placeholder="Unit" style={{ fontSize: '0.78rem', padding: '4px 6px' }} />
             <input value={row.spec} onChange={e => updateRow(idx, 'spec', e.target.value)} placeholder="Spec" style={{ fontSize: '0.78rem', padding: '4px 6px' }} />
-            <select value={row.result} onChange={e => updateRow(idx, 'result', e.target.value)} style={{ fontSize: '0.78rem', padding: '4px 6px' }}>
+            <Select value={row.result} onChange={e => updateRow(idx, 'result', e.target.value)} style={{ fontSize: '0.78rem', padding: '4px 6px' }}>
               <option value="">Select</option>
               <option value="pass">Pass</option>
               <option value="fail">Fail</option>
               <option value="n/a">N/A</option>
-            </select>
+            </Select>
             <button className="ghost-button" onClick={() => removeRow(idx)} type="button" style={{ padding: '4px', color: '#ef4444' }} disabled={rows.length <= 1}>
               <X size={12} />
             </button>

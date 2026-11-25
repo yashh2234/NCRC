@@ -5,6 +5,7 @@ import { request } from '../lib/api'
 import type { Job } from '../lib/types'
 import { JobDetailPage } from './JobDetailPage'
 import { StatusBadge } from '../components/ui'
+import { Select } from '../components/Select'
 
 export function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
@@ -93,21 +94,21 @@ export function JobsPage() {
         <div className="search-field" style={{ width: 200 }}>
           <input placeholder="Search UID or title..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
-        <select className="form-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Select className="form-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
           <option value="active">Active</option>
           <option value="pending">Pending</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
           <option value="on_hold">On Hold</option>
-        </select>
-        <select className="form-select" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+        </Select>
+        <Select className="form-select" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
           <option value="">All Priority</option>
           <option value="low">Low</option>
           <option value="normal">Normal</option>
           <option value="high">High</option>
           <option value="urgent">Urgent</option>
-        </select>
+        </Select>
         <span className="sync-pill">{jobs.length} jobs</span>
         <button className="ghost-button" onClick={() => void loadJobs()} type="button"><Filter size={16} /> Refresh</button>
       </div>

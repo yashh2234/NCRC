@@ -13,6 +13,7 @@ import { Modal } from '../components/Modal'
 import { Pagination } from '../components/Pagination'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { formatDisplayDate } from '../lib/utils'
+import { Select } from '../components/Select'
 
 interface ReportTypeInfo {
   key: string
@@ -177,7 +178,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
         {/* Test type, search, status and dates in one box */}
         <section className="surface" style={{ marginBottom: 16, padding: 14 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
+          <Select
             value={activeType}
             onChange={(event) => { setActiveType(event.target.value); setPage(1) }}
             aria-label="Select lab test"
@@ -189,7 +190,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                 {type.label}
               </option>
             ))}
-          </select>
+          </Select>
           <input
             type="search"
             value={search}
@@ -198,7 +199,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
             aria-label="Search reports"
             style={{ flex: '1 1 200px', minWidth: 160, padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.82rem' }}
           />
-          <select
+          <Select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
             aria-label="Filter reports by status"
@@ -215,7 +216,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                     : undefined
               return <option key={step} value={step}>{step === 'Complete' ? 'Approved' : step}{count !== undefined ? ` (${count})` : ''}</option>
             })}
-          </select>
+          </Select>
           <DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end); setPage(1) }} />
           {(statusFilter || search) && (
             <button type="button" onClick={() => { setStartDate(''); setEndDate(''); setStatusFilter(''); setSearch(''); setPage(1) }} style={{ flex: '0 0 auto', padding: '8px 10px', borderRadius: 6, border: '1px solid #d0d7de', background: 'transparent', fontSize: '0.82rem', cursor: 'pointer' }}>

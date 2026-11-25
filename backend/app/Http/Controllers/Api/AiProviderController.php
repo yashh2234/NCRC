@@ -42,7 +42,7 @@ class AiProviderController extends Controller
             if ($key !== '' || ! empty($row['remove_key']) || $model !== $provider->model) {
                 // A new key or model starts fresh
                 $provider->fill(['paused_until' => null, 'last_error' => null]);
-                Cache::forget('ai_models_'.$row['provider']);
+                Cache::forget('ai_models_'.$row['provider'].'_all');
             }
             if (! empty($row['remove_key'])) {
                 $provider->api_key = null;

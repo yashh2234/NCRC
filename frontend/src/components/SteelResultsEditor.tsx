@@ -4,6 +4,7 @@ import {
   DEFAULT_BEND, DEFAULT_REBEND, STEEL_DIAS, STEEL_GRADES, STEEL_MAX_SAMPLES, STEEL_STANDARD,
   evaluateSteel, steelKey, utsRequirementText, type Check,
 } from '../lib/steel'
+import { Select } from './Select'
 
 /**
  * TEST RESULTS for the Steel Fe-415 / 415D / 500 / 500D / 550 / 550D formats.
@@ -64,10 +65,10 @@ export function SteelResultsEditor({ templateKey, labData, updateLabData }: {
                   <td style={cellStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       Sample
-                      <select className="input" value={dia} onChange={(e) => updateLabData(steelKey(i, 'dia'), e.target.value)} style={{ width: 100 }}>
+                      <Select className="input" value={dia} onChange={(e) => updateLabData(steelKey(i, 'dia'), e.target.value)} style={{ width: 100 }}>
                         <option value="">Dia</option>
                         {Object.keys(STEEL_DIAS).map((d) => <option key={d} value={d}>{d} mm</option>)}
-                      </select>
+                      </Select>
                     </div>
                   </td>
                   <td style={cellStyle}>{input('weight', { inputMode: 'decimal' })}<Hint check={ev.weightCheck} text={ev.weightDeviation !== null ? `${ev.weightDeviation >= 0 ? '+' : ''}${ev.weightDeviation.toFixed(2)}%` : ''} /></td>

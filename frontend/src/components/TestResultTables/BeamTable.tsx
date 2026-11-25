@@ -1,5 +1,6 @@
 import type { TableProps } from './CubeTable'
 import { formatDateForInput } from '../../lib/utils'
+import { Select } from '../Select'
 
 export function BeamTable({ details, updateDetail }: TableProps) {
   return (
@@ -41,11 +42,11 @@ export function BeamTable({ details, updateDetail }: TableProps) {
                 <td style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="date" className="input" value={formatDateForInput(row.date_of_casting)} onChange={e => updateDetail(i, 'date_of_casting', e.target.value)} style={{ width: 130 }} /></td>
                 <td style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="date" className="input" value={formatDateForInput(row.date_of_testing)} onChange={e => updateDetail(i, 'date_of_testing', e.target.value)} style={{ width: 130 }} /></td>
                 <td style={{ border: '1px solid #e2e8f0', padding: 8 }}>
-                  <select className="input" value={row.age_of_specimen || '28 Days'} onChange={e => updateDetail(i, 'age_of_specimen', e.target.value)} style={{ width: 110 }}>
+                  <Select className="input" value={row.age_of_specimen || '28 Days'} onChange={e => updateDetail(i, 'age_of_specimen', e.target.value)} style={{ width: 110 }}>
                     <option value="7 Days">7 Days</option>
                     <option value="28 Days">28 Days</option>
                     <option value="After 28 Days">After 28 Days</option>
-                  </select>
+                  </Select>
                 </td>
                 <td style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="text" className="input" value={row.fracture_value || ''} onChange={e => updateDetail(i, 'fracture_value', e.target.value)} style={{ width: 80 }} /></td>
                 <td style={{ border: '1px solid #e2e8f0', padding: 8 }}><input type="text" className="input" value={row.observe_load || ''} onChange={e => updateDetail(i, 'observe_load', e.target.value)} style={{ width: 80 }} /></td>

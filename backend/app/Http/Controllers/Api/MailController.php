@@ -73,7 +73,7 @@ class MailController extends Controller
         $this->requireUserAdmin();
         $values = $request->validate([
             'enabled' => 'required|boolean',
-            'module' => ['nullable', 'in:mail,documents_site,quotation_approve,report_approve,bill_approve'],
+            'module' => ['nullable', 'in:mail,documents_site,quotation_approve,report_approve,bill_approve,leave_approve'],
             'defaults' => 'nullable|array',
             'defaults.*' => 'string',
         ]);

@@ -4,6 +4,7 @@ import { request } from '../lib/api';
 import { softTone } from '../lib/utils'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { Select } from '../components/Select'
 
 type WorkOrderOption = {
   id: number;
@@ -260,13 +261,13 @@ export default function OutsourcePage() {
             <input type="search" placeholder="Search assignments..." value={search} aria-label="Search assignments"
               onChange={(e) => setSearch(e.target.value)} />
           </div>
-            <select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select className="form-input" aria-label="Filter by status" style={{ width: 'auto', minWidth: 170, minHeight: 36, fontSize: '0.82rem' }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All Status</option>
               <option value="assigned">Assigned</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
-            </select>
+            </Select>
         </div>
         <div className="dt-toolbar__meta">
           <button className="btn btn-primary btn-sm" type="button" onClick={openCreate}>+ New Assignment</button>
@@ -338,7 +339,7 @@ export default function OutsourcePage() {
             <div className="form-grid">
               <div className="form-group">
                 <label><span>Work Order<Req /></span></label>
-                <select className="form-input" value={form.work_order_id}
+                <Select className="form-input" value={form.work_order_id}
                   onChange={(e) => setForm({ ...form, work_order_id: parseInt(e.target.value) || 0 })}>
                   <option value={0}>-- Select Work Order --</option>
                   {workOrders.map((wo) => (
@@ -346,11 +347,11 @@ export default function OutsourcePage() {
                       {wo.work_order_no} — {wo.client_name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="form-group">
                 <label><span>Vendor<Req /></span></label>
-                <select className="form-input" value={form.vendor_id}
+                <Select className="form-input" value={form.vendor_id}
                   onChange={(e) => setForm({ ...form, vendor_id: parseInt(e.target.value) || 0 })}>
                   <option value={0}>-- Select Vendor --</option>
                   {approvedVendors.map((v) => (
@@ -359,7 +360,7 @@ export default function OutsourcePage() {
                   {pendingVendors.map((v) => (
                     <option key={v.id} value={v.id} disabled>{v.vendor_name} (pending approval)</option>
                   ))}
-                </select>
+                </Select>
                 {editing && !editing.vendor_id && !form.vendor_id ? (
                   <small style={{ color: '#b45309' }}>Currently “{editing.party_name}”, which is not a registered vendor. Select a vendor to save.</small>
                 ) : approvedVendors.length === 0 ? (

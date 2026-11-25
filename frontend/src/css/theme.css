@@ -457,7 +457,7 @@ td .row-actions .icon-button { width: 34px; min-width: 34px; height: 34px; min-h
   background: var(--color-surface);
   box-shadow: var(--shadow-xs);
 }
-.filters-bar > select,
+.filters-bar > .dd-box,
 .filters-bar > .form-input:not([type="text"]):not([type="search"]) {
   flex: 0 0 200px;
   width: 200px;

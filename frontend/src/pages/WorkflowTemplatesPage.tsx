@@ -4,6 +4,7 @@ import { request } from '../lib/api'
 import type { WorkflowTemplate, WorkflowStage, WorkflowTransition } from '../lib/types'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { Select } from '../components/Select'
 
 const emptyTemplate = { name: '', description: '', is_active: true }
 const emptyStage: { name: string; slug: string; sort_order: number; sla_hours: number | null; is_start: boolean; is_end: boolean; color: string } = { name: '', slug: '', sort_order: 0, sla_hours: null, is_start: false, is_end: false, color: '#6b7280' }
@@ -385,17 +386,17 @@ export function WorkflowTemplatesPage() {
         <Modal title={editingTransition ? 'Edit Transition' : 'New Transition'} onClose={() => setShowTransitionForm(false)} size={480} onSubmit={handleTransitionSubmit} saveLabel={editingTransition ? 'Update' : 'Create'}>
             <label>
               <span>From Stage<Req /></span>
-              <select value={transitionForm.from_stage_id} onChange={(e) => setTransitionForm({ ...transitionForm, from_stage_id: Number(e.target.value) })} required>
+              <Select value={transitionForm.from_stage_id} onChange={(e) => setTransitionForm({ ...transitionForm, from_stage_id: Number(e.target.value) })} required>
                 <option value={0}>Select stage</option>
                 {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </Select>
             </label>
             <label>
               <span>To Stage<Req /></span>
-              <select value={transitionForm.to_stage_id} onChange={(e) => setTransitionForm({ ...transitionForm, to_stage_id: Number(e.target.value) })} required>
+              <Select value={transitionForm.to_stage_id} onChange={(e) => setTransitionForm({ ...transitionForm, to_stage_id: Number(e.target.value) })} required>
                 <option value={0}>Select stage</option>
                 {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </Select>
             </label>
             <label>
               <span>Transition Name<Req /></span>

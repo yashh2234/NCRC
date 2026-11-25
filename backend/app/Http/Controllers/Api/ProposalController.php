@@ -47,24 +47,39 @@ class ProposalController extends Controller
         return response()->json(['message' => 'Proposal deleted']);
     }
 
+    /** What the AI needs to know besides the brief; an empty list when the brief is enough. */
+    public function questions(Request $request, ProposalWriter $writer): JsonResponse
+    {
+        $brief = $this->brief($request);
+        @set_time_limit(180);
+
+        try {
+            return response()->json(['data' => $writer->questions($brief)]);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
     /** Writes a proposal draft from a brief with the AI model. Nothing is saved here. */
     public function generate(Request $request, ProposalWriter $writer): JsonResponse
     {
-        $request->validate([
-            'brief' => ['required', 'string', 'min:20', 'max:60000'],
-        ], [
-            'brief.min' => 'Write a little more in the brief (client, site, problem, tests, quantities, rates).',
-        ]);
+        $brief = $this->brief($request);
+        $open = $request->validate(['open' => ['nullable', 'array', 'max:'.ProposalWriter::MAX_QUESTIONS], 'open.*' => ['string', 'max:300']])['open'] ?? [];
 
-        @set_time_limit(300);
+        @set_time_limit(320);
 
         try {
-            $draft = $writer->write((string) $request->input('brief'));
+            $draft = $writer->write($brief, $open);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
         return response()->json(['data' => $draft]);
+    }
+
+    private function brief(Request $request): string
+    {
+        return $request->validate(['brief' => ['required', 'string', 'min:10', 'max:60000']], ['brief.min' => 'Write in a few words what the proposal is for.'])['brief'];
     }
 
     private function validated(Request $request): array

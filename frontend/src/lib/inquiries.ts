@@ -7,8 +7,8 @@ export const INQUIRY_STATUSES = [
   { key: 'interested', label: 'Called – Interested', background: '#dbeafe', color: '#1d4ed8' },
   { key: 'follow_up', label: 'Follow-up', background: '#ede9fe', color: '#6d28d9' },
   { key: 'quotation_sent', label: 'Quotation Sent', background: '#cffafe', color: '#0e7490' },
-  { key: 'won', label: 'Converted (Won)', background: '#dcfce7', color: '#15803d' },
-  { key: 'lost', label: 'Not Interested (Lost)', background: '#fee2e2', color: '#b91c1c' },
+  { key: 'won', label: 'Converted', background: '#dcfce7', color: '#15803d' },
+  { key: 'lost', label: 'Not Interested', background: '#fee2e2', color: '#b91c1c' },
 ] as const
 
 export type InquiryStatus = typeof INQUIRY_STATUSES[number]['key']
@@ -22,6 +22,21 @@ export function statusInfo(status: string) {
 
 /** Work categories = the sample test categories used in Client Registration. */
 export const WORK_CATEGORIES: string[] = RATE_LIST.map((c) => c.category)
+
+/** Where enquiries come from. Keep in sync with Inquiry::SOURCES in the backend. */
+export const ENQUIRY_SOURCES = [
+  'Website', 'Phone Call', 'WhatsApp', 'Email', 'LinkedIn', 'Instagram / Facebook', 'Google Search / Maps', 'Reference',
+  'Existing Client', 'Walk-in', 'Tender / Government Portal', 'IndiaMART / Justdial', 'Exhibition / Event', 'Site Visit / Field Staff', 'Other',
+]
+
+/** Question for the detail box of sources that need one */
+export const SOURCE_DETAIL: Record<string, string> = {
+  Reference: 'Referred by',
+  'Tender / Government Portal': 'Portal name',
+  'Exhibition / Event': 'Event name',
+  'Site Visit / Field Staff': 'Staff / site',
+  Other: 'Which source',
+}
 
 export interface InquiryActivity {
   id: number
@@ -38,6 +53,9 @@ export interface Inquiry {
   inquiry_no: string
   client_name: string
   mobile_no: string
+  email: string
+  source: string
+  source_detail: string
   location: string
   budget: string
   work_categories: string[]
@@ -56,6 +74,9 @@ export interface Inquiry {
 export interface InquiryInput {
   client_name: string
   mobile_no: string
+  email: string
+  source: string
+  source_detail: string
   location: string
   budget: string
   work_categories: string[]

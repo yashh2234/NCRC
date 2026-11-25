@@ -5,16 +5,22 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserActivity;
+use App\Services\UsageClock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TrackingController extends Controller
 {
-    public function ping(Request $request): JsonResponse
+    /** The browser's clock: how long the user was active or idle since its last ping, and in which module */
+    public function ping(Request $request, UsageClock $clock): JsonResponse
     {
-        $user = $request->user();
-        $user->forceFill(['last_activity_at' => now()])->save();
+        $values = $request->validate([
+            'state' => ['nullable', 'in:active,idle'],
+            'seconds' => ['nullable', 'integer', 'between:0,3600'],
+            'module' => ['nullable', 'string', 'max:60', 'regex:/^[\w-]+$/'],
+        ]);
+        $clock->ping($request->user(), $values['state'] ?? 'active', (int) ($values['seconds'] ?? 0), $values['module'] ?? null, $request->user()->currentAccessToken()?->id);
 
         return response()->json(['ok' => true]);
     }
@@ -38,6 +44,7 @@ class TrackingController extends Controller
 
     public function summary(Request $request): JsonResponse
     {
+        abort_unless($request->user()->canManageUsers(), 403);
         $onlineThreshold = now()->subMinutes(5);
 
         $onlineUsers = User::query()
@@ -96,6 +103,7 @@ class TrackingController extends Controller
     public function userActivity(Request $request, ?int $userId = null): JsonResponse
     {
         $id = $userId ?? $request->user()->id;
+        abort_unless((int) $id === (int) $request->user()->id || $request->user()->canManageUsers(), 403);
 
         $activities = UserActivity::query()
             ->where('user_id', $id)

@@ -22,6 +22,11 @@ import { JobTypesPage } from './pages/JobTypesPage'
 import { PerformaPage } from './pages/PerformaPage'
 import { TenderPage } from './pages/TenderPage'
 import { InquiriesPage } from './pages/InquiriesPage'
+import { MyAttendancePage } from './pages/MyAttendancePage'
+import { LeavePage } from './pages/LeavePage'
+import { HolidaysPage } from './pages/HolidaysPage'
+import { TeamPage } from './pages/TeamPage'
+import { useUsageClock } from './lib/useTracking'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
 import { TenderAnalysesDock, TenderAnalysesProvider } from './components/TenderAnalyses'
@@ -31,7 +36,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { IS_MAIL_TAB, leaveMailTab, openMailTab } from './lib/mailTab'
 import type { ModuleKey } from './lib/types'
 import { canUserAccess } from './lib/roleConfig'
-import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, FileClock, FileMinus, type LucideIcon } from 'lucide-react'
+import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, FileClock, FileMinus, CalendarCheck, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   key: string
@@ -145,6 +150,16 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
       ],
     },
     {
+      label: 'Attendance & Leave',
+      icon: CalendarCheck,
+      items: [
+        { key: 'my_attendance', label: 'My Attendance' },
+        { key: 'leave', label: 'Leave' },
+        { key: 'holidays', label: 'Holiday Calendar' },
+        { key: 'team', label: 'Team Attendance' },
+      ],
+    },
+    {
       label: 'Administration',
       icon: Users,
       items: [
@@ -233,6 +248,18 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
       <div className={`view ${activeModule === 'inquiries' ? 'visible' : ''}`}>
         {activeModule === 'inquiries' && <InquiriesPage />}
       </div>
+      <div className={`view ${activeModule === 'my_attendance' ? 'visible' : ''}`}>
+        {activeModule === 'my_attendance' && <MyAttendancePage />}
+      </div>
+      <div className={`view ${activeModule === 'leave' ? 'visible' : ''}`}>
+        {activeModule === 'leave' && <LeavePage />}
+      </div>
+      <div className={`view ${activeModule === 'holidays' ? 'visible' : ''}`}>
+        {activeModule === 'holidays' && <HolidaysPage />}
+      </div>
+      <div className={`view ${activeModule === 'team' ? 'visible' : ''}`}>
+        {activeModule === 'team' && <TeamPage />}
+      </div>
       <div className={`view ${activeModule === 'registrations' ? 'visible' : ''}`}>
         {activeModule === 'registrations' && <RegistrationsPage onViewBill={canViewBilling ? openBillingForUid : undefined} onCreateBill={canViewBilling ? createBillForUid : undefined} />}
       </div>
@@ -287,6 +314,7 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
 /** Mail in its own browser tab (#mail) */
 function MailTab() {
   const { user } = useAuth()
+  useUsageClock('mail')
   useEffect(() => { document.title = 'Mail · Namotech Software' }, [])
   if (!user) return <div className="loading-screen"><p>Loading mail...</p></div>
   if (!canUserAccess(user, 'mail')) return <div className="loading-screen"><p>You do not have access to Mail.</p></div>

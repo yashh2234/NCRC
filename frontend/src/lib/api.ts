@@ -57,6 +57,16 @@ function setToken(token: string | null): void {
   }
 }
 
+/** Stays with this browser, so a login from a new device can be noticed */
+function deviceId(): string {
+  let id = window.localStorage.getItem('device_id')
+  if (!id) {
+    id = Array.from(window.crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')
+    window.localStorage.setItem('device_id', id)
+  }
+  return id
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -82,17 +92,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  forgotPassword(email: string): Promise<{ message: string; token: string }> {
+  forgotPassword(email: string): Promise<{ message: string }> {
     return request('/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     })
   },
 
-  resetPassword(email: string, token: string, password: string, password_confirmation: string): Promise<{ message: string }> {
+  resetPassword(email: string, code: string, password: string, password_confirmation: string): Promise<{ message: string }> {
     return request('/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ email, token, password, password_confirmation }),
+      body: JSON.stringify({ email, code, password, password_confirmation }),
     })
   },
 
@@ -100,7 +110,7 @@ export const api = {
   login(email: string, password: string): Promise<{ token: string; user: User }> {
     return request('/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, device_id: deviceId() }),
     })
   },
 
@@ -296,8 +306,8 @@ export const api = {
     return request('/notifications/read-all', { method: 'POST', body: JSON.stringify(type ? { type } : {}) })
   },
 
-  trackPing(): Promise<{ ok: boolean }> {
-    return request('/track/ping', { method: 'POST' })
+  trackPing(usage: { state: 'active' | 'idle'; seconds: number; module: string }): Promise<{ ok: boolean }> {
+    return request('/track/ping', { method: 'POST', body: JSON.stringify(usage) })
   },
 
   trackPage(page: string): Promise<{ ok: boolean }> {

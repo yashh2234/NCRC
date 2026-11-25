@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowUp, ClipboardPaste, Copy, Eye, IndianRupee, Pencil, Plus, Printer, Save, Search, Sparkles, Trash2 } from 'lucide-react'
 import { Req } from '../components/ui'
+import { useAuth } from '../lib/auth'
 import {
   DEFAULT_FEE_NOTE, emptyProposal, feeTotal, formatFee, longDate, parsePastedProposal, proposalApi, rupeesInWords, subHeadings,
-  type ProposalDraft, type ProposalInput, type ProposalSection, type ProposalSummary,
+  knowledgeApi, type AiQuestion, type ProposalDraft, type ProposalInput, type ProposalSection, type ProposalSummary,
 } from '../lib/proposals'
 import { openProposalPrint } from '../lib/proposalPrint'
 
@@ -155,7 +156,11 @@ function ProposalEditor({ id, initial, onClose, onSaved }: { id: number | null; 
   const [fillTab, setFillTab] = useState<'ai' | 'paste'>('ai')
   const [fillOpen, setFillOpen] = useState(initial.sections.length === 0)
   const [pasted, setPasted] = useState('')
-  const [generating, setGenerating] = useState(false)
+  const [generating, setGenerating] = useState<'' | 'asking' | 'writing'>('')
+  const [questions, setQuestions] = useState<AiQuestion[]>([])
+  const [answers, setAnswers] = useState<string[]>([])
+  const [facts, setFacts] = useState<Array<{ title: string; content: string; state: '' | 'saving' | 'saved' }>>([])
+  const { user } = useAuth()
   const [fillError, setFillError] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -195,17 +200,64 @@ function ProposalEditor({ id, initial, onClose, onSaved }: { id: number | null; 
     setNotice(`${draft.sections.length} sections filled in. Check the text below, then Save and Preview.`)
   }
 
-  const generate = async () => {
-    if (form.brief.trim().length < 20) { setFillError('Write a little more in the brief (client, site, problem, tests, quantities, rates).'); return }
-    setGenerating(true)
+  const writeDraft = async (brief: string, open: string[] = []) => {
+    setGenerating('writing')
     setFillError('')
     try {
-      const { data } = await proposalApi.generate(form.brief)
+      const { data } = await proposalApi.generate(brief, open)
       applyDraft(data, 'ai')
+      setQuestions([])
     } catch (e) {
       setFillError((e as Error).message || 'Could not write the proposal')
     } finally {
-      setGenerating(false)
+      setGenerating('')
+    }
+  }
+
+  /** First asks for what the brief leaves out; writes at once when nothing is missing */
+  const generate = async () => {
+    if (form.brief.trim().length < 10) { setFillError('Write in a few words what the proposal is for.'); return }
+    setGenerating('asking')
+    setFillError('')
+    try {
+      const list = await proposalApi.questions(form.brief)
+      if (list.length) {
+        setQuestions(list)
+        setAnswers(list.map(() => ''))
+        setGenerating('')
+        return
+      }
+    } catch (e) {
+      setFillError((e as Error).message || 'Could not read the brief')
+      setGenerating('')
+      return
+    }
+    await writeDraft(form.brief)
+  }
+
+  /** The answers become part of the brief, so they are saved with the proposal and not asked again */
+  const answerAndWrite = async () => {
+    const answered = questions.map((q, i) => ({ ...q, answer: answers[i].trim() })).filter((q) => q.answer)
+    const open = questions.filter((_, i) => !answers[i].trim()).map((q) => q.question)
+    const brief = answered.length ? `${form.brief.trim()}\n\nFurther details:\n${answered.map((q) => `- ${q.question} ${q.answer}`).join('\n')}` : form.brief
+    set('brief', brief)
+    setFacts(answered.filter((q) => q.company).map((q) => ({ title: q.question.slice(0, 190), content: q.answer, state: '' })))
+    // If writing fails, the next try asks only for what is still open
+    const rest = questions.filter((_, i) => !answers[i].trim())
+    setQuestions(rest)
+    setAnswers(rest.map(() => ''))
+    await writeDraft(brief, open)
+  }
+
+  const saveFact = async (i: number) => {
+    const patch = (changes: Partial<(typeof facts)[number]>) => setFacts((list) => list.map((f, j) => (j === i ? { ...f, ...changes } : f)))
+    patch({ state: 'saving' })
+    try {
+      await knowledgeApi.add(facts[i].title, facts[i].content)
+      patch({ state: 'saved' })
+    } catch (e) {
+      patch({ state: '' })
+      window.alert((e as Error).message)
     }
   }
 
@@ -274,11 +326,27 @@ function ProposalEditor({ id, initial, onClose, onSaved }: { id: number | null; 
           <div style={{ marginTop: 12 }}>
             {fillTab === 'ai' ? (
               <>
-                <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: '#475569' }}>Write the facts: client and site, the problem, the tests / work with quantities, rates, exclusions, anything special. The AI writes every section in Namotech’s standard style; you can edit everything afterwards.</p>
+                <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: '#475569' }}>Write the facts: client and site, the problem, the tests / work with quantities, rates, exclusions, anything special. A short brief is fine: the AI knows the company from namotech.in and earlier proposals, and first asks for what is missing. You can edit everything afterwards.</p>
                 <textarea className="input" rows={9} value={form.brief} placeholder={BRIEF_PLACEHOLDER} onChange={(e) => set('brief', e.target.value)} style={{ width: '100%', fontFamily: 'inherit', resize: 'vertical' }} />
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8 }}>
-                  <button type="button" className="btn btn-primary" disabled={generating} onClick={() => void generate()}><Sparkles size={16} /> {generating ? 'Writing the proposal… (up to a minute)' : 'Generate proposal text'}</button>
+                  <button type="button" className="btn btn-primary" disabled={Boolean(generating)} onClick={() => void generate()}><Sparkles size={16} /> {generating === 'asking' ? 'Reading the brief…' : generating ? 'Writing the proposal… (can take 2–4 minutes)' : questions.length ? 'Read the brief again' : 'Generate proposal text'}</button>
+                  {!generating && !questions.length && form.brief.trim().length >= 10 ? <button type="button" className="ghost-button" onClick={() => void writeDraft(form.brief)}>Write without questions</button> : null}
                 </div>
+                {questions.length ? (
+                  <div style={{ marginTop: 14, padding: 14, border: '1px solid #c7d2fe', borderRadius: 10, background: '#fff' }}>
+                    <strong>A few details would make this proposal better</strong>
+                    <p style={{ margin: '4px 0 8px', fontSize: '0.82rem', color: '#475569' }}>Click an answer or type your own. Leave out what you do not know; it is written as [to be confirmed].</p>
+                    {questions.map((q, i) => (
+                      <div key={q.question} className="ai-q">
+                        <label style={{ fontWeight: 600 }} htmlFor={`ai-q-${i}`}>{i + 1}. {q.question}</label>
+                        {q.why ? <span style={{ display: 'block', fontSize: '0.78rem', color: '#64748b' }}>{q.why}</span> : null}
+                        {q.suggestions.length ? <div className="ai-q__chips">{q.suggestions.map((x) => <button key={x} type="button" className={answers[i] === x ? 'on' : ''} disabled={Boolean(generating)} onClick={() => setAnswers((a) => a.map((v, j) => (j === i ? (v === x ? '' : x) : v)))}>{x}</button>)}</div> : null}
+                        <input id={`ai-q-${i}`} className="input" maxLength={1000} disabled={Boolean(generating)} value={answers[i] ?? ''} placeholder="Skip, or type the answer" onChange={(e) => setAnswers((a) => a.map((v, j) => (j === i ? e.target.value : v)))} />
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn-primary" disabled={Boolean(generating)} onClick={() => void answerAndWrite()}><Sparkles size={16} /> {generating ? 'Writing the proposal… (can take 2–4 minutes)' : answers.some((a) => a.trim()) ? 'Write the proposal' : 'Skip all and write'}</button>
+                  </div>
+                ) : null}
               </>
             ) : (
               <>
@@ -293,6 +361,20 @@ function ProposalEditor({ id, initial, onClose, onSaved }: { id: number | null; 
           </div>
         ) : null}
       </div>
+
+      {facts.length ? (
+        <div style={{ ...card, borderColor: '#bbf7d0', background: '#f7fef9' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}><strong style={{ flex: 1 }}>Remember for later proposals?</strong><button type="button" className="ghost-button" onClick={() => setFacts([])}>No, close</button></div>
+          <p style={{ margin: '4px 0 8px', fontSize: '0.82rem', color: '#475569' }}>These answers look like facts about the company, not only this client.{user?.is_admin ? '' : ' The admin approves them before the AI uses them.'}</p>
+          {facts.map((f, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', padding: '6px 0' }}>
+              <input className="input" style={{ flex: '1 1 220px' }} aria-label="About" disabled={f.state !== ''} maxLength={190} value={f.title} onChange={(e) => setFacts((list) => list.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
+              <input className="input" style={{ flex: '2 1 300px' }} aria-label="Fact" disabled={f.state !== ''} maxLength={3000} value={f.content} onChange={(e) => setFacts((list) => list.map((x, j) => (j === i ? { ...x, content: e.target.value } : x)))} />
+              <button type="button" className="btn btn-outline btn-sm" disabled={f.state !== '' || !f.title.trim() || !f.content.trim()} onClick={() => void saveFact(i)}>{f.state === 'saved' ? (user?.is_admin ? 'Saved' : 'Sent to admin') : f.state === 'saving' ? 'Saving…' : 'Save to company knowledge'}</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Cover page */}
       <div style={card}>

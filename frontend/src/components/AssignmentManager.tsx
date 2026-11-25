@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Check, X, Play, RotateCcw, Trash2, User, Truck, Clock } from 'lucide-react'
 import { request } from '../lib/api'
 import type { JobAssignment } from '../lib/types'
+import { Select } from './Select'
 
 interface AssignmentManagerProps {
   jobId: number
@@ -102,27 +103,27 @@ export function AssignmentManager({ jobId }: AssignmentManagerProps) {
       {showForm ? (
         <div style={{ padding: 12, border: '1px solid #edf0f4', borderRadius: 8, marginBottom: 12, background: '#fbfcfd' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <select value={form.department_id} onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}>
+            <Select value={form.department_id} onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}>
               <option value="">Department</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            </Select>
             <input type="number" value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} placeholder="User ID" />
-            <select value={form.assignment_type} onChange={e => setForm(f => ({ ...f, assignment_type: e.target.value }))}>
+            <Select value={form.assignment_type} onChange={e => setForm(f => ({ ...f, assignment_type: e.target.value }))}>
               <option value="internal">Internal</option>
               <option value="outsource">Outsource</option>
-            </select>
+            </Select>
             {form.assignment_type === 'outsource' ? (
-              <select value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
+              <Select value={form.vendor_id} onChange={e => setForm(f => ({ ...f, vendor_id: e.target.value }))}>
                 <option value="">Vendor</option>
                 {vendors.map(v => <option key={v.id} value={v.id}>{v.vendor_name}</option>)}
-              </select>
+              </Select>
             ) : <span />}
-            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+            <Select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
               <option value="low">Low</option>
               <option value="normal">Normal</option>
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
-            </select>
+            </Select>
             <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
           </div>
           <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notes..." rows={2} style={{ marginTop: 8 }} />

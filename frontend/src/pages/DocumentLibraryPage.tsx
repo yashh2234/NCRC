@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type FormEvent, type ReactNode } from 'rea
 import { Folder, File, Upload, Search, Trash2, Download, Eye, X, ChevronRight, ChevronDown } from 'lucide-react'
 import { API_ORIGIN, request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
+import { Select } from '../components/Select'
 
 interface CategoryNode {
   id: number
@@ -305,10 +306,10 @@ export function DocumentLibraryPage() {
             <label>Title *<input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder={uploadFile?.name ?? 'Document title'} /></label>
             <label>Description<textarea value={uploadDesc} onChange={(e) => setUploadDesc(e.target.value)} rows={2} placeholder="Optional description" /></label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <label>Folder<select value={uploadCategory ?? ''} onChange={(e) => setUploadCategory(e.target.value ? Number(e.target.value) : null)}>
+              <label>Folder<Select value={uploadCategory ?? ''} onChange={(e) => setUploadCategory(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">No folder</option>
                 {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select></label>
+              </Select></label>
               <label>Tags<input value={uploadTags} onChange={(e) => setUploadTags(e.target.value)} placeholder="comma,separated" /></label>
             </div>
 

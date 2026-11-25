@@ -29,6 +29,7 @@ class StoreUserRequest extends FormRequest
             'lastname' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:255'],
             'gender' => ['required', 'integer', Rule::in([1, 2])],
+            'date_of_birth' => ['nullable', 'date_format:Y-m-d', 'before:today'],
         ];
     }
 }

@@ -10,6 +10,7 @@ import { RegistrationWizard } from '../components/RegistrationWizard'
 import { Timeline } from '../components/Timeline'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
 import type { Registration, RegistrationFormData } from '../lib/types'
+import { Select } from '../components/Select'
 
 function normalizeDate(value: string | null | undefined) {
   if (!value) return ''
@@ -274,7 +275,7 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
       {/* Registration filters and actions */}
       <div className="registration-filter-stack">
         <div className="registration-filter-row registration-filter-row-top">
-        <select
+        <Select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
           aria-label="Filter registrations by stage"
@@ -285,7 +286,7 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
               {t.label}{typeof t.count === 'number' ? ` (${t.count})` : ''}
             </option>
           ))}
-        </select>
+        </Select>
         <DateRangeFilter start={activeFilter ? startDate : ''} end={activeFilter ? endDate : ''} onApply={applyDateFilter} />
         <button className="btn btn-outline" onClick={handleExport} type="button">
           <Download size={15} /> Export

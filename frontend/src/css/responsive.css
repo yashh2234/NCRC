@@ -136,7 +136,7 @@
   /* Comfortable touch targets */
   .btn, .ghost-button, .primary-button { min-height: 40px; }
   .btn-sm { min-height: 36px; }
-  input, select, textarea, .form-input, .form-select { min-height: 42px; font-size: 16px; }
+  input, select, textarea, .form-input, .form-select, .dd-box { min-height: 42px; font-size: 16px; }
   input[type="checkbox"], input[type="radio"] { min-height: 18px; width: 18px; height: 18px; }
 
   .tab-btn { padding: 10px; font-size: 0.8rem; }

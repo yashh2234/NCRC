@@ -5,6 +5,8 @@ import { request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { Select } from '../components/Select'
+import { ComboInput } from '../components/ComboInput'
 
 interface ExpenseItem {
   id: number; date: string; date_iso?: string; opening_balance: number; total_income: number; total_expenses: number
@@ -147,13 +149,12 @@ export function ExpensesPage() {
               <div className="form-grid-2">
                 <label className="form-field"><span>Date<Req /></span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
                 <label className="form-field"><span>Category<Req /></span>
-                  <input list="expense-categories" value={category} onChange={(e) => setCategory(e.target.value)} required placeholder="Select or type" />
-                  <datalist id="expense-categories">{EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</datalist>
+                  <ComboInput other={false} options={EXPENSE_CATEGORIES} value={category} onChange={setCategory} required placeholder="Select or type" />
                 </label>
                 <label className="form-field"><span>Income</span><input type="number" value={totalIncome} onChange={(e) => setTotalIncome(e.target.value)} /></label>
                 <label className="form-field"><span>Expense amount</span><input type="number" value={totalExpenses} onChange={(e) => setTotalExpenses(e.target.value)} /></label>
                 <label className="form-field"><span>Payment mode</span>
-                  <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>{PAYMENT_MODES.map((m) => <option key={m} value={m}>{m || 'Select Mode'}</option>)}</select>
+                  <Select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>{PAYMENT_MODES.map((m) => <option key={m} value={m}>{m || 'Select Mode'}</option>)}</Select>
                 </label>
                 <label className="form-field"><span>Person name</span><input value={personName} onChange={(e) => setPersonName(e.target.value)} /></label>
               </div>

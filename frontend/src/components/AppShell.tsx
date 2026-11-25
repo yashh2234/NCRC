@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature, FileMinus, FileClock, FolderOpen } from 'lucide-react'
+import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature, FileMinus, FileClock, FolderOpen, CalendarCheck, CalendarDays, CalendarOff, UsersRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
-import { useTracking } from '../lib/useTracking'
+import { useUsageClock } from '../lib/useTracking'
+import { PunchButton } from './PunchButton'
 import { getRoleConfig } from '../lib/roleConfig'
 import { mailApi } from '../lib/mail'
 
@@ -34,6 +35,10 @@ const iconMap: Record<string, LucideIcon> = {
   documents: FileText,
   audit: History,
   user_tracking: Activity,
+  my_attendance: CalendarCheck,
+  leave: CalendarOff,
+  holidays: CalendarDays,
+  team: UsersRound,
   settings: Settings,
   inquiries: PhoneCall,
   quotations: ReceiptText,
@@ -99,14 +104,14 @@ function isCompactViewport() {
 
 const STANDALONE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
-  inquiries: 'Inquiries',
+  inquiries: 'Enquiries',
   proposals: 'Proposals',
   tenders: 'Tenders',
 }
 
 export function AppShell({ groups, showInquiries, showProposals, showTenders, showDocuments, onOpenMail, onOpenAnalysis, activeModule, onModuleChange, children }: AppShellProps) {
   const { user, logout, error } = useAuth()
-  useTracking()
+  useUsageClock(activeModule)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unread, setUnread] = useState(0)
   const [showNotifs, setShowNotifs] = useState(false)
@@ -265,7 +270,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
               type="button"
             >
               <PhoneCall size={17} />
-              Inquiries
+              Enquiries
             </button>
           ) : null}
           {showProposals ? (
@@ -434,6 +439,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
             </div>
 
             */}
+            {user?.is_super_admin ? null : <PunchButton />}
             {showDocuments ? (
               <a className="topbar-mail" href={DOCUMENTS_URL} target="_blank" rel="noopener noreferrer" title="Open Namotech Documents in a new tab" aria-label="Documents">
                 <FolderOpen size={17} /> <span>Documents</span>
@@ -464,7 +470,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
                       <div
                         key={n.id}
                         className={`notif-item${n.read ? '' : ' unread'}`}
-                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } const target = ({ quotation_approval: 'quotations', bill_approval: 'billing', credit_note_approval: 'credit_notes', performa_approval: 'performa', approval_needed: 'reports' } as const)[n.type as 'quotation_approval']; if (target) { setShowNotifs(false); navigate(target) } }}
+                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } const target = ({ quotation_approval: 'quotations', bill_approval: 'billing', credit_note_approval: 'credit_notes', performa_approval: 'performa', approval_needed: 'reports', leave: 'leave', attendance: user?.is_admin ? 'team' : 'my_attendance', company_knowledge: 'admin', inquiry_handover: 'inquiries' } as const)[n.type as 'quotation_approval']; if (target) { setShowNotifs(false); navigate(target) } }}
                       >
                         <div className="notif-item__row">
                           <strong>{n.title}</strong>

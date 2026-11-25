@@ -39,26 +39,6 @@
   .topbar-mail span { display: none; }
 }
 
-/* Administration: who can open Mail */
-.mail-access-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
-.mail-access-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border, #eaecf0);
-  border-radius: 10px;
-  background: var(--color-surface, #fff);
-  cursor: pointer;
-  min-width: 0;
-}
-.mail-access-item.on { border-color: #bfd3fe; background: var(--color-primary-tint, #eff4ff); }
-.mail-access-item.inactive { opacity: 0.6; }
-.mail-access-item input { flex-shrink: 0; width: 16px; height: 16px; }
-.mail-access-item__text { display: grid; min-width: 0; line-height: 1.3; }
-.mail-access-item__text strong { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mail-access-item__text small { font-size: 0.72rem; color: var(--gray-500, #64748b); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 /* =====================================================================
    Mail — desktop mail-client layout (folder pane · message list · reading pane)
    ===================================================================== */
@@ -222,7 +202,7 @@
 .tb-folder.active { background: var(--tb-select); color: #fff; }
 .tb-folder.active svg { color: #fff; }
 .tb-folder.active .tb-folder__count { background: rgba(255, 255, 255, 0.25); color: #fff; }
-.tb-folder-select { display: none; }
+button.tb-folder-select { display: none; }
 
 /* Content: list + reading pane (classic = stacked, vertical = side by side) */
 .tb-content { display: grid; min-height: 0; min-width: 0; }
@@ -488,7 +468,7 @@ button.tb-col--icon { cursor: pointer; }
   .tb-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .tb-folders { padding: 6px 10px; border-right: 0; border-bottom: 1px solid var(--tb-line); }
   .tb-account, .tb-folder { display: none; }
-  .tb-folder-select { display: block; width: 100%; height: 32px; }
+  button.tb-folder-select { display: inline-flex; width: 100%; height: 32px; }
   .tb-msgactions span { display: none; }
 }
 @media (max-width: 760px) {

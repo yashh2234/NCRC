@@ -7,6 +7,8 @@ import { EXCEL_TEMPLATE_OPTIONS, ExcelLabReportEditor } from '../components/Exce
 import { LabHeaderFields } from '../components/LabHeaderFields'
 import { CUBE_MATERIALS, LAB_FORMATS, cubeMaterialPatch, cubeSetsFromGrid, effectiveValues, fullUlr } from '../lib/labFormats'
 import { shownCounts } from '../lib/labRows'
+import { Select } from '../components/Select'
+import { ComboInput } from '../components/ComboInput'
 
 /**
  * Create Report.
@@ -241,13 +243,12 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
               <Search size={14} /> {looking ? 'Loading…' : 'Get Details'}
             </button>
             {suggestions.length > 0 && (
-              <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 130, marginTop: 4, maxHeight: 260, overflowY: 'auto', background: 'var(--color-surface, #fff)', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 8px 20px rgba(15,23,42,0.18)' }}>
+              <div className="dd-sugg" style={{ right: 130 }}>
                 {suggestions.map((s) => (
                   <button
                     key={s.uid_no}
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); pick(s.uid_no) }}
-                    style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderBottom: '1px solid #f1f5f9', background: 'transparent', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
                   >
                     <strong>{s.uid_no}</strong>
                     <span style={{ display: 'block', marginTop: 2, fontSize: '0.75rem', color: '#64748b' }}>{s.agency_name || s.name_of_work || 'Registration'}</span>
@@ -272,19 +273,17 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
             {row('Report format', formatSelect, true)}
             {row('ULR No.', (
               <>
-                <input className="input" list="create-report-ulrs" autoComplete="off" value={form.ulr_no} onChange={(e) => update('ulr_no', e.target.value)}
-                  onBlur={() => update('ulr_no', fullUlr(form.ulr_no))}
+                <ComboInput other={false} options={linkedUlrs} value={form.ulr_no} onChange={(v) => update('ulr_no', v)} onBlur={() => update('ulr_no', fullUlr(form.ulr_no))}
                   placeholder={linkedUlrs.length ? 'Pick a linked ULR or type' : 'Enter ULR No.'} />
-                <datalist id="create-report-ulrs">{linkedUlrs.map((u) => <option key={u} value={u} />)}</datalist>
               </>
             ), isCube)}
             {row('Name & Address of Customer', <input className="input" value={form.customer_details} onChange={(e) => update('customer_details', e.target.value)} />, true)}
             {row('Name Of Agency', <input className="input" value={form.agency_name} onChange={(e) => update('agency_name', e.target.value)} />, true)}
             {row('Reference No.', <input className="input" value={form.reference_no} onChange={(e) => update('reference_no', e.target.value)} />)}
             {row('Material Identification Details.', isCube ? (
-              <select className="input" value={form.material_details} onChange={(e) => { update('material_details', e.target.value); setLabData((prev) => ({ ...prev, ...cubeMaterialPatch(e.target.value, prev) })) }}>
+              <Select className="input" value={form.material_details} onChange={(e) => { update('material_details', e.target.value); setLabData((prev) => ({ ...prev, ...cubeMaterialPatch(e.target.value, prev) })) }}>
                 {CUBE_MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+              </Select>
             ) : (
               <input className="input" value={form.material_details} onChange={(e) => update('material_details', e.target.value)} />
             ), true)}
@@ -293,9 +292,9 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
             {row('Date Of Sample Receipt', <DateInput value={form.sample_date} onChange={(v) => update('sample_date', v)} ariaLabel="Date of Sample Receipt" style={{ width: '100%', flex: 'none' }} />, true)}
             {row('Date Of Sample Tested', <DateInput value={form.sample_tested_date} onChange={(v) => update('sample_tested_date', v)} ariaLabel="Date of Sample Tested" style={{ width: '100%', flex: 'none' }} />, true)}
             {row('Sampled By /Condition Of Sample', (
-              <select className="input" value={form.sampled_by} onChange={(e) => update('sampled_by', e.target.value)}>
+              <Select className="input" value={form.sampled_by} onChange={(e) => update('sampled_by', e.target.value)}>
                 {SAMPLED_BY.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              </Select>
             ))}
             <LabHeaderFields formatKey={templateKey} labData={labData} updateLabData={updateLabData}
               environment={row('Environment Condition.', <input className="input" value={form.environment_condition} onChange={(e) => update('environment_condition', e.target.value)} />)} />

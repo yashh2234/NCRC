@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { softTone } from '../lib/utils'
+import { Select } from '../components/Select'
 
 type Dispatch = {
   id: number;
@@ -109,13 +110,13 @@ export default function DispatchPage() {
       <div className="filters-bar">
         <input type="text" className="form-input" placeholder="Search dispatches..." value={search}
           onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
-        <select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Select className="form-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">All Status</option>
           <option value="pending">Pending</option>
           <option value="dispatched">Dispatched</option>
           <option value="delivered">Delivered</option>
           <option value="returned">Returned</option>
-        </select>
+        </Select>
       </div>
 
       <div className="table-container">
@@ -181,13 +182,13 @@ export default function DispatchPage() {
               </div>
               <div className="form-group">
                 <label>Method *</label>
-                <select className="form-input" value={form.dispatch_method}
+                <Select className="form-input" value={form.dispatch_method}
                   onChange={(e) => setForm({ ...form, dispatch_method: e.target.value })}>
                   <option value="courier">Courier</option>
                   <option value="hand_delivery">Hand Delivery</option>
                   <option value="email">Email</option>
                   <option value="post">Post</option>
-                </select>
+                </Select>
               </div>
               <div className="form-group">
                 <label>Courier Name</label>

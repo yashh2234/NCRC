@@ -7,22 +7,26 @@ use App\Models\LoginSession;
 use App\Models\LegacyGroup;
 use App\Models\User;
 use App\Models\UserActivity;
+use App\Services\LoginSecurity;
+use App\Services\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Illuminate\Support\Carbon;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, LoginSecurity $security): JsonResponse
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'device_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9-]+$/'],
         ]);
+
+        if ($wait = $security->wait($credentials['email'], $request->ip())) {
+            return response()->json(['message' => 'Too many wrong passwords. Try again in '.max(1, (int) ceil($wait / 60)).' minute(s).'], 429);
+        }
 
         $user = User::query()->where('email', $credentials['email'])->first();
 
@@ -31,6 +35,8 @@ class AuthController extends Controller
         }
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            $security->failed($credentials['email'], $user, $request->ip(), $request->userAgent());
+
             return response()->json([
                 'message' => 'Incorrect username/password combination',
             ], 422);
@@ -44,10 +50,13 @@ class AuthController extends Controller
             'personal_access_token_id' => $accessToken->id,
             'ip_address' => $request->ip(),
             'user_agent' => substr((string) $request->userAgent(), 0, 255),
+            'device_id' => $credentials['device_id'] ?? null,
             'logged_in_at' => $now,
             'last_seen_at' => $now,
             'active' => true,
         ]);
+
+        $security->loggedIn($user, $loginSession);
 
         $user->forceFill([
             'last_login_at' => $now,
@@ -143,61 +152,25 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password changed successfully']);
     }
 
-    public function forgotPassword(Request $request): JsonResponse
+    /** Mails a code; the answer is the same for addresses that belong to nobody. */
+    public function forgotPassword(Request $request, PasswordReset $reset): JsonResponse
     {
-        $validated = $request->validate([
-            'email' => ['required', 'email', 'exists:users,email'],
-        ]);
+        $values = $request->validate(['email' => ['required', 'email', 'max:255']]);
+        $reset->send($values['email'], $request->ip());
 
-        $token = Str::random(60);
-
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $validated['email']],
-            ['token' => $token, 'created_at' => now()]
-        );
-
-        return response()->json([
-            'message' => 'Password reset token generated successfully.',
-            'token' => $token,
-        ]);
+        return response()->json(['message' => 'If this email belongs to a user, a 6-digit code was sent to it. It is valid for '.PasswordReset::MINUTES.' minutes. Look in Spam too.']);
     }
 
-    public function resetPassword(Request $request): JsonResponse
+    public function resetPassword(Request $request, PasswordReset $reset): JsonResponse
     {
-        $validated = $request->validate([
-            'email' => ['required', 'email', 'exists:users,email'],
-            'token' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
+        $values = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'code' => ['required', 'digits:6'],
+            'password' => ['required', 'string', 'min:8', 'max:200', 'confirmed'],
+        ], ['code.digits' => 'The code has 6 digits.', 'password.confirmed' => 'The two passwords are not the same.']);
+        $reset->reset($values['email'], $values['code'], $values['password'], $request->ip());
 
-        $record = DB::table('password_reset_tokens')
-            ->where('email', $validated['email'])
-            ->where('token', $validated['token'])
-            ->first();
-
-        if (! $record) {
-            return response()->json(['message' => 'Invalid token for this email.'], 422);
-        }
-
-        if (Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {
-            DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
-
-            return response()->json(['message' => 'Token has expired. Please request a new one.'], 422);
-        }
-
-        $user = User::query()->where('email', $validated['email'])->first();
-
-        if (! $user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
-
-        $user->forceFill([
-            'password' => Hash::make($validated['password']),
-        ])->save();
-
-        DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
-
-        return response()->json(['message' => 'Password has been reset successfully.']);
+        return response()->json(['message' => 'Your new password is set. Sign in with it; you were signed out everywhere else.']);
     }
 
     public function revokeSession(Request $request, LoginSession $session): JsonResponse
@@ -264,6 +237,7 @@ class AuthController extends Controller
             'phone' => $user->phone,
             'gender' => $user->gender,
             'is_admin' => $isAdmin,
+            'is_super_admin' => $user->isSuperAdmin(),
             'name' => $user->name,
             'is_active' => (bool) ($user->is_active ?? true),
             'tracker_role' => $trackerRole,

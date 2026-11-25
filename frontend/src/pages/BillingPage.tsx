@@ -13,6 +13,7 @@ import {
   type Bill, type BillCompany, type BillInput, type BillItem,
 } from '../lib/bills'
 import { billPreview, openBillPrint, openPrintTab, type CreditNote } from '../lib/billPrint'
+import { Select } from '../components/Select'
 
 interface BillingPageProps {
   /** Show only this UID's bills (from the Registrations "Bill" column) */
@@ -192,11 +193,11 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
           <Search size={16} style={{ position: 'absolute', left: 10, top: 11, color: '#82909a' }} />
           <input className="input" style={{ paddingLeft: 32 }} placeholder="Search invoice no., UID, client, work order, report no., credit note..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        {!isCn ? <select className="input" style={{ width: 170 }} value={company} onChange={(e) => setCompany(e.target.value as '' | BillCompany)}>
+        {!isCn ? <Select className="input" style={{ width: 170 }} value={company} onChange={(e) => setCompany(e.target.value as '' | BillCompany)}>
           <option value="">All companies</option>
           <option value="ncrc">NCRC Pvt Ltd</option>
           <option value="ncs">NCS LLP</option>
-        </select> : null}
+        </Select> : null}
         <DateRangeFilter start={start} end={end} onApply={(s, e) => { setStart(s); setEnd(e) }} onClear={() => { setStart(''); setEnd('') }} />
       </div>
 
@@ -533,13 +534,12 @@ export function UidSearch({ value, busy, onChange, onPick }: { value: string; bu
         {busy ? <span style={{ position: 'absolute', right: 10, top: 10, fontSize: '0.8rem', color: '#64748b' }}>…</span> : null}
       </div>
       {rows.length ? (
-        <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, marginTop: 4, maxHeight: 260, overflowY: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, boxShadow: '0 8px 24px rgba(15,23,42,0.12)' }}>
+        <div className="dd-sugg">
           {rows.map((r) => (
             <button
               key={r.uid_no}
               type="button"
               onMouseDown={(e) => { e.preventDefault(); setOpen(false); onPick(r.uid_no) }}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', border: 0, borderBottom: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer' }}
             >
               <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1d4ed8' }}>{r.uid_no}</div>
               <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 400 }}>{r.agency_name}{r.name_of_work ? ` · ${r.name_of_work}` : ''}</div>
@@ -804,11 +804,11 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
             {!cn ? <label style={lbl}>Advance Amount<input className="input" type="number" min={0} step="any" value={form.advance} onChange={(e) => set('advance', numVal(e.target.value))} /></label> : null}
             {isNcs ? (
               <label style={lbl}>GST
-                <select className="input" value={form.gst_type} onChange={(e) => set('gst_type', e.target.value as BillInput['gst_type'])}>
+                <Select className="input" value={form.gst_type} onChange={(e) => set('gst_type', e.target.value as BillInput['gst_type'])}>
                   <option value="intra">CGST 9% + SGST 9% (Rajasthan)</option>
                   <option value="inter">IGST 18% (outside Rajasthan)</option>
                   <option value="none">No GST</option>
-                </select>
+                </Select>
               </label>
             ) : null}
           </div>

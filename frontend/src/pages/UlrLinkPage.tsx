@@ -3,6 +3,7 @@ import { Link2, CheckCircle2, AlertCircle, X, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { Req } from '../components/ui'
+import { Select } from '../components/Select'
 
 interface DropdownItem {
   id?: number
@@ -223,14 +224,13 @@ export function UlrLinkPage() {
                         style={{ minWidth: 0, flex: 1, padding: '9px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.86rem' }}
                       />
                       {uidSuggestions.length > 0 && (
-                        <div style={{ position: 'absolute', zIndex: 1000, top: 'calc(100% + 4px)', left: 0, right: 0, minWidth: 260, maxHeight: 280, overflowY: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, boxShadow: '0 8px 20px rgba(15,23,42,0.18)' }}>
+                        <div className="dd-sugg" style={{ minWidth: 260 }}>
                           {uidSuggestions.map(suggestion => (
                             <button
                               key={suggestion.uid_no}
                               type="button"
                               // mousedown + preventDefault: fill on the first click, before the input blurs
                               onMouseDown={e => { e.preventDefault(); pickUid(suggestion.uid_no) }}
-                              style={{ display: 'block', width: '100%', padding: '9px 10px', border: 0, borderBottom: '1px solid #f1f5f9', background: '#fff', textAlign: 'left', cursor: 'pointer', color: '#1e293b' }}
                             >
                               <strong>{suggestion.uid_no}</strong>
                               <span style={{ display: 'block', marginTop: 2, fontSize: '0.75rem', color: '#64748b' }}>{suggestion.agency_name || suggestion.name_of_work || 'Registration'}</span>
@@ -243,7 +243,7 @@ export function UlrLinkPage() {
 
                   <label className="form-field">
                     <span>ULR No<Req /></span>
-                    <select
+                    <Select
                       value={quickUlr}
                       onChange={e => setQuickUlr(e.target.value)}
                       style={{ width: '100%', padding: '9px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.86rem', background: '#fff' }}
@@ -255,7 +255,7 @@ export function UlrLinkPage() {
                         </option>
                       ))}
                       <option value="new">+ New Create</option>
-                    </select>
+                    </Select>
 
                     {quickUlr === 'new' && (
                       <input

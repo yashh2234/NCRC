@@ -484,7 +484,7 @@
 }
 
 .user-form { align-content: start; }
-.user-form select, .user-form input { width: 100%; }
+.user-form .dd-box, .user-form input { width: 100%; }
 .user-actions { justify-content: flex-start; }
 
 /* ===== Reports ===== */
@@ -670,12 +670,12 @@
 }
 
 .registration-filter-row input,
-.registration-filter-row select {
+.registration-filter-row .dd-box {
   min-height: 38px;
   width: 100%;
 }
 
-.registration-filter-row select {
+.registration-filter-row .dd-box {
   flex: 0 1 180px;
 }
 

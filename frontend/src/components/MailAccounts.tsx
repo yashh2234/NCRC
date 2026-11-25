@@ -3,6 +3,7 @@ import { Check, Settings, UserPlus } from 'lucide-react'
 import { mailApi, mailServers, type MailAccount, type MailSettings } from '../lib/mail'
 import { Modal } from './Modal'
 import { Req } from './ui'
+import { Select } from './Select'
 
 const initial = (a: MailAccount) => (a.from_name || a.email).charAt(0).toUpperCase()
 
@@ -129,11 +130,11 @@ export function MailAccountDialog({ id, canShare, first, defaultBcc, onClose, on
   const gmail = /@(gmail|googlemail)\.com$/i.test(form.email.trim()) || /gmail\.com$/i.test(form.imap_host)
   const microsoft = /@(outlook|hotmail|live|msn)\.[a-z.]+$/i.test(form.email.trim())
   const encryption = (key: 'imap_encryption' | 'smtp_encryption') => (
-    <select className="input" value={form[key]} onChange={(e) => setServer(key, e.target.value as MailSettings[typeof key])}>
+    <Select className="input" value={form[key]} onChange={(e) => setServer(key, e.target.value as MailSettings[typeof key])}>
       <option value="ssl">SSL/TLS</option>
       <option value="tls">STARTTLS</option>
       <option value="none">None</option>
-    </select>
+    </Select>
   )
 
   return (

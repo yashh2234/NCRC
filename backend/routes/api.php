@@ -57,6 +57,11 @@ use App\Http\Controllers\Api\SampleController;
 use App\Http\Controllers\Api\TestResultController;
 use App\Http\Controllers\Api\ClientDocumentController;
 use App\Http\Controllers\Api\ClientManagementController;
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\CompanyKnowledgeController;
+use App\Http\Controllers\Api\HolidayController;
+use App\Http\Controllers\Api\LeaveController;
+use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -161,6 +166,42 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::get('invoices/{id}/print', [\App\Http\Controllers\Api\InvoiceController::class, 'printInvoice']);
+
+    // Attendance, leave and holidays: everyone's own; what is for admins / approvers is checked in the controllers
+    Route::get('attendance/status', [AttendanceController::class, 'status']);
+    Route::post('attendance/punch', [AttendanceController::class, 'punch']);
+    Route::get('attendance/month', [AttendanceController::class, 'month']);
+    Route::post('attendance/corrections', [AttendanceController::class, 'requestCorrection']);
+    Route::delete('attendance/corrections/{correction}', [AttendanceController::class, 'withdrawCorrection']);
+    Route::get('leave', [LeaveController::class, 'mine']);
+    Route::post('leave', [LeaveController::class, 'store']);
+    Route::get('leave/preview', [LeaveController::class, 'preview']);
+    Route::get('leave/team', [LeaveController::class, 'team']);
+    Route::get('leave/team-balances', [LeaveController::class, 'teamBalances']);
+    Route::put('leave/quota', [LeaveController::class, 'setQuota']);
+    Route::post('leave/types', [LeaveController::class, 'storeType']);
+    Route::put('leave/types/{type}', [LeaveController::class, 'updateType']);
+    Route::post('leave/{leave}/cancel', [LeaveController::class, 'cancel'])->whereNumber('leave');
+    Route::post('leave/{leave}/decide', [LeaveController::class, 'decide'])->whereNumber('leave');
+    Route::get('holidays', [HolidayController::class, 'year']);
+    Route::post('holidays', [HolidayController::class, 'store']);
+    Route::put('holidays/{holiday}', [HolidayController::class, 'update']);
+    Route::delete('holidays/{holiday}', [HolidayController::class, 'destroy']);
+    Route::post('holidays/{holiday}/pick', [HolidayController::class, 'pick']);
+    Route::prefix('team')->group(function (): void {
+        Route::get('today', [TeamController::class, 'today']);
+        Route::get('register', [TeamController::class, 'register']);
+        Route::get('usage', [TeamController::class, 'usage']);
+        Route::get('work', [TeamController::class, 'work']);
+        Route::get('logins', [TeamController::class, 'logins']);
+        Route::post('sessions/{session}/sign-out', [TeamController::class, 'signOut']);
+        Route::post('users/{user}/sign-out', [TeamController::class, 'signOutUser']);
+        Route::get('users/{user}', [TeamController::class, 'user']);
+        Route::get('corrections', [TeamController::class, 'corrections']);
+        Route::post('corrections/{correction}', [TeamController::class, 'decideCorrection']);
+        Route::get('settings', [TeamController::class, 'settings']);
+        Route::put('settings', [TeamController::class, 'saveSettings']);
+    });
 
     Route::post('/track/ping', [TrackingController::class, 'ping']);
     Route::post('/track/page', [TrackingController::class, 'page']);
@@ -399,7 +440,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('{inquiry}/activities', [InquiryController::class, 'logActivity']);
     });
 
-    Route::post('proposals/generate', [ProposalController::class, 'generate']);
+    Route::post('proposals/questions', [ProposalController::class, 'questions'])->middleware('throttle:20,1');
+    Route::post('proposals/generate', [ProposalController::class, 'generate'])->middleware('throttle:20,1');
+    Route::get('company-knowledge', [CompanyKnowledgeController::class, 'index']);
+    Route::post('company-knowledge', [CompanyKnowledgeController::class, 'store']);
+    Route::post('company-knowledge/refresh', [CompanyKnowledgeController::class, 'refresh'])->middleware('throttle:5,1');
+    Route::put('company-knowledge/{knowledge}', [CompanyKnowledgeController::class, 'update']);
+    Route::post('company-knowledge/{knowledge}/decide', [CompanyKnowledgeController::class, 'decide']);
+    Route::delete('company-knowledge/{knowledge}', [CompanyKnowledgeController::class, 'destroy']);
     Route::apiResource('proposals', ProposalController::class);
 
     Route::get('bills/next-number', [BillController::class, 'nextNumber']);

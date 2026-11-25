@@ -10,6 +10,7 @@ import { Modal } from '../components/Modal'
 import { LabHeaderFields } from '../components/LabHeaderFields'
 import { CUBE_MATERIALS, cubeMaterialPatch, fullUlr } from '../lib/labFormats'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
+import { Select } from '../components/Select'
 
 interface DetailRow {
   set_count?: number
@@ -208,13 +209,13 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Material Identification Details.</span>
           {templateKey === 'cc_cube' ? (
-            <select className="input" value={coreFields.material_details} onChange={(e) => {
+            <Select className="input" value={coreFields.material_details} onChange={(e) => {
               updateCore('material_details', e.target.value)
               setLabData((prev) => ({ ...prev, ...cubeMaterialPatch(e.target.value, prev, details as Array<Record<string, unknown>>) }))
             }}>
               {/* Older reports keep the text they have */}
               {[...new Set([report?.material_details || '', coreFields.material_details, ...CUBE_MATERIALS])].filter((m) => m || !coreFields.material_details).map((m) => <option key={m} value={m}>{m || 'Select'}</option>)}
-            </select>
+            </Select>
           ) : (
             <input type="text" className="input" value={coreFields.material_details} onChange={(e) => updateCore('material_details', e.target.value)} />
           )}

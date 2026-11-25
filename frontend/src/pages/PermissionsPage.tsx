@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { ShieldCheck, Check, X, Users, Loader, Sparkles } from 'lucide-react'
 import { request } from '../lib/api'
 import type { RoleSummary } from '../lib/types'
+import { Select } from '../components/Select'
 
 interface PermissionGroup {
   module: string
@@ -325,10 +326,10 @@ export function PermissionsPage() {
             </div>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.84rem', fontWeight: 600, color: '#374151' }}>
               Select User
-              <select value={selectedUserId ?? ''} onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : null)} style={{ width: '100%', minHeight: 40 }}>
+              <Select value={selectedUserId ?? ''} onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : null)} style={{ width: '100%', minHeight: 40 }}>
                 <option value="">Choose user...</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              </Select>
             </label>
             <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '12px 0 20px' }}>
               This will assign the currently selected permission set directly to the chosen user as custom overrides.

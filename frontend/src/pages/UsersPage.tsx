@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { UserPlus, UserCog, Trash2, Activity, Clock } from 'lucide-react'
+import { UserPlus, UserCog, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { DataTable } from '../components/DataTable'
 import type { UserFormData, UserRecord } from '../lib/types'
@@ -7,11 +7,13 @@ import { api } from '../lib/api'
 import { FEATURES, JOB_ROLES, defaultFeaturesForRole } from '../lib/roleConfig'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { DateInput } from '../components/DateInput'
+import { Select } from '../components/Select'
 
 const emptyUserForm: UserFormData = {
   username: '', email: '', password: '', password_confirmation: '',
   firstname: '', lastname: '', phone: '', gender: '1', is_active: '1',
-  is_admin: false, tracker_role: 'staff', allowed_modules: defaultFeaturesForRole('staff'),
+  date_of_birth: '', is_admin: false, tracker_role: 'staff', allowed_modules: defaultFeaturesForRole('staff'),
 }
 
 const FEATURE_GROUPS = [...new Set(FEATURES.map((f) => f.group))]
@@ -25,7 +27,7 @@ function jobRoleOf(record: UserRecord): UserFormData['tracker_role'] {
 function accessSummary(record: UserRecord): string {
   if (record.is_admin) return 'Full access'
   if (!Array.isArray(record.allowed_modules)) return 'Role defaults'
-  const n = record.allowed_modules.length
+  const n = record.allowed_modules.filter((key) => FEATURES.some((f) => f.key === key)).length
   return `${n} feature${n === 1 ? '' : 's'}`
 }
 
@@ -35,9 +37,6 @@ export function UsersPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [localError, setLocalError] = useState('')
   const [showForm, setShowForm] = useState(false)
-  const [activityUser, setActivityUser] = useState<UserRecord | null>(null)
-  const [activities, setActivities] = useState<Array<{ id: number; action: string; module: string | null; created_at: string | null; time_ago: string | null }>>([])
-  const [activityLoading, setActivityLoading] = useState(false)
 
   const displayError = error || localError
   const beginCreate = () => {
@@ -51,10 +50,11 @@ export function UsersPage() {
       username: record.username, email: record.email, password: '', password_confirmation: '',
       firstname: record.firstname, lastname: record.lastname ?? '', phone: record.phone ?? '',
       gender: String(record.gender ?? 1), is_active: record.is_active !== false ? '1' : '0',
+      date_of_birth: record.date_of_birth ?? '',
       is_admin: Boolean(record.is_admin),
       tracker_role: jobRole,
       // Not configured yet → start from what the user can open today (their role's defaults)
-      allowed_modules: Array.isArray(record.allowed_modules) ? record.allowed_modules : defaultFeaturesForRole(jobRole),
+      allowed_modules: Array.isArray(record.allowed_modules) ? record.allowed_modules.filter((key) => FEATURES.some((f) => f.key === key)) : defaultFeaturesForRole(jobRole),
     }); clearError(); setLocalError(''); setStatus('Editing user'); setShowForm(true)
   }
 
@@ -83,19 +83,6 @@ export function UsersPage() {
       if (editingId === record.id) { setForm({ ...emptyUserForm }); setEditingId(null); setShowForm(false) }
       await refresh(); setStatus('User removed')
     } catch (e) { setLocalError(e instanceof Error ? e.message : 'Unable to delete user'); setStatus('Needs attention') }
-  }
-
-  const showActivity = async (record: UserRecord) => {
-    setActivityUser(record)
-    setActivityLoading(true)
-    try {
-      const response = await api.userActivity(record.id)
-      setActivities((response.activities ?? []).filter((entry) => entry.action !== 'page_visit'))
-    } catch (e) {
-      setLocalError(e instanceof Error ? e.message : 'Unable to load user activity')
-    } finally {
-      setActivityLoading(false)
-    }
   }
 
   return (
@@ -133,31 +120,12 @@ export function UsersPage() {
               : <span style={{ fontSize: '0.8rem', color: '#475569' }}>{accessSummary(record)}</span>,
             is_active: record.is_active !== false ? <span className="badge badge-success">Active</span> : <span className="badge badge-danger">Inactive</span>,
             actions: <div className="row-actions-inline">
-              <button className="icon-btn" onClick={() => void showActivity(record)} type="button" title="View activity"><Activity size={15} /></button>
               <button className="icon-btn" onClick={() => beginEdit(record)} type="button" title="Edit"><UserCog size={15} /></button>
               <button className="icon-btn" onClick={() => void handleDelete(record)} type="button" title="Delete"><Trash2 size={15} /></button>
             </div>,
           }))}
         />
       </div>
-
-      {activityUser && (
-        <Modal title={activityUser.name || activityUser.username} subtitle="User activity" onClose={() => setActivityUser(null)} size={560}>
-            {activityLoading ? <p className="empty-state">Loading activity...</p> : activities.length === 0 ? <p className="empty-state">No activity recorded.</p> : (
-              <div className="session-stack" style={{ maxHeight: 420, overflowY: 'auto' }}>
-                {activities.map((entry) => (
-                  <div className="session-row" key={entry.id}>
-                    <div>
-                      <strong>{entry.action.replace(/_/g, ' ')}</strong>
-                      <span>{entry.module || 'System'}</span>
-                    </div>
-                    <small><Clock size={12} /> {entry.time_ago || entry.created_at || ''}</small>
-                  </div>
-                ))}
-              </div>
-            )}
-        </Modal>
-      )}
 
       {showForm && (
         <Modal title={editingId ? 'Edit user' : 'New user'} subtitle={editingId ? 'Update' : 'Create'} onClose={() => setShowForm(false)} onSubmit={handleSubmit} saveLabel={editingId ? 'Update User' : 'Create User'}>
@@ -168,14 +136,15 @@ export function UsersPage() {
                 <label className="form-field"><span>Last name</span><input value={form.lastname} onChange={(e) => setForm((c) => ({ ...c, lastname: e.target.value }))} /></label>
                 <label className="form-field"><span>Phone</span><input value={form.phone} onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))} /></label>
                 <label className="form-field"><span>Gender<Req /></span>
-                  <select value={form.gender} onChange={(e) => setForm((c) => ({ ...c, gender: e.target.value }))}><option value="1">Male</option><option value="2">Female</option></select>
+                  <Select value={form.gender} onChange={(e) => setForm((c) => ({ ...c, gender: e.target.value }))}><option value="1">Male</option><option value="2">Female</option></Select>
                 </label>
+                <label className="form-field"><span>Date of birth</span><DateInput value={form.date_of_birth} onChange={(date_of_birth) => setForm((c) => ({ ...c, date_of_birth }))} /></label>
               </div>
               <label className="form-field" style={{ marginTop: 12 }}>
                 <span>Job role</span>
-                <select value={form.tracker_role} onChange={(e) => setForm((c) => ({ ...c, tracker_role: e.target.value as UserFormData['tracker_role'] }))}>
+                <Select value={form.tracker_role} onChange={(e) => setForm((c) => ({ ...c, tracker_role: e.target.value as UserFormData['tracker_role'] }))}>
                   {JOB_ROLES.map((role) => <option key={role.key} value={role.key}>{role.label}</option>)}
-                </select>
+                </Select>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4, display: 'block' }}>
                   Sets this person's dashboard and job queue. It does not change which features they can open.
                 </span>
@@ -211,7 +180,7 @@ export function UsersPage() {
                         </div>
                       </div>
                     ))}
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '10px 0 0' }}>Dashboard and Help are always available.</p>
+                    <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '10px 0 0' }}>Dashboard, Help, Attendance, Leave and Holidays are always available. Mail, Documents and approvals are ticked in “Access and approvals” above the user list.</p>
                   </>
                 )}
               </div>

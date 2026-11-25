@@ -12,6 +12,7 @@ import { COMPANIES, billsApi, calcBill, dotDate, emptyItem, itemAmount, money2, 
 import { emptyPerforma, performaApi, performaToInput, type Performa } from '../lib/performa'
 import { useTracking } from '../lib/useTracking'
 import { UidSearch } from './BillingPage'
+import { Select } from '../components/Select'
 
 type Editing = { id: number | null; form: BillInput }
 
@@ -386,10 +387,10 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
           <div style={grid}>
             <label style={lbl}>Transportation &amp; Other Exp.<input className="input" type="number" min={0} step="any" value={form.transport} onChange={(e) => set('transport', numVal(e.target.value))} /></label>
             <label style={lbl}>GST 18%
-              <select className="input" value={form.gst_type} onChange={(e) => set('gst_type', e.target.value as BillInput['gst_type'])}>
+              <Select className="input" value={form.gst_type} onChange={(e) => set('gst_type', e.target.value as BillInput['gst_type'])}>
                 <option value="intra">CGST 9% + SGST 9% (Rajasthan)</option>
                 <option value="inter">IGST 18% (outside Rajasthan)</option>
-              </select>
+              </Select>
             </label>
           </div>
           <div style={{ marginTop: 14, fontSize: '0.92rem', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>

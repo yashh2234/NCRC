@@ -4,6 +4,7 @@ import { request } from '../lib/api'
 import { DataTable } from '../components/DataTable'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { Select } from '../components/Select'
 
 interface ClientRecord {
   id: number
@@ -311,14 +312,14 @@ export function ClientsPage() {
               <label>Mobile<input inputMode="numeric" value={formData.mobile} onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '') })} /></label>
               <label>Phone<input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} /></label>
               <label>Email<input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></label>
-              <label>Category<select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
+              <label>Category<Select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
                 <option value="">Select...</option>
                 <option value="Government">Government</option>
                 <option value="Private">Private</option>
                 <option value="PSU">PSU</option>
                 <option value="Contractor">Contractor</option>
                 <option value="Individual">Individual</option>
-              </select></label>
+              </Select></label>
               <label>City<input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} /></label>
               <label>State<input value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} /></label>
               <label>GST No<input value={formData.gst_no} onChange={(e) => setFormData({ ...formData, gst_no: e.target.value })} /></label>
@@ -348,12 +349,12 @@ export function ClientsPage() {
       {/* Communication form modal */}
       {showCommForm ? (
         <Modal title={'Log Activity'} onClose={() => setShowCommForm(false)} size={480} onSubmit={handleCommSubmit} saveLabel={'Log Activity'}>
-            <label>Type<select value={commForm.type} onChange={(e) => setCommForm({ ...commForm, type: e.target.value })}>
+            <label>Type<Select value={commForm.type} onChange={(e) => setCommForm({ ...commForm, type: e.target.value })}>
               <option value="note">Note</option>
               <option value="call">Phone Call</option>
               <option value="email">Email</option>
               <option value="meeting">Meeting</option>
-            </select></label>
+            </Select></label>
             <label>Subject<input value={commForm.subject} onChange={(e) => setCommForm({ ...commForm, subject: e.target.value })} /></label>
             <label>Details<textarea value={commForm.body} onChange={(e) => setCommForm({ ...commForm, body: e.target.value })} rows={4} /></label>
         </Modal>

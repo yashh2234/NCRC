@@ -10,6 +10,8 @@ import {
 } from '../lib/quotations'
 import { canUserAccess } from '../lib/roleConfig'
 import { Req } from './ui'
+import { Select } from './Select'
+import { ComboInput } from './ComboInput'
 
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, marginBottom: 14 }
 const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }
@@ -204,7 +206,6 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
       {approval !== null && approval !== 'approved' && canApprove ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#eff6ff', color: '#1e40af', fontSize: '0.85rem' }}>This quotation is not approved yet. Saving it approves it.</p> : null}
       {gstChanged ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fffbeb', color: '#92400e', fontSize: '0.85rem' }}>This quotation was saved without 18% GST. The total below includes it, and saving will change the quotation. Go back without saving to keep it as it was.</p> : null}
 
-      <datalist id="quotation-sections">{SECTION_TITLES.map((s) => <option key={s} value={s} />)}</datalist>
 
       <div style={card}>
         <p className="section-label" style={{ marginTop: 0 }}>Quotation</p>
@@ -286,11 +287,11 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
                     <button type="button" onClick={() => setItem(i, { extra: [...it.extra, { title: '', details: '' }] })} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: 0, border: 0, background: 'none', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}><Plus size={13} /> Add heading in this item</button>
                   </td>
                   <td>
-                    <select className="input" value={otherUnit(it) ? OTHER : it.unit} aria-label={`Item ${i + 1} unit`}
+                    <Select className="input" value={otherUnit(it) ? OTHER : it.unit} aria-label={`Item ${i + 1} unit`}
                       onChange={(e) => setItem(i, e.target.value === OTHER ? { unit: '', unitOther: true } : { unit: e.target.value, unitOther: false })}>
                       {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                       <option value={OTHER}>Other…</option>
-                    </select>
+                    </Select>
                     {otherUnit(it) ? <input className="input" value={it.unit} maxLength={50} autoFocus={it.unitOther && !it.unit} aria-label={`Item ${i + 1} other unit`} placeholder="Type unit" onChange={(e) => setItem(i, { unit: e.target.value, unitOther: true })} style={{ marginTop: 6 }} /> : null}
                   </td>
                   <td><input className="input" type="number" min={0} step="any" value={it.quantity} aria-label={`Item ${i + 1} quantity`} onChange={(e) => setItem(i, { quantity: numVal(e.target.value) })} /></td>
@@ -321,10 +322,10 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
             <label style={lbl}>Transportation incl. Toll<input className="input" type="number" min={0} step="any" value={form.transport} onChange={(e) => patch({ transport: numVal(e.target.value) })} /></label>
             {isNcs ? (
               <label style={lbl}>GST on transportation
-                <select className="input" value={form.transport_gst ? 'yes' : 'no'} onChange={(e) => patch({ transport_gst: e.target.value === 'yes' })}>
+                <Select className="input" value={form.transport_gst ? 'yes' : 'no'} onChange={(e) => patch({ transport_gst: e.target.value === 'yes' })}>
                   <option value="no">No (added after GST)</option>
                   <option value="yes">Yes (added before GST)</option>
-                </select>
+                </Select>
               </label>
             ) : null}
           </div>
@@ -363,19 +364,19 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
           <p className="section-label" style={{ margin: 0 }}>Scope, deliverables, exclusions, terms (optional)</p>
           {withSections.length ? (
-            <select className="input" style={{ width: 'auto', maxWidth: 340 }} aria-label="Copy sections from an old quotation" value="" onChange={(e) => copySections(e.target.value)}>
+            <Select className="input" style={{ width: 'auto', maxWidth: 340 }} aria-label="Copy sections from an old quotation" value="" onChange={(e) => copySections(e.target.value)}>
               <option value="">Copy sections from an old quotation…</option>
               {withSections.map((q) => <option key={q.id} value={q.id}>{q.quotation_no} · {q.client_name}</option>)}
-            </select>
+            </Select>
           ) : null}
         </div>
         {form.sections.map((s, i) => (
           <div key={i} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, marginBottom: 10 }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-              <input className="input" list="quotation-sections" style={{ flex: '1 1 220px', width: 'auto', fontWeight: 600 }} placeholder="Heading, e.g. Deliverables" aria-label={`Section ${i + 1} heading`} value={s.title} onChange={(e) => setSection(i, { title: e.target.value })} />
-              <select className="input" style={{ width: 170 }} aria-label={`Section ${i + 1} style`} value={s.style} onChange={(e) => setSection(i, { style: e.target.value as SectionStyle })}>
+              <ComboInput other={false} options={SECTION_TITLES} style={{ flex: '1 1 220px', width: 'auto' }} inputStyle={{ fontWeight: 600 }} placeholder="Heading, e.g. Deliverables" ariaLabel={`Section ${i + 1} heading`} value={s.title} onChange={(title) => setSection(i, { title })} />
+              <Select className="input" style={{ width: 170 }} aria-label={`Section ${i + 1} style`} value={s.style} onChange={(e) => setSection(i, { style: e.target.value as SectionStyle })}>
                 {SECTION_STYLES.map((st) => <option key={st.key} value={st.key}>{st.label}</option>)}
-              </select>
+              </Select>
               <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: '0.82rem', color: '#334155' }} title="Two half-width sections one after the other print side by side">
                 <input type="checkbox" checked={s.half} onChange={(e) => setSection(i, { half: e.target.checked })} /> Half width
               </label>

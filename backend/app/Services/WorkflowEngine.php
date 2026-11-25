@@ -310,13 +310,13 @@ class WorkflowEngine
             [
                 'name' => 'Standard Lab Workflow',
                 'slug' => 'standard-lab-workflow',
-                'description' => 'Full lifecycle workflow from inquiry to completion.',
+                'description' => 'Full lifecycle workflow from enquiry to completion.',
                 'is_active' => true,
             ]
         );
 
         $stageData = [
-            ['name' => 'Inquiry',          'slug' => 'inquiry',          'sort_order' => 1,  'is_start' => true,  'color' => '#6b7280', 'sla_hours' => 24],
+            ['name' => 'Enquiry',          'slug' => 'inquiry',          'sort_order' => 1,  'is_start' => true,  'color' => '#6b7280', 'sla_hours' => 24],
             ['name' => 'Quotation',        'slug' => 'quotation',        'sort_order' => 2,  'color' => '#8b5cf6', 'sla_hours' => 24],
             ['name' => 'Work Order',       'slug' => 'work-order',       'sort_order' => 3,  'color' => '#3b82f6', 'sla_hours' => 48],
             ['name' => 'Registration',     'slug' => 'registration',     'sort_order' => 4,  'color' => '#06b6d4', 'sla_hours' => 2],

@@ -271,7 +271,7 @@ function billHtml(b: BillInput, cn?: CreditNote, performa = false): string {
     : 'We declare that this invoice shows the actual price of the services described and that all particulars are true and correct.'
   const bottom = `
     <div class="bottom">
-      <div class="notes">${performa ? '<div class="k-label">E. &amp; O.E.</div>' : `<div class="k-label">Terms &amp; Declaration</div><div class="decl">${decl}</div>`}</div>
+      <div class="notes">${performa ? '' : `<div class="k-label">Terms &amp; Declaration</div><div class="decl">${decl}</div>`}</div>
       <div class="sign">
         <div class="for">For ${esc(co.name)}</div>
         <div class="seal">${co.seal ? `<img src="${origin}/letterhead/${co.seal}" alt="" onerror="this.remove()">` : ''}</div>

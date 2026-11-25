@@ -15,6 +15,7 @@ class LoginSession extends Model
         'personal_access_token_id',
         'ip_address',
         'user_agent',
+        'device_id',
         'logged_in_at',
         'logged_out_at',
         'last_seen_at',

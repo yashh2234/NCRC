@@ -12,7 +12,7 @@ class Inquiry extends Model
 
     protected $fillable = [
         'inquiry_no', 'client_name', 'agency_name', 'contact_person',
-        'mobile_no', 'email', 'inquiry_type', 'scope_of_work',
+        'mobile_no', 'email', 'source', 'source_detail', 'inquiry_type', 'scope_of_work',
         'source_location', 'budget', 'work_categories', 'priority', 'status', 'notes',
         'received_date', 'contacted_at', 'next_follow_up', 'assigned_to', 'created_by',
     ];
@@ -20,6 +20,12 @@ class Inquiry extends Model
     /** Call pipeline, in order. Keep in sync with INQUIRY_STATUSES in frontend/src/lib/inquiries.ts. */
     public const STATUSES = [
         'new', 'no_answer', 'interested', 'follow_up', 'quotation_sent', 'won', 'lost',
+    ];
+
+    /** Where enquiries come from. Keep in sync with ENQUIRY_SOURCES in frontend/src/lib/inquiries.ts. */
+    public const SOURCES = [
+        'Website', 'Phone Call', 'WhatsApp', 'Email', 'LinkedIn', 'Instagram / Facebook', 'Google Search / Maps', 'Reference',
+        'Existing Client', 'Walk-in', 'Tender / Government Portal', 'IndiaMART / Justdial', 'Exhibition / Event', 'Site Visit / Field Staff', 'Other',
     ];
 
     protected $casts = [
@@ -57,13 +63,10 @@ class Inquiry extends Model
     public static function generateInquiryNo(): string
     {
         $year = date('Y');
-        $prefix = "INQ/{$year}/";
-        $last = static::where('inquiry_no', 'like', $prefix.'%')->orderByDesc('id')->value('inquiry_no');
-        if ($last) {
-            $seq = (int) substr($last, -5) + 1;
-        } else {
-            $seq = 1;
-        }
-        return $prefix . str_pad((string) $seq, 5, '0', STR_PAD_LEFT);
+        // Numbers made before the word changed start with INQ; the count goes on
+        $last = static::where('inquiry_no', 'like', "ENQ/{$year}/%")->orWhere('inquiry_no', 'like', "INQ/{$year}/%")
+            ->pluck('inquiry_no')->map(fn (string $no): int => (int) substr($no, -5))->max() ?? 0;
+
+        return "ENQ/{$year}/".str_pad((string) ($last + 1), 5, '0', STR_PAD_LEFT);
     }
 }

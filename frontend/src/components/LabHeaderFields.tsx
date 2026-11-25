@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { LAB_FORMATS, effectiveValues, type HeaderExtra, type Values } from '../lib/labFormats'
+import { Select } from './Select'
 
 /**
  * The header rows a lab format adds to the report (Temperature, Humidity, age, machine, brick type…),
@@ -30,9 +31,9 @@ export function LabHeaderFields({ formatKey, labData, details, updateLabData, en
     </div>
   )
   const select = (key: string, label: string, options: Array<[string, string]>, fallback: string) => row(key, label, (
-    <select className="input" aria-label={label} value={options.some(([o]) => o === (values[key] ?? '')) ? values[key] ?? '' : fallback} onChange={(e) => updateLabData(key, e.target.value)}>
+    <Select className="input" aria-label={label} value={options.some(([o]) => o === (values[key] ?? '')) ? values[key] ?? '' : fallback} onChange={(e) => updateLabData(key, e.target.value)}>
       {options.map(([o, text]) => <option key={o} value={o}>{text}</option>)}
-    </select>
+    </Select>
   ))
 
   type Field = { key: string; label: string; multiline?: boolean; parts?: HeaderExtra['parts'] }
