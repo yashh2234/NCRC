@@ -9,6 +9,7 @@ import { quotationToInput, quotationsApi } from './quotations'
 
 export async function quotationDraft(id: number, withSign: boolean): Promise<MailDraft> {
   const { data } = await quotationsApi.get(id)
+  if (data.approval !== 'approved') throw new Error(`Quotation ${data.quotation_no} is not approved yet, so it cannot be mailed.`)
   const q = quotationToInput(data)
   const name = quotationFileName(q)
   const file = new File([await quotationPdf(q, withSign && Boolean(COMPANIES[q.company].seal), name)], `${name}.pdf`, { type: 'application/pdf' })

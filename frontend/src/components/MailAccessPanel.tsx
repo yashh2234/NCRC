@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FolderOpen, Mail, Search } from 'lucide-react'
+import { ClipboardCheck, FolderOpen, Mail, Search } from 'lucide-react'
 import { mailApi, type MailAccessUser } from '../lib/mail'
 import { canUserAccess, defaultFeaturesForRole } from '../lib/roleConfig'
 import type { TrackerRole } from '../lib/types'
@@ -13,9 +13,13 @@ const PANELS = {
     icon: FolderOpen, label: 'Documents', title: 'Who sees the Documents button',
     text: 'Users switched on see the Documents button left of Mail; it opens documents.namotech.in in a new tab, where they sign in with their document login. Admins always see it.',
   },
+  quotation_approve: {
+    icon: ClipboardCheck, label: 'Quotations', title: 'Who can approve quotations',
+    text: 'Quotations made or changed by other users wait until one of these approves them; until then they cannot be printed or mailed. What an approver saves is approved at once. Admins can always approve. The user also needs access to Quotations.',
+  },
 }
 
-/** Administration: choose which users can open the office mailbox / see the Documents button. */
+/** Administration: choose which users can open the office mailbox / see the Documents button / approve quotations. */
 export function MailAccessPanel({ module = 'mail' }: { module?: keyof typeof PANELS }) {
   const panel = PANELS[module]
   const Icon = panel.icon

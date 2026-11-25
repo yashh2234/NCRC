@@ -10,6 +10,8 @@ use App\Models\WorkOrder;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTemplate;
 use App\Models\WorkflowTransition;
+use App\Models\User;
+use App\Services\QuotationApproval;
 use App\Services\WorkflowEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +23,7 @@ class QuotationController extends Controller
 {
     public function index(): JsonResponse
     {
-        $quotations = Quotation::with('items')->orderByDesc('date')->orderByDesc('id')->get()
+        $quotations = Quotation::with(['items', 'approver', 'approvalRequester'])->orderByDesc('date')->orderByDesc('id')->get()
             ->map(fn (Quotation $q) => $q->toApi());
 
         return response()->json(['data' => $quotations]);
@@ -34,17 +36,18 @@ class QuotationController extends Controller
         return response()->json(['data' => Quotation::nextNumber($request->query('company') ?: 'ncs', $request->query('date'))]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, QuotationApproval $approval): JsonResponse
     {
         [$data, $items] = $this->validated($request);
 
-        $quotation = DB::transaction(function () use ($data, $items, $request) {
+        $quotation = DB::transaction(function () use ($data, $items, $request, $approval) {
             $quotation = Quotation::create($data + [
                 'status' => 'draft',
                 'created_by' => $request->user()?->id,
                 'updated_by' => $request->user()?->id,
             ]);
             $quotation->items()->createMany($items);
+            $approval->saved($quotation->fresh('items'), null, $this->user($request));
 
             return $quotation;
         });
@@ -57,17 +60,57 @@ class QuotationController extends Controller
         return response()->json(['data' => $quotation->toApi()]);
     }
 
-    public function update(Request $request, Quotation $quotation): JsonResponse
+    public function update(Request $request, Quotation $quotation, QuotationApproval $approval): JsonResponse
     {
         [$data, $items] = $this->validated($request, $quotation);
 
-        DB::transaction(function () use ($quotation, $data, $items, $request): void {
+        DB::transaction(function () use ($quotation, $data, $items, $request, $approval): void {
+            $quotation = Quotation::query()->lockForUpdate()->findOrFail($quotation->id);
+            $before = $quotation->content();
             $quotation->update($data + ['updated_by' => $request->user()?->id]);
             $quotation->items()->delete();
             $quotation->items()->createMany($items);
+            $approval->saved($quotation->fresh('items'), $before, $this->user($request));
         });
 
         return response()->json(['data' => $quotation->fresh('items')->toApi()]);
+    }
+
+    public function approve(Request $request, Quotation $quotation, QuotationApproval $approval): JsonResponse
+    {
+        return $this->decide($request, $quotation, fn (Quotation $q, User $user) => $approval->approve($q, $user));
+    }
+
+    /** Back to the user, who corrects it and saves it again */
+    public function sendBack(Request $request, Quotation $quotation, QuotationApproval $approval): JsonResponse
+    {
+        $remark = trim($request->validate(['remark' => ['required', 'string', 'max:1000']], ['remark.required' => 'Write what should be corrected.'])['remark']);
+
+        return $this->decide($request, $quotation, fn (Quotation $q, User $user) => $approval->sendBack($q, $user, $remark));
+    }
+
+    private function decide(Request $request, Quotation $quotation, \Closure $action): JsonResponse
+    {
+        $user = $this->user($request);
+        abort_unless($user->canApproveQuotations(), 403, 'You cannot approve quotations.');
+        $hash = $request->validate(['content_hash' => ['required', 'string']])['content_hash'];
+
+        DB::transaction(function () use ($quotation, $hash, $action, $user): void {
+            $row = Quotation::query()->lockForUpdate()->findOrFail($quotation->id);
+            abort_if($row->approval === 'approved', 422, 'This quotation is already approved.');
+            abort_unless(hash_equals($row->contentHash(), $hash), 409, 'This quotation was changed meanwhile. Close this and open it again.');
+            $action($row, $user);
+        });
+
+        return response()->json(['data' => $quotation->fresh(['items', 'approver', 'approvalRequester'])->toApi()]);
+    }
+
+    private function user(Request $request): User
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
+        return $user;
     }
 
     public function setStatus(Request $request, Quotation $quotation): JsonResponse

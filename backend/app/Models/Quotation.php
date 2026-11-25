@@ -41,6 +41,11 @@ class Quotation extends Model
         'net_amount' => 'float',
         'sent_at' => 'datetime',
         'accepted_at' => 'datetime',
+        'approval_by' => 'integer',
+        'approval_at' => 'datetime',
+        'approval_requested_by' => 'integer',
+        'approval_requested_at' => 'datetime',
+        'approved_content' => 'array',
     ];
 
     public function inquiry(): BelongsTo
@@ -51,6 +56,28 @@ class Quotation extends Model
     public function items(): HasMany
     {
         return $this->hasMany(QuotationItem::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approval_by');
+    }
+
+    public function approvalRequester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approval_requested_by');
+    }
+
+    /** Everything that prints; a change in it needs approval (the office remark does not print) */
+    public function content(): array
+    {
+        $data = $this->toApiBase();
+        $keys = ['company', 'quotation_no', 'date', 'valid_until', 'client_name', 'client_address', 'client_gstin', 'contact_person', 'mobile_no', 'email',
+            'location', 'ref_no', 'ref_date', 'prepared_by', 'subject', 'intro', 'discount', 'gst_mode', 'transport', 'transport_gst', 'payment_terms',
+            'signatory_name', 'signatory_designation', 'net_amount', 'sections', 'items'];
+
+        // The same form as it has when read back from the database
+        return json_decode((string) json_encode(array_intersect_key($data, array_flip($keys))), true);
     }
 
     public function workOrders(): HasMany
@@ -75,6 +102,30 @@ class Quotation extends Model
     }
 
     public function toApi(): array
+    {
+        $data = $this->toApiBase();
+        $waiting = $this->approval !== 'approved';
+        $data['approval'] = $this->approval ?? 'approved';
+        $data['approval_by_name'] = $this->approver?->name;
+        $data['approval_requested_by_name'] = $this->approvalRequester?->name;
+        $data['approval_at'] = $this->approval_at?->toIso8601String();
+        $data['approval_requested_at'] = $this->approval_requested_at?->toIso8601String();
+        $data['content'] = $this->content();
+        // So that an approval counts only for what the approver has seen
+        $data['content_hash'] = $this->contentHash();
+        if (! $waiting) {
+            $data['approved_content'] = null;
+        }
+
+        return $data;
+    }
+
+    public function contentHash(): string
+    {
+        return md5((string) json_encode($this->content()));
+    }
+
+    private function toApiBase(): array
     {
         $data = $this->attributesToArray();
         $data['company'] ??= 'ncs';

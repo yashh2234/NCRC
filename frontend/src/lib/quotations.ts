@@ -76,6 +76,19 @@ export interface QuotationInput {
 type NullableText = 'valid_until' | 'client_address' | 'client_gstin' | 'contact_person' | 'mobile_no' | 'email' | 'location'
   | 'ref_no' | 'ref_date' | 'prepared_by' | 'subject' | 'intro' | 'payment_terms' | 'signatory_name' | 'signatory_designation' | 'notes'
 
+/** approved · pending = waiting for approval · returned = sent back with a remark */
+export type QuotationApproval = 'approved' | 'pending' | 'returned'
+
+/** What prints, as the server compares it */
+export interface QuotationContent extends Record<'company' | 'quotation_no' | 'date' | 'gst_mode' | 'client_name', string>, Record<Exclude<NullableText, 'notes'>, string | null> {
+  discount: number
+  transport: number
+  transport_gst: boolean
+  net_amount: number
+  sections: QuotationSection[]
+  items: (Omit<QuotationItem, 'quantity' | 'rate'> & { quantity: number; rate: number; amount: number })[]
+}
+
 export interface Quotation extends Omit<QuotationInput, NullableText | 'items' | 'discount' | 'transport'>, Record<NullableText, string | null> {
   id: number
   items: (Omit<QuotationItem, 'quantity' | 'rate'> & { quantity: number; rate: number; amount: number })[]
@@ -85,6 +98,16 @@ export interface Quotation extends Omit<QuotationInput, NullableText | 'items' |
   tax_amount: number
   net_amount: number
   status: QuotationStatus
+  approval: QuotationApproval
+  approval_remark: string | null
+  approval_by_name: string | null
+  approval_at: string | null
+  approval_requested_by_name: string | null
+  approval_requested_at: string | null
+  /** As it was when last approved; null when it never was */
+  approved_content: QuotationContent | null
+  content: QuotationContent
+  content_hash: string
 }
 
 export const QUOTATION_STATUSES: { key: QuotationStatus; label: string }[] = [
@@ -224,6 +247,8 @@ export const quotationsApi = {
   create: (data: QuotationInput) => request<{ data: Quotation }>('/quotations', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: QuotationInput) => request<{ data: Quotation }>(`/quotations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   setStatus: (id: number, status: QuotationStatus) => request<{ data: Quotation }>(`/quotations/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  approve: (q: Quotation) => request<{ data: Quotation }>(`/quotations/${q.id}/approve`, { method: 'POST', body: JSON.stringify({ content_hash: q.content_hash }) }),
+  sendBack: (q: Quotation, remark: string) => request<{ data: Quotation }>(`/quotations/${q.id}/send-back`, { method: 'POST', body: JSON.stringify({ content_hash: q.content_hash, remark }) }),
   remove: (id: number) => request<{ message: string }>(`/quotations/${id}`, { method: 'DELETE' }),
   nextNumber: (company: BillCompany, date: string) => request<{ data: string }>(`/quotations/next-number?${new URLSearchParams({ company, date })}`),
 }

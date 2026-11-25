@@ -464,7 +464,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
                       <div
                         key={n.id}
                         className={`notif-item${n.read ? '' : ' unread'}`}
-                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } }}
+                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } if (n.type === 'quotation_approval') { setShowNotifs(false); navigate('quotations') } }}
                       >
                         <div className="notif-item__row">
                           <strong>{n.title}</strong>

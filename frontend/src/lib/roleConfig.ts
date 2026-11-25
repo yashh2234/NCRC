@@ -169,6 +169,7 @@ export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'proposals', label: 'Proposals', group: 'Clients' },
   { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
   { key: 'quotations', label: 'Quotations', group: 'Clients' },
+  { key: 'quotation_approve', label: 'Approve Quotations', group: 'Clients' },
   { key: 'work_orders', label: 'Work Orders', group: 'Clients' },
   { key: 'outsource', label: 'Outsource', group: 'Clients' },
   { key: 'reports', label: 'Lab Reports', group: 'Reports' },

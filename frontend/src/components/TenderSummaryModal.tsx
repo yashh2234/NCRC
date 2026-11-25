@@ -75,8 +75,6 @@ export function TenderSummaryView({ summary: s, checks, onCheck }: SummaryProps)
 
   return (
     <>
-      <p className="ts-disclaimer">AI-generated summary — check important figures and conditions against the tender document before bidding.</p>
-
       {s.title ? <h3 className="ts-title">{s.title}</h3> : null}
       {s.overview ? <p className="ts-overview">{s.overview}</p> : null}
 

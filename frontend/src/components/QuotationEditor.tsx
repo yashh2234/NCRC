@@ -6,7 +6,7 @@ import { openMailWindow, quotationMailUrl } from '../lib/mailTab'
 import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
 import {
   SECTION_TITLES, UNITS, calcQuotation, companyGst, emptyHeading, emptyQuotationItem, emptySection, itemNumbers, itemUsed, oneMonthAfter, quotationItemAmount, quotationLines, quotationToInput, quotationsApi,
-  type ItemPart, type Quotation, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
+  type ItemPart, type Quotation, type QuotationApproval, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
 } from '../lib/quotations'
 import { canUserAccess } from '../lib/roleConfig'
 import { Req } from './ui'
@@ -38,12 +38,15 @@ type TextKey = 'client_name' | 'client_gstin' | 'contact_person' | 'mobile_no' |
 interface QuotationEditorProps {
   id: number | null
   initial: QuotationInput
+  /** null for a new one */
+  approval: QuotationApproval | null
+  approvalRemark?: string | null
   /** All quotations, to copy sections from */
   others: Quotation[]
   onClose: (changed: boolean) => void
 }
 
-export function QuotationEditor({ id, initial, others, onClose }: QuotationEditorProps) {
+export function QuotationEditor({ id, initial, approval: initialApproval, approvalRemark, others, onClose }: QuotationEditorProps) {
   const [form, setForm] = useState<QuotationInput>(() => ({ ...initial, gst_mode: companyGst(initial.company) }))
   const [savedId, setSavedId] = useState<number | null>(id)
   const idRef = useRef(id)
@@ -57,6 +60,8 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
   const manualValid = useRef(Boolean(id))
   const { user } = useAuth()
   const canMail = canUserAccess(user, 'mail')
+  const canApprove = canUserAccess(user, 'quotation_approve')
+  const [approval, setApproval] = useState(initialApproval)
   const isNcs = form.company === 'ncs'
   /** Made before GST was fixed at 18%: opening it shows the new total, so say so before it is saved */
   const [gstChanged, setGstChanged] = useState(Boolean(id) && initial.gst_mode !== companyGst(initial.company))
@@ -110,6 +115,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
       const payload = manualNo.current ? form : { ...form, quotation_no: '' }
       const { data } = savedId ? await quotationsApi.update(savedId, payload) : await quotationsApi.create(payload)
       const saved = quotationToInput(data)
+      setApproval(data.approval)
       setSavedId(data.id)
       idRef.current = data.id
       manualNo.current = true
@@ -118,7 +124,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
       setChanged(true)
       setDirty(false)
       setGstChanged(false)
-      setNotice(`Saved quotation ${data.quotation_no}.`)
+      setNotice(data.approval === 'pending' ? `Saved quotation ${data.quotation_no}. It waits for approval; after that it can be printed and mailed.` : `Saved quotation ${data.quotation_no}.`)
       return saved
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Could not save the quotation')
@@ -133,7 +139,8 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
     const problem = check()
     if (problem) { showError(problem); return }
     const w = openPrintWindow()
-    const saved = await save()
+    // Others only get here with an approved quotation they did not change
+    const saved = canApprove ? await save() : form
     if (!w) return
     if (saved) printQuotation(w, saved, withSign)
     else w.close()
@@ -144,7 +151,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
     const problem = check()
     if (problem) { showError(problem); return }
     const w = openMailWindow()
-    const saved = await save()
+    const saved = canApprove ? await save() : form
     if (!w) return
     if (saved && idRef.current) w.location.href = quotationMailUrl(idRef.current, withSign)
     else w.close()
@@ -174,6 +181,8 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
 
   // Amount summary in the same order as the print
   const summaryRows: [string, string][] = [['Sub Total', money2(t.subtotal)], ...quotationLines(form, money2).map(([k, v]): [string, string] => [k, v])]
+  /** What an approver saves is approved; the others print and mail only what is approved and saved */
+  const locked = !canApprove && (approval !== 'approved' || dirty || gstChanged)
   const withSections = others.filter((q) => q.sections.length && q.id !== savedId)
 
   return (
@@ -190,6 +199,9 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
       {notice ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#f0fdf4', color: '#166534', fontSize: '0.85rem' }}>{notice}</p> : null}
       {error ? <p role="alert" style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: '0.85rem' }}>{error}</p> : null}
 
+      {approval === 'pending' && !canApprove ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fffbeb', color: '#92400e', fontSize: '0.85rem' }}>Waiting for approval. It can be printed and mailed after that.</p> : null}
+      {approval === 'returned' ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: '0.85rem' }}>Sent back: <strong>{approvalRemark || 'please correct it'}</strong>{canApprove ? '' : '. Correct it and save; it then goes for approval again.'}</p> : null}
+      {approval !== null && approval !== 'approved' && canApprove ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#eff6ff', color: '#1e40af', fontSize: '0.85rem' }}>This quotation is not approved yet. Saving it approves it.</p> : null}
       {gstChanged ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fffbeb', color: '#92400e', fontSize: '0.85rem' }}>This quotation was saved without 18% GST. The total below includes it, and saving will change the quotation. Go back without saving to keep it as it was.</p> : null}
 
       <datalist id="quotation-sections">{SECTION_TITLES.map((s) => <option key={s} value={s} />)}</datalist>
@@ -381,18 +393,19 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
 
       <div style={{ ...card, display: 'grid', gap: 12, borderColor: '#c7d2fe', background: '#fafbff' }}>
         <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()} style={{ justifyContent: 'center', width: '100%' }}>
-          <Save size={16} /> {saving ? 'Saving…' : 'Save'}
+          <Save size={16} /> {saving ? 'Saving…' : canApprove ? (approval !== null && approval !== 'approved' ? 'Save and approve' : 'Save') : 'Save and send for approval'}
         </button>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <strong style={{ flex: 1, minWidth: 200 }}>Save and print / PDF</strong>
-          {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
-          <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> {COMPANIES[form.company].seal ? 'Without Sign' : 'Print'}</button>
+          <strong style={{ flex: 1, minWidth: 200 }}>{canApprove ? 'Save and print / PDF' : 'Print / PDF'}</strong>
+          {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
+          <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndPrint(false)}><Printer size={16} /> {COMPANIES[form.company].seal ? 'Without Sign' : 'Print'}</button>
         </div>
+        {locked ? <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>{approval === 'approved' ? 'Save the changes first. After approval it can be printed and mailed.' : 'It can be printed and mailed after approval.'}</p> : null}
         {canMail ? (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <strong style={{ flex: 1, minWidth: 200 }}>Save and mail the PDF</strong>
-            {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndMail(true)}><Stamp size={16} /> Mail With Sign</button> : null}
-            <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndMail(false)}><Mail size={16} /> {COMPANIES[form.company].seal ? 'Mail Without Sign' : 'Mail'}</button>
+            <strong style={{ flex: 1, minWidth: 200 }}>{canApprove ? 'Save and mail the PDF' : 'Mail the PDF'}</strong>
+            {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndMail(true)}><Stamp size={16} /> Mail With Sign</button> : null}
+            <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndMail(false)}><Mail size={16} /> {COMPANIES[form.company].seal ? 'Mail Without Sign' : 'Mail'}</button>
           </div>
         ) : null}
       </div>

@@ -558,6 +558,16 @@ export function quotationDocument(q: QuotationInput, withSign: boolean, then: st
     </body></html>`
 }
 
+/** To look at before approval: marked as not approved, and it does not print */
+export function previewDocument(q: QuotationInput): string {
+  const style = `<style>
+    .page::after { content: "NOT APPROVED"; position: absolute; left: 0; right: 0; top: 46%; text-align: center; transform: rotate(-30deg); font-size: 62pt; font-weight: 800; letter-spacing: 6px; color: rgba(211, 2, 2, .10); pointer-events: none; }
+    html { zoom: .95; }
+    @media print { body { display: none !important; } }
+  </style></head>`
+  return quotationDocument(q, false, '').replace('</head>', style)
+}
+
 export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) {
   w.document.open()
   w.document.write(quotationDocument(q, withSign, 'setTimeout(function () { window.print() }, 150)'))

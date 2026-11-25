@@ -1,22 +1,25 @@
 /**
  * Printable tender summary on as many A4 pages as it needs, in its own window (the popup on screen scrolls, so
- * printing it would stop at its height). The browser breaks the pages; items and boxes are not cut in two.
+ * printing it would stop at its height). paginate() puts it on real A4 pages with their own margins, so the margin
+ * setting of the print dialog cannot cut anything; list items and table rows are not cut in two.
  */
 import { esc } from './billPrint'
 import { daysLeft, formatClosing, formatDate, formatTime, isClosed, type SavedTenderSummary, type Tender, type TenderSummary } from './tenders'
 
 const CSS = `
-@page { size: A4; margin: 14mm 13mm 16mm;
-  @bottom-left { content: "AI-generated summary: check important figures and conditions against the tender document."; font: 7.5pt Arial, Helvetica, sans-serif; color: #64748b; white-space: nowrap; }
-  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt Arial, Helvetica, sans-serif; color: #64748b; white-space: nowrap; } }
+@page { size: A4; margin: 0; }
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 html, body { margin: 0; background: #fff; }
 body { font: 9.5pt/1.4 Arial, Helvetica, sans-serif; color: #1e293b; }
 .toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #0f172a; color: #cbd5e1; font-size: 13px; }
 .toolbar button { padding: 8px 16px; border: 0; border-radius: 6px; background: #2563eb; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
-.sheet { max-width: 184mm; margin: 0 auto; }
-@media screen { body { background: #e2e8f0; } .sheet { margin: 16px auto; padding: 14mm 13mm; max-width: 210mm; background: #fff; box-shadow: 0 2px 14px rgba(0, 0, 0, .15); } }
-@media print { .toolbar { display: none; } }
+.page { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff; }
+.page-body { position: absolute; left: 13mm; right: 13mm; top: 13mm; bottom: 18mm; }
+.page-body > :first-child { margin-top: 0; }
+.page-foot { position: absolute; left: 13mm; right: 13mm; bottom: 8mm; display: flex; justify-content: space-between; gap: 6mm; padding-top: 1.5mm; border-top: .2mm solid #cbd5e1; font-size: 7.5pt; color: #64748b; }
+#src { position: absolute; left: -10000px; top: 0; width: 184mm; visibility: hidden; }
+@media screen { body { background: #e2e8f0; } .page { margin: 16px auto; box-shadow: 0 2px 14px rgba(0, 0, 0, .15); } }
+@media print { .toolbar { display: none; } .page + .page { break-before: page; } }
 
 .head { display: flex; align-items: center; justify-content: space-between; gap: 8mm; padding-bottom: 3.5mm; border-bottom: .6mm solid #1e3a8a; }
 .head img { height: 15mm; max-width: 60mm; object-fit: contain; }
@@ -110,6 +113,92 @@ function checklist(saved: SavedTenderSummary): string {
   return `<h3>Documents required <small>(${done} of ${items.length} ready)</small></h3><table class="checks"><tbody>${rows}</tbody></table>`
 }
 
+/**
+ * Runs inside the print window (its source text is written there), so it must not use anything outside itself.
+ * Every block is taken apart into rows / points with the tables, lists and boxes they are in, and these are opened
+ * again on the next page when they go on there.
+ */
+function paginate(): void {
+  const src = document.getElementById('src') as HTMLElement
+  const out = document.getElementById('out') as HTMLElement
+  const template = document.getElementById('page-template') as HTMLTemplateElement
+
+  interface Unit { node: HTMLElement; chain: HTMLElement[]; heading: boolean }
+  const units: Unit[] = []
+  const collect = (el: HTMLElement, chain: HTMLElement[]) => {
+    if (el.tagName === 'TABLE') Array.from(el.querySelectorAll<HTMLElement>('tbody > tr')).forEach((row) => units.push({ node: row, chain: [...chain, el], heading: false }))
+    else if (el.tagName === 'UL' || el.classList.contains('box')) Array.from(el.children).forEach((c) => (el.tagName === 'UL' ? units.push({ node: c as HTMLElement, chain: [...chain, el], heading: false }) : collect(c as HTMLElement, [...chain, el])))
+    else units.push({ node: el, chain, heading: el.tagName === 'H3' || (el.tagName === 'P' && chain.length > 0) })
+  }
+  Array.from(src.children).forEach((c) => collect(c as HTMLElement, []))
+
+  let body: HTMLElement
+  /** What is open at the end of the page: the original element and its part on this page */
+  let open: { from: HTMLElement; shell: HTMLElement }[] = []
+  const newPage = () => {
+    const page = (template.content.cloneNode(true) as DocumentFragment).firstElementChild as HTMLElement
+    out.appendChild(page)
+    body = page.querySelector('.page-body') as HTMLElement
+    open = []
+  }
+  const inner = (shell: HTMLElement) => (shell.tagName === 'TABLE' ? (shell.querySelector('tbody') as HTMLElement) : shell)
+  const fits = () => {
+    const last = body.lastElementChild
+    return !last || last.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 0.5
+  }
+  const put = (u: Unit) => {
+    let same = 0
+    while (same < open.length && same < u.chain.length && open[same].from === u.chain[same]) same += 1
+    open = open.slice(0, same)
+    let parent = same ? inner(open[same - 1].shell) : body
+    for (const el of u.chain.slice(same)) {
+      const shell = el.cloneNode(el.tagName === 'TABLE') as HTMLElement
+      if (el.tagName === 'TABLE') inner(shell).innerHTML = ''
+      parent.appendChild(shell)
+      open.push({ from: el, shell })
+      parent = inner(shell)
+    }
+    parent.appendChild(u.node)
+  }
+  const take = (u: Unit) => {
+    let parent = u.node.parentElement
+    u.node.remove()
+    // Boxes, lists and tables that are empty now
+    while (parent && parent !== body) {
+      const up: HTMLElement | null = parent.parentElement
+      const shell = parent.tagName === 'TBODY' ? (parent.parentElement as HTMLElement) : parent
+      const empty = !parent.children.length
+      const next = shell === parent ? up : shell.parentElement
+      if (!empty) break
+      shell.remove()
+      open = open.filter((o) => o.shell !== shell)
+      parent = next
+    }
+  }
+
+  newPage()
+  let onPage: Unit[] = []
+  units.forEach((u) => {
+    put(u)
+    if (fits() || !onPage.length) { onPage.push(u); return }
+    // Headings go along with what is under them
+    const moved = [u]
+    take(u)
+    while (onPage.length > 1 && onPage[onPage.length - 1].heading) {
+      const heading = onPage.pop() as Unit
+      take(heading)
+      moved.unshift(heading)
+    }
+    newPage()
+    onPage = []
+    moved.forEach((m) => { put(m); onPage.push(m) })
+  })
+  Array.from(out.children).forEach((page, i) => {
+    (page.querySelector('.page-no') as HTMLElement).textContent = `Page ${i + 1} of ${out.children.length}`
+  })
+  src.remove()
+}
+
 /** Call it straight from the click, or the pop-up blocker stops it. */
 export function printTenderSummary(tender: Tender, saved: SavedTenderSummary): void {
   const w = window.open('', '_blank')
@@ -123,7 +212,7 @@ export function printTenderSummary(tender: Tender, saved: SavedTenderSummary): v
 
   w.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(`Tender summary ${tender.srNo} ${tender.tenderId}`.replace(/[\\/:*?"<>|]+/g, '-'))}</title><style>${CSS}</style></head><body>
     <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button><span>Choose “Save as PDF” as the printer to get a PDF. Paper: A4.</span></div>
-    <div class="sheet">
+    <div id="src">
       <div class="head">
         <img src="${window.location.origin}/letterhead/logo-ncs.svg" alt="" onerror="this.remove()">
         <div><h1>TENDER SUMMARY</h1><p><b>${esc(tender.srNo)}</b>${tender.closingDate ? ` &nbsp;·&nbsp; Closing: <b>${esc(formatClosing(tender))}</b>` : ''}</p></div>
@@ -142,7 +231,12 @@ export function printTenderSummary(tender: Tender, saved: SavedTenderSummary): v
       ${section('Payment terms', s.payment_terms)}
       ${section('Penalties and securities', s.penalties)}
     </div>
-    <script>window.onload = function () { setTimeout(function () { window.print() }, 200) }</script>
+    <div id="out"></div>
+    <template id="page-template"><div class="page"><div class="page-body"></div><div class="page-foot"><span>AI-generated summary: check important figures and conditions against the tender document.</span><span class="page-no"></span></div></div></template>
+    <script>
+      var paginate = ${paginate.toString()};
+      window.addEventListener('load', function () { paginate(); setTimeout(function () { window.print() }, 200) });
+    </script>
   </body></html>`)
   w.document.close()
 }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Download, Mail, Pencil, Plus, Printer, Search, Stamp, Trash2 } from 'lucide-react'
+import { ClipboardCheck, Download, Mail, Pencil, Plus, Printer, Search, Stamp, Trash2 } from 'lucide-react'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { Modal } from '../components/Modal'
 import { QuotationEditor } from '../components/QuotationEditor'
+import { QuotationReview } from '../components/QuotationReview'
 import { COMPANIES, dotDate, money2, type BillCompany } from '../lib/bills'
 import { useAuth } from '../lib/auth'
 import { openMailWindow, quotationMailUrl } from '../lib/mailTab'
@@ -10,11 +11,11 @@ import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
 import { canUserAccess } from '../lib/roleConfig'
 import {
   QUOTATION_COMPANY_KEYS, QUOTATION_STATUSES, emptyQuotation, quotationToInput, quotationsApi,
-  type Quotation, type QuotationInput, type QuotationStatus,
+  type Quotation, type QuotationApproval, type QuotationInput, type QuotationStatus,
 } from '../lib/quotations'
 import { useTracking } from '../lib/useTracking'
 
-type Editing = { id: number | null; form: QuotationInput }
+type Editing = { id: number | null; form: QuotationInput; approval: QuotationApproval | null; remark?: string | null }
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
@@ -42,6 +43,9 @@ export default function QuotationsPage() {
   const [printing, setPrinting] = useState<{ quotation: Quotation; mail: boolean } | null>(null)
   const { user } = useAuth()
   const canMail = canUserAccess(user, 'mail')
+  const canApprove = canUserAccess(user, 'quotation_approve')
+  const [onlyWaiting, setOnlyWaiting] = useState(false)
+  const [reviewing, setReviewing] = useState<Quotation | null>(null)
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
@@ -58,10 +62,13 @@ export default function QuotationsPage() {
     const q = search.trim().toLowerCase()
     return list.filter((r) =>
       (!company || r.company === company) &&
+      (!onlyWaiting || r.approval !== 'approved') &&
       (!status || r.status === status) &&
       (!start || r.date >= start) && (!end || r.date <= end) &&
       (!q || [r.quotation_no, r.client_name, r.subject, r.location, r.mobile_no].some((v) => (v ?? '').toLowerCase().includes(q))))
-  }, [list, search, company, status, start, end])
+  }, [list, search, company, status, start, end, onlyWaiting])
+  const waiting = list.filter((r) => r.approval !== 'approved').length
+  const openEditor = (r: Quotation) => setEditing({ id: r.id, form: quotationToInput(r), approval: r.approval, remark: r.approval_remark })
 
   const changeStatus = async (row: Quotation, next: QuotationStatus) => {
     try {
@@ -117,6 +124,8 @@ export default function QuotationsPage() {
         key={editing.id ?? 'new'}
         id={editing.id}
         initial={editing.form}
+        approval={editing.approval}
+        approvalRemark={editing.remark}
         others={list}
         onClose={(changed) => { setEditing(null); if (changed) reload() }}
       />
@@ -145,6 +154,7 @@ export default function QuotationsPage() {
         <div className="surface-heading">
           <div><p className="section-label">Clients</p><h2>Quotations ({filtered.length})</h2></div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {waiting || onlyWaiting ? <button type="button" className={`btn ${onlyWaiting ? 'btn-primary' : 'btn-outline'}`} onClick={() => setOnlyWaiting((v) => !v)}><ClipboardCheck size={16} /> Not approved ({waiting})</button> : null}
             <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={!filtered.length}><Download size={16} /> Export</button>
             <button type="button" className="btn btn-primary" onClick={() => setChoosing(true)}><Plus size={16} /> Create Quotation</button>
           </div>
@@ -161,7 +171,14 @@ export default function QuotationsPage() {
               ) : filtered.map((r) => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.date)}</td>
-                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{r.quotation_no}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>
+                    {r.quotation_no}
+                    {r.approval !== 'approved' ? (
+                      <div title={r.approval_remark ?? ''} style={{ maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.72rem', fontWeight: 600, color: r.approval === 'returned' ? '#b91c1c' : '#92400e' }}>
+                        {r.approval === 'returned' ? `Sent back: ${r.approval_remark ?? ''}` : `Waiting for approval${r.approval_requested_by_name ? ` · ${r.approval_requested_by_name}` : ''}`}
+                      </div>
+                    ) : null}
+                  </td>
                   <td>{companyBadge(r.company)}</td>
                   <td style={{ minWidth: 120, maxWidth: 260, whiteSpace: 'normal' }}>{r.client_name}</td>
                   <td style={{ minWidth: 120, maxWidth: 320, whiteSpace: 'normal' }}>{r.subject || '-'}{r.location ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{r.location}</div> : null}</td>
@@ -174,9 +191,10 @@ export default function QuotationsPage() {
                     </select>
                   </td>
                   <td style={{ ...stickyRight, whiteSpace: 'nowrap' }}>
-                    <button className="icon-button" type="button" title="Print / PDF" onClick={() => print(r)}><Printer size={16} /></button>
-                    {canMail ? <button className="icon-button" type="button" title="Mail the PDF" onClick={() => mail(r)}><Mail size={16} /></button> : null}
-                    <button className="icon-button" type="button" title="Edit" onClick={() => setEditing({ id: r.id, form: quotationToInput(r) })}><Pencil size={16} /></button>
+                    {canApprove && r.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(r)} style={{ color: '#15803d', borderColor: '#bbf7d0', background: '#f0fdf4' }}><ClipboardCheck size={16} /></button> : null}
+                    <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={r.approval !== 'approved'} onClick={() => print(r)}><Printer size={16} /></button>
+                    {canMail ? <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={r.approval !== 'approved'} onClick={() => mail(r)}><Mail size={16} /></button> : null}
+                    <button className="icon-button" type="button" title="Edit" onClick={() => openEditor(r)}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(r)}><Trash2 size={16} /></button>
                   </td>
                 </tr>
@@ -190,7 +208,7 @@ export default function QuotationsPage() {
         <Modal title="Create Quotation" subtitle="Which company is this quotation from?" onClose={() => setChoosing(false)} size="sm" footer={null}>
           <div style={{ display: 'grid', gap: 12 }}>
             {QUOTATION_COMPANY_KEYS.map((c) => (
-              <button key={c} type="button" onClick={() => { setChoosing(false); setEditing({ id: null, form: emptyQuotation(c) }) }}
+              <button key={c} type="button" onClick={() => { setChoosing(false); setEditing({ id: null, form: emptyQuotation(c), approval: null }) }}
                 style={{ textAlign: 'left', padding: '14px 16px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>{COMPANIES[c].short}</div>
                 <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: 2 }}>{COMPANIES[c].name} · {c === 'ncs' ? 'GST @ 18%' : 'Without GST'}</div>
@@ -198,6 +216,15 @@ export default function QuotationsPage() {
             ))}
           </div>
         </Modal>
+      ) : null}
+
+      {reviewing ? (
+        <QuotationReview
+          quotation={reviewing}
+          onClose={() => setReviewing(null)}
+          onEdit={() => { openEditor(reviewing); setReviewing(null) }}
+          onDone={(q) => { setList((rows) => rows.map((r) => (r.id === q.id ? q : r))); setReviewing(null) }}
+        />
       ) : null}
 
       {printing ? <PrintChooser quotation={printing.quotation} mail={printing.mail} onClose={() => setPrinting(null)} /> : null}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\MailAccount;
 use App\Models\MailOutbox;
+use App\Models\Quotation;
 use App\Models\User;
 use App\Services\MailAddresses;
 use App\Services\MailComposer;
@@ -69,7 +70,7 @@ class MailController extends Controller
         $this->requireUserAdmin();
         $values = $request->validate([
             'enabled' => 'required|boolean',
-            'module' => ['nullable', 'in:mail,documents_site'],
+            'module' => ['nullable', 'in:mail,documents_site,quotation_approve'],
             'defaults' => 'nullable|array',
             'defaults.*' => 'string',
         ]);
@@ -247,6 +248,11 @@ class MailController extends Controller
         $user = $this->user();
         $account = $this->account();
         $payload = $this->payload($request, $account);
+
+        // Not before it is approved; and not when it was changed after this mail was opened
+        if ($payload['quotation_id'] && ! Quotation::query()->whereKey($payload['quotation_id'])->where('approval', 'approved')->exists()) {
+            return response()->json(['message' => 'This quotation is not approved, so it cannot be mailed.'], 422);
+        }
 
         if (! MailAddresses::parse($payload['to'])) {
             return response()->json(['message' => 'Enter at least one valid email address in To.', 'errors' => ['to' => ['Enter a valid email address.']]], 422);
