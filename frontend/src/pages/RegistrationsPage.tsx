@@ -473,30 +473,16 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
                     onClick={() => showHistory(registration)}
                     title="Audit trail"
                     type="button"
-                    style={{
-                      border: '1px solid #cbd5e1',
-                      background: '#fff',
-                      padding: '5px 8px',
-                      borderRadius: 6,
-                      cursor: 'pointer'
-                    }}
                   >
-                    <History size={14} color="#64748b" />
+                    <History size={16} />
                   </button>
                   <button
                     className="icon-btn"
                     onClick={() => setDrawerUid(registration.uid_no)}
                     title="Documents"
                     type="button"
-                    style={{
-                      border: '1px solid #cbd5e1',
-                      background: '#fff',
-                      padding: '5px 8px',
-                      borderRadius: 6,
-                      cursor: 'pointer'
-                    }}
                   >
-                    <Folder size={14} color="#64748b" />
+                    <Folder size={16} />
                   </button>
                 </div>
               ),

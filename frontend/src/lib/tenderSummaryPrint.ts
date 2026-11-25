@@ -16,7 +16,7 @@ body { font: 9.5pt/1.4 Arial, Helvetica, sans-serif; color: #1e293b; }
 .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff; }
 .page-body { position: absolute; left: 13mm; right: 13mm; top: 13mm; bottom: 18mm; }
 .page-body > :first-child { margin-top: 0; }
-.page-foot { position: absolute; left: 13mm; right: 13mm; bottom: 8mm; display: flex; justify-content: space-between; gap: 6mm; padding-top: 1.5mm; border-top: .2mm solid #cbd5e1; font-size: 7.5pt; color: #64748b; }
+.page-foot { position: absolute; left: 13mm; right: 13mm; bottom: 8mm; text-align: right; padding-top: 1.5mm; border-top: .2mm solid #cbd5e1; font-size: 7.5pt; color: #64748b; }
 #src { position: absolute; left: -10000px; top: 0; width: 184mm; visibility: hidden; }
 @media screen { body { background: #e2e8f0; } .page { margin: 16px auto; box-shadow: 0 2px 14px rgba(0, 0, 0, .15); } }
 @media print { .toolbar { display: none; } .page + .page { break-before: page; } }
@@ -232,7 +232,7 @@ export function printTenderSummary(tender: Tender, saved: SavedTenderSummary): v
       ${section('Penalties and securities', s.penalties)}
     </div>
     <div id="out"></div>
-    <template id="page-template"><div class="page"><div class="page-body"></div><div class="page-foot"><span>AI-generated summary: check important figures and conditions against the tender document.</span><span class="page-no"></span></div></div></template>
+    <template id="page-template"><div class="page"><div class="page-body"></div><div class="page-foot"><span class="page-no"></span></div></div></template>
     <script>
       var paginate = ${paginate.toString()};
       window.addEventListener('load', function () { paginate(); setTimeout(function () { window.print() }, 200) });

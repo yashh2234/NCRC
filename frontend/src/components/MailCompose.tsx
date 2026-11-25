@@ -20,6 +20,8 @@ export interface MailDraft {
   files?: File[]
   /** This quotation becomes Sent when the mail is out */
   quotationId?: number
+  /** The document attached as PDF; the server checks that it is approved */
+  doc?: { type: string; id: number }
   replyUid?: number
   replyFolder?: string
   /** Set when it was opened from the Drafts folder */
@@ -92,6 +94,10 @@ export function MailCompose({ draft, from, onClose, onQueued, onDraftSaved }: Ma
     }
     if (draftUid) data.append('draft_uid', String(draftUid))
     if (draft.quotationId) data.append('quotation_id', String(draft.quotationId))
+    if (draft.doc) {
+      data.append('doc_type', draft.doc.type)
+      data.append('doc_id', String(draft.doc.id))
+    }
     files.forEach((file) => data.append('attachments[]', file))
     kept.forEach((a, i) => {
       data.append(`keep[${i}][folder]`, a.folder)

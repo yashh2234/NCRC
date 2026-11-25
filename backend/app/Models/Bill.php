@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BillApproval;
 use Illuminate\Database\Eloquent\Model;
 
 class Bill extends Model
@@ -37,7 +38,15 @@ class Bill extends Model
         'amount_received' => 'float',
         'credit_note_data' => 'array',
         'credit_amount' => 'float',
+        'approval_at' => 'datetime',
+        'approval_requested_at' => 'datetime',
+        'approved_content' => 'array',
+        'cn_approval_at' => 'datetime',
+        'cn_approval_requested_at' => 'datetime',
+        'cn_approved_content' => 'array',
     ];
+
+    protected $hidden = ['approved_content', 'cn_approved_content'];
 
     public function toApi(): array
     {
@@ -51,7 +60,37 @@ class Bill extends Model
         $data['credit_amount'] = $this->credit_amount ?: round($this->subtotal + $this->cgst + $this->sgst + $this->igst + $this->transport);
         $data['due_amount'] = $data['cancelled'] ? 0 : round(max(0, $this->net_amount - $this->amount_received), 2);
 
-        return $data;
+        // toArray() has the plain columns; what the screens need of the approval comes from here
+        return array_merge($data, BillApproval::api($this), BillApproval::api($this, 'cn_'));
+    }
+
+    /** What the invoice prints; a change in it needs approval (payments and the office remark do not print) */
+    public function printedContent(): array
+    {
+        return $this->only(['company', 'invoice_no']) + $this->dates(['invoice_date', 'uid_date', 'work_order_date', 'report_date'])
+            + $this->only(['uid_no', 'work_order_no', 'report_no', 'terms_of_delivery', 'client_name', 'client_address', 'client_gstin', 'gst_type', 'transport', 'advance', 'net_amount'])
+            + ['items' => $this->items ?? []];
+    }
+
+    /** What its credit note prints: its own copy of the document, else the invoice's */
+    public function creditNoteContent(): array
+    {
+        $doc = $this->credit_note_data ?? [];
+        $base = $this->printedContent();
+        unset($base['advance'], $base['net_amount']);
+        foreach (array_keys($base) as $key) {
+            if (! in_array($key, ['company', 'invoice_no', 'invoice_date'], true) && array_key_exists($key, $doc)) {
+                $base[$key] = $doc[$key];
+            }
+        }
+
+        return ['credit_note_no' => $this->credit_note_no] + $this->dates(['credit_note_date']) + $base
+            + ['total' => $this->credit_amount ?: round($this->subtotal + $this->cgst + $this->sgst + $this->igst + $this->transport)];
+    }
+
+    private function dates(array $keys): array
+    {
+        return array_combine($keys, array_map(fn ($k) => $this->{$k}?->format('Y-m-d'), $keys));
     }
 
     /** Financial year label for a date, April–March: 2026-04-24 → "2026-27" */

@@ -467,3 +467,22 @@ td .row-actions .icon-button { width: 34px; min-width: 34px; height: 34px; min-h
 .btn[style*="background-color"]:hover { filter: brightness(0.96); }
 td > .btn + .btn { margin-left: 6px; }
 td > .btn { margin-block: 2px; }
+
+/* ===== Row action buttons: the same box everywhere, the colour goes with the icon ===== */
+td .icon-button, td .icon-btn, .row-actions .icon-button, .row-actions-inline .icon-btn {
+  display: inline-grid; place-items: center;
+  width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0;
+  color: #475569; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+}
+td .icon-button svg, td .icon-btn svg, .row-actions .icon-button svg, .row-actions-inline .icon-btn svg { width: 16px; height: 16px; }
+td .icon-button:hover:not(:disabled), td .icon-btn:hover:not(:disabled), .row-actions .icon-button:hover:not(:disabled) { color: inherit; filter: brightness(.96); }
+td > .icon-button + .icon-button, td > .icon-btn + .icon-btn { margin-left: 6px; }
+td .icon-button:disabled, td .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+:is(td, .row-actions, .row-actions-inline) :is(.icon-button, .icon-btn) {
+  &:has(.lucide-printer), &:has(.lucide-printer):hover { color: #0f766e; }
+  &:has(.lucide-mail), &:has(.lucide-mail):hover { color: #7c3aed; }
+  &:has(:is(.lucide-pencil, .lucide-pen-line, .lucide-user-cog)), &:has(:is(.lucide-pencil, .lucide-pen-line, .lucide-user-cog)):hover { color: #2563eb; }
+  &:has(:is(.lucide-trash-2, .lucide-trash2)), &:has(:is(.lucide-trash-2, .lucide-trash2)):hover { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+  &:has(:is(.lucide-ban, .lucide-rotate-ccw)), &:has(:is(.lucide-ban, .lucide-rotate-ccw)):hover { color: #a16207; background: #fefce8; border-color: #fde047; }
+  &:has(:is(.lucide-clipboard-check, .lucide-circle-check, .lucide-check-circle-2)), &:has(:is(.lucide-clipboard-check, .lucide-circle-check, .lucide-check-circle-2)):hover { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+}

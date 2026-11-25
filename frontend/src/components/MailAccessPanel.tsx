@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ClipboardCheck, FolderOpen, Mail, Search } from 'lucide-react'
+import { ClipboardCheck, FlaskConical, FolderOpen, Mail, ReceiptText, Search } from 'lucide-react'
 import { mailApi, type MailAccessUser } from '../lib/mail'
 import { canUserAccess, defaultFeaturesForRole } from '../lib/roleConfig'
 import type { TrackerRole } from '../lib/types'
@@ -16,6 +16,14 @@ const PANELS = {
   quotation_approve: {
     icon: ClipboardCheck, label: 'Quotations', title: 'Who can approve quotations',
     text: 'Quotations made or changed by other users wait until one of these approves them; until then they cannot be printed or mailed. What an approver saves is approved at once. Admins can always approve. The user also needs access to Quotations.',
+  },
+  report_approve: {
+    icon: FlaskConical, label: 'Lab Reports', title: 'Who can approve lab reports',
+    text: 'Until a report is approved it prints with DRAFT across it and cannot be mailed. When other users change an approved report, it needs approval again. Admins can always approve. The user also needs access to Lab Reports.',
+  },
+  bill_approve: {
+    icon: ReceiptText, label: 'Invoices', title: 'Who can approve invoices, performa invoices and credit notes',
+    text: 'What other users make or change waits until one of these approves it; until then it cannot be printed or mailed. Recording a payment needs no approval. What an approver saves is approved at once. Admins can always approve. The user also needs access to Invoice.',
   },
 }
 

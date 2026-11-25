@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Bill;
 use App\Models\Registration;
+use App\Services\BillApproval;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -43,19 +45,35 @@ class BillController extends Controller
         return response()->json(['data' => $bill->toApi()]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, BillApproval $approval): JsonResponse
     {
-        $bill = Bill::create($this->validated($request) + [
-            'created_by' => $request->user()?->id,
-            'updated_by' => $request->user()?->id,
-        ]);
+        $bill = DB::transaction(function () use ($request, $approval): Bill {
+            $bill = Bill::create($this->validated($request) + [
+                'created_by' => $request->user()?->id,
+                'updated_by' => $request->user()?->id,
+            ]);
+            $approval->saved($bill, null, $request->user());
 
-        return response()->json(['data' => $bill->toApi()], 201);
+            return $bill;
+        });
+
+        return response()->json(['data' => $bill->fresh()->toApi()], 201);
     }
 
-    public function update(Request $request, Bill $bill): JsonResponse
+    public function update(Request $request, Bill $bill, BillApproval $approval): JsonResponse
     {
-        $bill->update($this->validated($request, $bill) + ['updated_by' => $request->user()?->id]);
+        $data = $this->validated($request, $bill);
+        DB::transaction(function () use ($request, $bill, $data, $approval): void {
+            $row = Bill::query()->lockForUpdate()->findOrFail($bill->id);
+            $before = BillApproval::content($row);
+            $cnBefore = BillApproval::content($row, 'cn_');
+            $row->update($data + ['updated_by' => $request->user()?->id]);
+            $approval->saved($row, $before, $request->user());
+            // A credit note without its own copy prints what the invoice says
+            if ($row->credit_note_no) {
+                $approval->saved($row, $cnBefore, $request->user(), 'cn_');
+            }
+        });
 
         return response()->json(['data' => $bill->fresh()->toApi()]);
     }
@@ -67,8 +85,22 @@ class BillController extends Controller
         return response()->json(['message' => 'Bill deleted']);
     }
 
+    /** Approve or send back an invoice, or (credit_note) its credit note */
+    public function decide(Request $request, Bill $bill, BillApproval $approval): JsonResponse
+    {
+        $v = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'send_back'])],
+            'content_hash' => ['required', 'string'],
+            'remark' => ['required_if:action,send_back', 'nullable', 'string', 'max:1000'],
+            'credit_note' => ['nullable', 'boolean'],
+        ], ['remark.required_if' => 'Write what should be corrected.']);
+        $approval->decide($bill, $request->user(), $v['action'], $v['content_hash'], trim((string) ($v['remark'] ?? '')), $request->boolean('credit_note') ? 'cn_' : '');
+
+        return response()->json(['data' => $bill->fresh()->toApi()]);
+    }
+
     /** Cancels the bill; with `credit_note` it also records the credit note (number typed by hand) */
-    public function cancel(Request $request, Bill $bill): JsonResponse
+    public function cancel(Request $request, Bill $bill, BillApproval $approval): JsonResponse
     {
         $v = $request->validate([
             'reason' => ['nullable', 'string', 'max:2000'],
@@ -101,7 +133,11 @@ class BillController extends Controller
             $updates['credit_note_date'] = $v['credit_note_date'] ?? now()->toDateString();
         }
 
+        $cnBefore = $bill->credit_note_no ? BillApproval::content($bill, 'cn_') : null;
         $bill->update($updates);
+        if ($request->boolean('credit_note')) {
+            $approval->saved($bill, $cnBefore, $request->user(), 'cn_');
+        }
 
         return response()->json(['data' => $bill->fresh()->toApi()]);
     }
@@ -110,7 +146,7 @@ class BillController extends Controller
      * Saves the credit note of a cancelled NCS LLP invoice: number, date, reason and its own copy of
      * client / references / particulars / amounts (pre-filled from the invoice; the invoice is not changed).
      */
-    public function saveCreditNote(Request $request, Bill $bill): JsonResponse
+    public function saveCreditNote(Request $request, Bill $bill, BillApproval $approval): JsonResponse
     {
         if ($bill->company !== 'ncs' || ! $bill->cancelled_at) {
             return response()->json(['message' => 'Credit notes are only for cancelled NCS LLP invoices.'], 422);
@@ -136,6 +172,7 @@ class BillController extends Controller
         ]));
         $total = round($v['subtotal'] + $v['cgst'] + $v['sgst'] + $v['igst'] + $v['transport']);
 
+        $cnBefore = $bill->credit_note_no ? BillApproval::content($bill, 'cn_') : null;
         $bill->update([
             'credit_note_no' => $no,
             'credit_note_date' => $request->input('credit_note_date') ?: ($bill->credit_note_date?->format('Y-m-d') ?? now()->toDateString()),
@@ -144,6 +181,7 @@ class BillController extends Controller
             'credit_amount' => $total,
             'updated_by' => $request->user()?->id,
         ]);
+        $approval->saved($bill, $cnBefore, $request->user(), 'cn_');
 
         return response()->json(['data' => $bill->fresh()->toApi()]);
     }
@@ -151,7 +189,7 @@ class BillController extends Controller
     /** Undo a cancellation (also removes its credit note) */
     public function restore(Request $request, Bill $bill): JsonResponse
     {
-        $bill->update([
+        $bill->forceFill(BillApproval::cleared('cn_'))->update([
             'cancelled_at' => null, 'cancel_reason' => null, 'credit_note_no' => null, 'credit_note_date' => null,
             'credit_note_data' => null, 'credit_amount' => 0,
             'updated_by' => $request->user()?->id,
@@ -189,6 +227,8 @@ class BillController extends Controller
             'report_no' => trim((string) $reg->report_no),
             'name_of_work' => trim((string) ($reg->name_of_work ?: $reg->work)),
             'advance' => (float) preg_replace('/[^\d.]/', '', (string) $reg->advance_payment),
+            // To mail the bill / the report to
+            'email' => trim((string) ($reg->client_id ? \App\Models\Client::query()->find($reg->client_id)?->email : '')),
         ]]);
     }
 

@@ -286,33 +286,59 @@ function billHtml(b: BillInput, cn?: CreditNote, performa = false): string {
   return `<div class="page"><div class="brandbar"></div>${header}${parties}${itemsTable}${summary}${bottom}</div>`
 }
 
-/** Performa invoice of NCS LLP in the invoice design; pass a window opened beforehand when saving comes first */
-export function openPerformaPrint(b: BillInput, withSign: boolean, target?: Window | null) {
-  openBillPrint(b, withSign, undefined, { target })
-}
+export const FONT_URL_BILL = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
+export const performaFileName = (b: BillInput) => `Performa ${billFileName(b).replace(/^bill no /, '')}`
 
-export function openBillPrint(b: BillInput, withSign: boolean, cn?: CreditNote, performa?: { target?: Window | null }) {
-  const w = performa?.target ?? window.open('', '_blank')
-  if (!w) {
-    window.alert('Allow pop-ups for this site to preview or print the invoice.')
-    return
-  }
-  const co = COMPANIES[b.company]
-  const title = (performa ? `Performa ${billFileName(b).replace(/^bill no /, '')}` : billFileName(b, cn)) || 'Invoice'
-  w.document.open()
-  // No toolbar: sign was chosen in the app; the print dialog opens once fonts and images have loaded
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
+/** The whole print page; `then` is script that runs once fonts and images have loaded */
+export function billDocument(b: BillInput, withSign: boolean, then: string, cn?: CreditNote, performa = false): string {
+  const title = (performa ? performaFileName(b) : billFileName(b, cn)) || 'Invoice'
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="${FONT_URL_BILL}" rel="stylesheet">
     <style>${BILL_CSS}</style></head>
-    <body class="theme-${co.theme}${withSign ? '' : ' nosign'}">
-      ${billHtml(b, cn, Boolean(performa))}
+    <body class="theme-${COMPANIES[b.company].theme}${withSign ? '' : ' nosign'}">
+      ${billHtml(b, cn, performa)}
       <script>
         window.addEventListener('load', function () {
-          var go = function () { setTimeout(function () { window.print() }, 150) };
+          var go = function () { ${then} };
           if (document.fonts && document.fonts.ready) document.fonts.ready.then(go); else go();
         });
       </script>
-    </body></html>`)
+    </body></html>`
+}
+
+/** To look at before approval: marked as not approved, and it does not print */
+export function billPreview(b: BillInput, cn?: CreditNote, performa = false): string {
+  const style = `<style>
+    .page::after { content: "NOT APPROVED"; position: absolute; left: 0; right: 0; top: 46%; text-align: center; transform: rotate(-30deg); font-size: 62pt; font-weight: 800; letter-spacing: 6px; color: rgba(211, 2, 2, .10); pointer-events: none; }
+    html { zoom: .95; }
+    @media print { body { display: none !important; } }
+  </style></head>`
+  return billDocument(b, false, '', cn, performa).replace('</head>', style)
+}
+
+/** Opened straight from the click (pop-up blockers); filled once the document is saved */
+export function openPrintTab(): Window | null {
+  const w = window.open('', '_blank')
+  if (!w) window.alert('Allow pop-ups for this site to preview or print the invoice.')
+  return w
+}
+
+function printInto(w: Window | null, html: string) {
+  if (!w) return
+  w.document.open()
+  // No toolbar: sign was chosen in the app; the print dialog opens by itself
+  w.document.write(html)
   w.document.close()
+}
+
+const PRINT = 'setTimeout(function () { window.print() }, 150)'
+
+/** Performa invoice of NCS LLP in the invoice design */
+export function openPerformaPrint(b: BillInput, withSign: boolean, target?: Window | null) {
+  printInto(target ?? openPrintTab(), billDocument(b, withSign, PRINT, undefined, true))
+}
+
+export function openBillPrint(b: BillInput, withSign: boolean, cn?: CreditNote, target?: Window | null) {
+  printInto(target ?? openPrintTab(), billDocument(b, withSign, PRINT, cn))
 }

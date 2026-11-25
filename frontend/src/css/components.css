@@ -925,3 +925,10 @@ select:not([multiple]) {
 
 /* Tables with many columns */
 .data-table--tight th, .data-table--tight td { padding-left: 9px !important; padding-right: 9px !important; }
+
+/* Lab report results: their own box below the report form; the left side leaves room for the row icons */
+.lab-results { background: #fff; }
+.surface.lab-results-card { padding: 28px 36px 28px 0; }
+.surface.lab-results-card:has(.lab-results--steel) { padding-left: 36px; }
+.testing-results { margin: 24px 0; }
+@media (max-width: 720px) { .surface.lab-results-card { padding: 16px 14px 18px 0; } }

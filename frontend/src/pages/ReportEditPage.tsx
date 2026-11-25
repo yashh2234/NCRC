@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CheckCircle2, FileText, Play, Printer, RotateCcw, Save, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileText, Mail, Play, Printer, RotateCcw, Save, XCircle } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { documentMailUrl, openMailWindow } from '../lib/mailTab'
+import { canUserAccess } from '../lib/roleConfig'
 import { formatDateForInput } from '../lib/utils'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
 import { Modal } from '../components/Modal'
+import { LabHeaderFields } from '../components/LabHeaderFields'
+import { CUBE_MATERIALS, cubeMaterialPatch, fullUlr } from '../lib/labFormats'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
 
 interface DetailRow {
@@ -33,6 +38,9 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
   const [labData, setLabData] = useState<Record<string, string>>({})
   const [templateKey, setTemplateKey] = useState('')
   const [confirmApprove, setConfirmApprove] = useState(false)
+  const { user } = useAuth()
+  const canApprove = canUserAccess(user, 'report_approve')
+  const canMail = canUserAccess(user, 'mail')
 
   // State for core fields
   const [coreFields, setCoreFields] = useState<any>({})
@@ -89,20 +97,27 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
       }
       await api.saveObservations(type, reportId, payload as any)
       
-      setMessage('Report saved successfully')
+      const wasApproved = report?.status === 'Complete'
+      const now: any = await api.reportDetail(type, reportId)
+      setReport(now.report)
+      setMessage(wasApproved && now.report.status !== 'Complete' ? 'Report saved. It was changed after approval, so it needs approval again (it is now under Lab Reports).' : 'Report saved successfully')
+      return true
     } catch {
       setError('Failed to save changes')
+      return false
     }
   }
 
   const handleApprove = async () => {
     setConfirmApprove(false)
     try {
+      // What is on the screen is what gets approved
+      if (!(await handleSave(false))) return
       await api.approveReport(reportId)
-      setMessage('Report approved successfully')
-      setTimeout(onBack, 1000)
-    } catch {
-      setError('Approval failed')
+      setMessage('Report approved. It can be printed and mailed, and is under Final Reports.')
+      await refreshStatus()
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : 'Approval failed')
     }
   }
 
@@ -148,7 +163,8 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
   if (loading) return <div className="surface" style={{ padding: 40, textAlign: 'center' }}>Loading...</div>
 
   return (
-    <div className="surface" style={{ padding: 24 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 24 }}>
+      <div className="surface" style={{ padding: '28px 36px' }}>
       {error && <div className="error-banner">{error}</div>}
       {message && <div className="success-banner">{message}</div>}
 
@@ -172,10 +188,10 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>ULR No.</span>
-          <input type="text" className="input" value={report?.ulr_no || ''} disabled style={{ background: '#f5f7f9' }} />
+          <input type="text" className="input" value={fullUlr(report?.ulr_no, report?.create_date)} disabled style={{ background: '#f5f7f9' }} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Name & Address of Customer</span>
@@ -191,7 +207,17 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Material Identification Details.</span>
-          <input type="text" className="input" value={coreFields.material_details} onChange={(e) => updateCore('material_details', e.target.value)} />
+          {templateKey === 'cc_cube' ? (
+            <select className="input" value={coreFields.material_details} onChange={(e) => {
+              updateCore('material_details', e.target.value)
+              setLabData((prev) => ({ ...prev, ...cubeMaterialPatch(e.target.value, prev, details as Array<Record<string, unknown>>) }))
+            }}>
+              {/* Older reports keep the text they have */}
+              {[...new Set([report?.material_details || '', coreFields.material_details, ...CUBE_MATERIALS])].filter((m) => m || !coreFields.material_details).map((m) => <option key={m} value={m}>{m || 'Select'}</option>)}
+            </select>
+          ) : (
+            <input type="text" className="input" value={coreFields.material_details} onChange={(e) => updateCore('material_details', e.target.value)} />
+          )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Name Of Work</span>
@@ -224,16 +250,21 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Sampled By /Condition Of Sample</span>
           <input type="text" className="input" value={coreFields.sampled_by} onChange={(e) => updateCore('sampled_by', e.target.value)} />
         </div>
+        <LabHeaderFields gap={0} formatKey={templateKey} labData={labData} details={details as Array<Record<string, unknown>>} updateLabData={updateLabData} environment={(
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Environment Condition.</span>
           <input type="text" className="input" value={coreFields.environment_condition} onChange={(e) => updateCore('environment_condition', e.target.value)} />
         </div>
+        )} />
         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', alignItems: 'center' }}>
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Dispatch Date</span>
           <input type="date" className="input" value={coreFields.dispatch_date} onChange={(e) => updateCore('dispatch_date', e.target.value)} />
         </div>
       </div>
 
+      </div>
+
+      <div className="surface lab-results-card">
       <ExcelLabReportEditor
         reportType={type}
         material={coreFields.material_details}
@@ -244,14 +275,21 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
         updateLabData={updateLabData}
       />
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 24, padding: '16px 0', borderTop: '1px solid var(--color-border, #e2e8f0)', alignItems: 'center' }}>
+      </div>
+
+      <div className="surface" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '18px 36px', alignItems: 'center' }}>
         <button type="button" className="btn btn-outline" onClick={onBack}>
           <ArrowLeft size={15} /> Back
         </button>
         <div style={{ flex: '1 1 auto' }} />
         <button type="button" className="btn btn-outline" onClick={() => void handlePrint()}>
-          <Printer size={15} /> Print
+          <Printer size={15} /> {report?.status === 'Complete' ? 'Print' : 'Print draft'}
         </button>
+        {canMail && report?.status === 'Complete' && (
+          <button type="button" className="btn btn-outline" onClick={() => openMailWindow(documentMailUrl('report', reportId, false, type))}>
+            <Mail size={15} /> Mail
+          </button>
+        )}
         {report?.status === 'Testing' && (
           <>
             <button type="button" className="btn btn-outline" onClick={() => void runStep(() => api.startTesting(reportId), 'Testing started', 'Start testing failed')}>
@@ -267,9 +305,9 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
             <RotateCcw size={15} /> Reapprove
           </button>
         )}
-        {report?.status !== 'Complete' && report?.status !== 'Cancel' && (
+        {canApprove && report?.status !== 'Complete' && report?.status !== 'Cancel' && (
           <button type="button" className="btn btn-success" onClick={() => setConfirmApprove(true)}>
-            <CheckCircle2 size={15} /> Approved Report
+            <CheckCircle2 size={15} /> Approve Report
           </button>
         )}
         {report?.status !== 'Cancel' && (
@@ -283,7 +321,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
       </div>
 
       {confirmApprove ? (
-        <Modal title="Approved Report" size="sm" onClose={() => setConfirmApprove(false)} onSave={() => void handleApprove()} saveLabel="Approve" cancelLabel="Close">
+        <Modal title="Approve Report" size="sm" onClose={() => setConfirmApprove(false)} onSave={() => void handleApprove()} saveLabel="Approve" cancelLabel="Close">
           <p style={{ margin: 0 }}>Do you really want to approve the report for UID <strong>{report?.uid_no}</strong>?</p>
         </Modal>
       ) : null}

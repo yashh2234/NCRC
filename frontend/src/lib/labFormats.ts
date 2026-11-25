@@ -10,12 +10,13 @@
  */
 
 import { GRADING_COLORS, type ChartSpec } from './labCharts'
+import { defaultIds, rowIds, type RowRef } from './labRows'
 
 export type Values = Record<string, string>
 
 export type Cell =
   | { text: string; rs?: number; cs?: number; left?: boolean; bold?: boolean }
-  | { in: string; rs?: number; cs?: number; left?: boolean; wide?: boolean; prefix?: string }
+  | { in: string; rs?: number; cs?: number; left?: boolean; wide?: boolean; prefix?: string; options?: string[] }
   | { calc: string; rs?: number; cs?: number }
 
 export type Row = Cell[]
@@ -26,6 +27,10 @@ export interface Block {
   heading?: string
   head?: Row[]
   rows?: Row[]
+  /** What the add / delete icons of each row act on (null: no icons). Left out: a fixed table, see labRows */
+  refs?: Array<RowRef | null>
+  /** Name of a fixed table (set by layoutBlocks) */
+  table?: string
   /** A line printed under the table, e.g. the water conclusion */
   footKey?: string
   /** Text lines (fixed, or worded from the values) printed before / after the table */
@@ -45,12 +50,16 @@ export type StdField =
   | 'customer_details' | 'agency_name' | 'reference_no' | 'material_details' | 'source_location'
   | 'work_order_no' | 'sample_date' | 'sample_tested_date' | 'sampled_by' | 'environment' | 'dispatch_date'
 
-export interface HeaderExtra { key: string; label: string; after: StdField }
+/** Parts: boxes side by side on one printed line (machine | capacity | calibration date) */
+export interface HeaderExtra { key: string; label: string; after: StdField; parts?: Array<{ key: string; label: string; prefix?: string }> }
+
+/** A choice above the results that sets codes, limits or factors (brick type, tile thickness) */
+export interface SelectControl { key: string; label: string; options: Array<[string, string]> }
 
 export interface CountControl { key: string; label: string; min: number; max: number }
 
 /** A header row of a format with its own header (mix designs). Keys h_* are typed on the report screen. */
-export interface HeaderItem { key: StdField | string; label: string; multiline?: boolean; fallback?: StdField }
+export interface HeaderItem { key: StdField | string; label: string; multiline?: boolean; fallback?: StdField; parts?: HeaderExtra['parts'] }
 
 export interface LabFormat {
   key: string
@@ -58,6 +67,8 @@ export interface LabFormat {
   ulrSuffix?: string
   /** Wording of Note 1 when it differs (mix designs) */
   note1?: string
+  /** Name on the screen when it depends on what is tested (CC Cube / CM Cube) */
+  name?: (v: Values) => string
   /** Printed under TEST REPORT, e.g. "Mix Design of GSB-III" */
   subtitle?: (v: Values) => string
   /** Whole header in Excel order (mix designs); otherwise the standard 10 rows */
@@ -68,8 +79,13 @@ export interface LabFormat {
   labels?: Partial<Record<StdField, string>>
   /** Extra header rows of this format (cube: age, machine, curing); typed on the report screen */
   extras?: HeaderExtra[]
-  /** Row counts the lab can change (cube sets, cores, bricks…) */
+  /** Counts picked in the form (compaction points: columns); rows are added and deleted on the table */
   counts?: CountControl[]
+  selects?: SelectControl[]
+  /** Saved in new reports from the start */
+  initial?: Values
+  /** Older saved values brought to the current fields */
+  normalize?: (v: Values, labData: Values) => Values
   /** Values used until the lab types something */
   defaults: (v: Values) => Values
   blocks: (v: Values) => Block[]
@@ -99,7 +115,7 @@ export const ENV_DEFAULTS: Values = { h_temperature: '27°C', h_humidity: '65%' 
 // ---------------------------------------------------------------- helpers
 
 const t = (text: string, o: Partial<{ rs: number; cs: number; left: boolean; bold: boolean }> = {}): Cell => ({ text, ...o })
-const i = (key: string, o: Partial<{ rs: number; cs: number; left: boolean; wide: boolean; prefix: string }> = {}): Cell => ({ in: key, ...o })
+const i = (key: string, o: Partial<{ rs: number; cs: number; left: boolean; wide: boolean; prefix: string; options: string[] }> = {}): Cell => ({ in: key, ...o })
 /** Full-width group line, e.g. "(A) CC : Compressive Strength" */
 const group = (key: string, cs: number, n = 1): Cell => i(key, { cs, left: true, wide: true, prefix: `(${letter(n)}) ` })
 const c = (key: string, o: Partial<{ rs: number; cs: number }> = {}): Cell => ({ calc: key, ...o })
@@ -114,6 +130,8 @@ export function num(v: string | undefined | null): number | null {
 }
 const fx = (x: number | null, dp = 2) => (x === null || !Number.isFinite(x) ? '' : x.toFixed(dp))
 const count = (v: Values, key: string, fallback: number) => Math.max(1, Math.round(num(v[key]) ?? fallback))
+/** Icons for rows of a list */
+const listRefs = (ids: number[], key: string, fallback: number): RowRef[] => ids.map((id) => ({ list: { key, id, fallback } }))
 const str = (x: unknown) => (x === null || x === undefined ? '' : String(x).trim())
 const avg = (xs: Array<number | null>) => {
   const ok = xs.filter((x): x is number => x !== null)
@@ -122,12 +140,16 @@ const avg = (xs: Array<number | null>) => {
 /** Legacy rows saved '0' in unused slots */
 const nz = (x: unknown) => (str(x) === '0' ? '' : str(x))
 
+/** Sieves of a table: the Excel ones (ids 1…n) and any the lab added */
+const sieveIds = (v: Values, prefix: string, sieves: unknown[]) => rowIds(v, `${prefix}_sieves`, sieves.length)
+const sieveRefs = (v: Values, prefix: string, sieves: unknown[]) => listRefs(sieveIds(v, prefix, sieves), `${prefix}_sieves`, sieves.length)
+
 /** Gradation: weight retained → % retained, cumulative %, passing % */
-function gradation(v: Values, prefix: string, sieves: number, totalKey: string): Values {
+function gradation(v: Values, prefix: string, sieves: unknown[], totalKey: string): Values {
   const out: Values = {}
   const total = num(v[totalKey])
   let cum = 0
-  for (const s of range(sieves)) {
+  for (const s of sieveIds(v, prefix, sieves)) {
     const w = num(v[`${prefix}${s}_w`])
     if (w === null || !total) continue
     const pct = (w / total) * 100
@@ -140,45 +162,101 @@ function gradation(v: Values, prefix: string, sieves: number, totalKey: string):
 }
 
 function gradationBlock(title: string, v: Values, prefix: string, sieves: Array<[string, string]>, totalKey: string, table: string): Block {
+  const ids = sieveIds(v, prefix, sieves)
   return {
     title,
     head: [[t('IS sieve size (mm)'), t(`Weight retained in ${v[totalKey] || '—'} (gm)`), t('Weight retained in (%)'), t('Cum. weight retained in (%)'), t('Passing (%)'), t(`IS Grading As per IS 383-2016 ${table}`), t('Remarks')]],
-    rows: sieves.map(([size, limit], k) => [
-      t(size), i(`${prefix}${k + 1}_w`), c(`${prefix}${k + 1}_pct`), c(`${prefix}${k + 1}_cum`), c(`${prefix}${k + 1}_pass`), t(limit),
-      ...(k === 0 ? [i(`${prefix}_remarks`, { rs: sieves.length })] : []),
+    refs: sieveRefs(v, prefix, sieves),
+    rows: ids.map((s, k) => [
+      sieves[s - 1] ? t(sieves[s - 1][0]) : i(`${prefix}${s}_size`), i(`${prefix}${s}_w`), c(`${prefix}${s}_pct`), c(`${prefix}${s}_cum`), c(`${prefix}${s}_pass`),
+      sieves[s - 1] ? t(sieves[s - 1][1]) : i(`${prefix}${s}_limit`),
+      ...(k === 0 ? [i(`${prefix}_remarks`, { rs: ids.length })] : []),
     ]),
   }
 }
+
+/** Sieves with lower / upper limits (mix designs), with the added ones; added: limits are typed */
+type Sieve3 = [string, string, string]
+const sieveList = (v: Values, prefix: string, sieves: Sieve3[]) => sieveIds(v, prefix, sieves).map((id) => {
+  const s = sieves[id - 1]
+  return s
+    ? { id, size: s[0], lo: s[1], hi: s[2], sizeCell: t(s[0]), loCell: t(s[1]), hiCell: t(s[2]) }
+    : { id, size: v[`${prefix}${id}_size`] ?? '', lo: v[`${prefix}${id}_lo`] ?? '', hi: v[`${prefix}${id}_hi`] ?? '', sizeCell: i(`${prefix}${id}_size`), loCell: i(`${prefix}${id}_lo`), hiCell: i(`${prefix}${id}_hi`) }
+})
 
 /** Fixed list of tests: [S.No | name | method | result | unit | limit] style rows */
 type TestRow = { no?: string; name: string; method?: string; key?: string; unit?: string; limit?: string; methodSpan?: number }
 
 // ---------------------------------------------------------------- formats
 
+/** Cubes of a set: 3 unless rows were added or deleted */
+const cubeIds = (v: Values, set: number) => rowIds(v, `s${set}_n`, 3)
+
+/** "As per IS Code comp. strength" (cube software.xlsx) */
+const CUBE_IS_CODES = [
+  '5 (for CC 1:5:10)', '7.5 (for CC 1:4:8)', '10 (for CC 1:3:6)', '15 (for CC 1:2:4)', '20 (for CC 1:1.5:3)', '25 (for CC 1:1:2)',
+  '30 (for CC M-30)', '35 (for CC M-35)', '40 (for CC M-40)', '45 (for CC M-45)', '50 (for CC M-50)', '(for CC 1:5:10) Lean Concrete',
+  '3.0-5.0 (for CM 1:6)', '5.0-7.5 (for CM 1:4)', '7.5-10 (for CM 1:3)', '3.5-5.0 (for CM 1:5)',
+  '1.5-2.0 (for 1 Lime:2 Surkhi)', '0.50-0.70 (for 1 Lime:2 Sand )', '0.50-0.70 (for LSC)',
+]
+
+/** Concrete or cement mortar cubes: chosen by the Material Identification, kept in lab_data.cube_kind (none = CC) */
+export const CUBE_MATERIALS = ['CC Cube Sample (1 Set) (150X150)', 'CM Cube Sample (1 Set) (50X50)']
+const CUBE_KINDS = {
+  CC: { size: '150', iscode: '20 (for CC 1:1.5:3)', title: 'TEST RESULTS (As per IS : 516 Part 1/Sec 1) 2021' },
+  CM: { size: '50', iscode: '5.0-7.5 (for CM 1:4)', title: 'TEST RESULTS (As per IS : 2250 : 1981)' },
+}
+const cubeKind = (v: Values): 'CC' | 'CM' => (v.cube_kind === 'CM' ? 'CM' : 'CC')
+const cubeGroup = (kind: string) => `${kind} : Compressive Strength`
+
+/** Changes for lab_data when the material is picked: heading, sizes and IS code follow unless the lab typed its own */
+export function cubeMaterialPatch(material: string, labData: Values, details: Array<Record<string, unknown>> = []): Values {
+  const to = /^\s*CM\b/i.test(material) ? 'CM' : 'CC'
+  const { values } = effectiveValues(cube, labData, details)
+  const from = cubeKind(values)
+  if (to === from) return {}
+  const out: Values = { cube_kind: to }
+  const swap = (key: string, before: string, after: string) => { if (values[key] === before) out[key] = after }
+  for (const s of rowIds(values, 'n_sets', 1)) {
+    swap(`s${s}_group`, cubeGroup(from), cubeGroup(to))
+    swap(`s${s}_iscode`, CUBE_KINDS[from].iscode, CUBE_KINDS[to].iscode)
+    for (const j of cubeIds(values, s)) for (const side of ['l', 'b']) swap(`s${s}_${j}_${side}`, CUBE_KINDS[from].size, CUBE_KINDS[to].size)
+  }
+  return out
+}
+
 const cube: LabFormat = {
+  name: (v) => `${cubeKind(v)} Cube`,
   key: 'cc_cube',
   labels: { customer_details: 'Name & Address of Customer' },
   extras: [
     { key: 'h_age', label: 'Age of Specimen', after: 'sample_tested_date' },
-    { key: 'h_machine', label: 'Details Of Machine Used', after: 'sampled_by' },
+    { key: 'h_machine', label: 'Details Of Machine Used', after: 'sampled_by', parts: [
+      { key: 'h_machine', label: 'Machine used' }, { key: 'h_capacity', label: 'Capacity' }, { key: 'h_calibration', label: 'Calibration Dt.', prefix: 'Calibration Dt. ' },
+    ] },
     { key: 'h_curing', label: 'Curing Conditions', after: 'sampled_by' },
   ],
-  counts: [{ key: 'n_sets', label: 'Cube sets', min: 1, max: 5 }],
-  defaults: () => {
+  // Machine, capacity and calibration were one text in older reports
+  normalize: (v, labData) => {
+    const m = str(labData.h_machine).match(/^(.*?)\s*(\d+\s*kn)\s*Calibration\s*Dt\.?\s*(.*)$/i)
+    return m ? { ...v, h_machine: m[1], h_capacity: labData.h_capacity ?? m[2], h_calibration: labData.h_calibration ?? m[3] } : v
+  },
+  defaults: (v) => {
     const d: Values = {
-      n_sets: '1', h_age: '28 Days', h_machine: 'Compresive Testing Machine (Auto)  2000kn  Calibration Dt. 25/04/2026', h_curing: 'OK',
+      n_sets: '1', h_age: '28 Days', h_machine: 'Compresive Testing Machine (Auto)', h_capacity: '2000kn', h_calibration: '25/04/2026', h_curing: 'OK',
     }
-    for (const s of range(5)) {
-      d[`s${s}_group`] = 'CC : Compressive Strength'
-      d[`s${s}_iscode`] = '20 (for CC 1:1.5:3)'
-      for (const j of range(3)) Object.assign(d, { [`s${s}_${j}_mark`]: `S-${j}`, [`s${s}_${j}_l`]: '150', [`s${s}_${j}_b`]: '150' })
+    const kind = cubeKind(v), { size, iscode } = CUBE_KINDS[kind]
+    for (const s of defaultIds(v, 'n_sets')) {
+      d[`s${s}_group`] = cubeGroup(kind)
+      d[`s${s}_iscode`] = iscode
+      cubeIds(v, s).forEach((j, k) => Object.assign(d, { [`s${s}_${j}_mark`]: `S-${k + 1}`, [`s${s}_${j}_l`]: size, [`s${s}_${j}_b`]: size }))
     }
     return d
   },
   compute: (v) => {
     const out: Values = {}
-    for (const s of range(count(v, 'n_sets', 1))) {
-      const strengths = range(3).map((j) => {
+    for (const s of rowIds(v, 'n_sets', 1)) {
+      const strengths = cubeIds(v, s).map((j) => {
         const l = num(v[`s${s}_${j}_l`]), b = num(v[`s${s}_${j}_b`]), load = num(v[`s${s}_${j}_load`])
         const area = l !== null && b !== null ? l * b : null
         out[`s${s}_${j}_area`] = fx(area)
@@ -191,15 +269,16 @@ const cube: LabFormat = {
     return out
   },
   blocks: (v) => [{
-    title: 'TEST RESULTS (As per IS : 516 Part 1/Sec 1) 2021',
+    title: CUBE_KINDS[cubeKind(v)].title,
     head: [[t('S. N'), t('Sample Identification Mark'), t('Size of cubes (mm)', { cs: 2 }), t('Area of cubes mm2'), t('Date of Casting'), t('Date of testing'), t('Weight of Cube in gm'), t('Load (KN)'), t('Comp. Strength (N/mm2)'), t('Avg. comp. strength (N/mm2)'), t('As per IS Code comp. strength (N/mm2)')]],
-    rows: range(count(v, 'n_sets', 1)).flatMap((s) => [
-      [group(`s${s}_group`, 12, s)],
-      ...range(3).map((j): Row => [
-        t(String(j)), i(`s${s}_${j}_mark`), i(`s${s}_${j}_l`), i(`s${s}_${j}_b`), c(`s${s}_${j}_area`),
-        ...(j === 1 ? [i(`s${s}_cast`, { rs: 3 }), i(`s${s}_test`, { rs: 3 })] : []),
+    refs: rowIds(v, 'n_sets', 1).flatMap((s): RowRef[] => [{ list: { key: 'n_sets', id: s, fallback: 1 } }, ...listRefs(cubeIds(v, s), `s${s}_n`, 3)]),
+    rows: rowIds(v, 'n_sets', 1).flatMap((s, n) => [
+      [group(`s${s}_group`, 12, n + 1)],
+      ...cubeIds(v, s).map((j, k, all): Row => [
+        t(String(k + 1)), i(`s${s}_${j}_mark`), i(`s${s}_${j}_l`), i(`s${s}_${j}_b`), c(`s${s}_${j}_area`),
+        ...(k === 0 ? [i(`s${s}_cast`, { rs: all.length }), i(`s${s}_test`, { rs: all.length })] : []),
         i(`s${s}_${j}_wt`), i(`s${s}_${j}_load`), c(`s${s}_${j}_str`),
-        ...(j === 1 ? [c(`s${s}_avg`, { rs: 3 }), i(`s${s}_iscode`, { rs: 3 })] : []),
+        ...(k === 0 ? [c(`s${s}_avg`, { rs: all.length }), i(`s${s}_iscode`, { rs: all.length, options: CUBE_IS_CODES })] : []),
       ]),
     ]),
   }],
@@ -222,11 +301,10 @@ const cube: LabFormat = {
 const core: LabFormat = {
   key: 'cc_core',
   labels: { customer_details: 'Name of Dept.', material_details: 'Material Identification', source_location: 'Name of Work', sampled_by: 'Sampled by /Condition' },
-  counts: [{ key: 'n_cores', label: 'Cores', min: 1, max: 10 }],
   defaults: () => ({ n_cores: '3', age: 'After 28 Days' }),
   compute: (v) => {
     const out: Values = {}
-    for (const r of range(count(v, 'n_cores', 3))) {
+    for (const r of rowIds(v, 'n_cores', 3)) {
       const d = num(v[`r${r}_dia`]), h = num(v[`r${r}_h`]), load = num(v[`r${r}_load`])
       const area = d !== null ? (3.1429 / 4) * d * d : null
       const cf = d && h !== null ? (h / d) * 0.11 + 0.78 : null
@@ -240,16 +318,17 @@ const core: LabFormat = {
     return out
   },
   blocks: (v) => {
-    const n = count(v, 'n_cores', 3)
+    const ids = rowIds(v, 'n_cores', 3)
     return [{
       title: 'TEST RESULTS (As per IS : 516-1959 Part - IV RA 2018 )',
       head: [
         [t('S. No.', { rs: 2 }), t('Ht. of Core before Facing (mm)', { rs: 2 }), t('Dimension of Core after Facing', { cs: 2 }), t('Cross Sectional area'), t('Correction Factor', { rs: 2 }), t('Age of Specimen', { rs: 2 }), t('Crushing Load in KN', { rs: 2 }), t('Measured Comp. strength'), t('Corrected Comp. Strength'), t('Equivalent Cube Strength')],
         [t('Dia (mm)'), t('Height (mm)'), t('mm2'), t('N/mm2'), t('N/mm2'), t('N/mm2')],
       ],
-      rows: range(n).map((r) => [
-        t(String(r)), i(`r${r}_ht`), i(`r${r}_dia`), i(`r${r}_h`), c(`r${r}_area`), c(`r${r}_cf`),
-        ...(r === 1 ? [i('age', { rs: n })] : []),
+      refs: listRefs(ids, 'n_cores', 3),
+      rows: ids.map((r, k) => [
+        t(String(k + 1)), i(`r${r}_ht`), i(`r${r}_dia`), i(`r${r}_h`), c(`r${r}_area`), c(`r${r}_cf`),
+        ...(k === 0 ? [i('age', { rs: ids.length })] : []),
         i(`r${r}_load`), c(`r${r}_meas`), c(`r${r}_corr`), c(`r${r}_eq`),
       ]),
     }]
@@ -265,14 +344,24 @@ const core: LabFormat = {
   },
 }
 
+/** Bricks software.xlsx; blank type: reports made before it keep the codes they were issued with */
+const BRICK_CODES: Record<string, { std: string; dim: string; cs: string }> = {
+  '': { std: '1992 RA 2016', dim: 'IS 1077:1992 RA 2016', cs: 'Min 7.5 Mpa' },
+  Clay: { std: '2019', dim: 'IS 1077:2025', cs: 'Min 7.5 Mpa' },
+  Flyash: { std: '2019', dim: 'IS 12894:2002 RA 2022', cs: 'Min 10.0 Mpa' },
+}
+const brickCodes = (v: Values) => BRICK_CODES[v.brick_type ?? ''] ?? BRICK_CODES['']
 const bricks: LabFormat = {
   key: 'clay_bricks',
   labels: { material_details: 'Material Identification', sampled_by: 'Sampled by /Condition' },
-  counts: [{ key: 'n_bricks', label: 'Bricks tested', min: 1, max: 10 }],
-  defaults: () => ({ ...Object.fromEntries(range(10).map((b) => [`b${b}_id`, String(b)])), n_bricks: '5', eff: 'Slight', lim_l: '4600±80', lim_w: '2200±40', lim_h: '1400±40', lim_wa: '20 Max.', lim_eff: 'Moderate Max.', lim_cs: 'Min 7.5 Mpa' }),
+  selects: [{ key: 'brick_type', label: 'Type of brick', options: [['Clay', 'Clay (IS 1077:2025, IS 3495:2019)'], ['', 'Old codes (1992 RA 2016)']] }],
+  initial: { brick_type: 'Clay' },
+  defaults: (v) => ({
+    n_bricks: '5', eff: 'Slight', lim_l: '4600±80', lim_w: '2200±40', lim_h: '1400±40', lim_wa: '20 Max.', lim_eff: 'Moderate Max.', lim_cs: brickCodes(v).cs,
+  }),
   compute: (v) => {
     const out: Values = {}
-    const strengths = range(count(v, 'n_bricks', 5)).map((b) => {
+    const strengths = rowIds(v, 'n_bricks', 5).map((b) => {
       const l = num(v[`b${b}_l`]), w = num(v[`b${b}_w`]), load = num(v[`b${b}_load`])
       const s = l && w && load !== null ? (load / l / w) * 1000 : null
       out[`b${b}_str`] = fx(s)
@@ -282,24 +371,26 @@ const bricks: LabFormat = {
     return out
   },
   blocks: (v) => {
-    const n = count(v, 'n_bricks', 5)
+    const ids = rowIds(v, 'n_bricks', 5)
+    const code = brickCodes(v)
     return [
       {
-        title: 'Test Results (As per-IS 3495 ( Parts 1 to 4 ) : 1992 RA 2016)',
+        title: `Test Results (As per-IS 3495 ( Parts 1 to 4 ) : ${code.std})`,
         head: [[t('S.no.'), t('Name of Test'), t('Method of Test'), t('Result'), t('Unit'), t('Limit')]],
         rows: [
-          [t('1', { rs: 4 }), t('Dimension & Tolerance', { left: true }), t('IS 1077:1992 RA 2016', { rs: 4 }), t(''), t(''), t('')],
+          [t('1', { rs: 4 }), t('Dimension & Tolerance', { left: true }), t(code.dim, { rs: 4 }), t(''), t(''), t('')],
           [t('(i) Length', { left: true }), i('dim_l'), t('mm'), i('lim_l')],
           [t('(ii) Width', { left: true }), i('dim_w'), t('mm'), i('lim_w')],
           [t('(iii) Height', { left: true }), i('dim_h'), t('mm'), i('lim_h')],
-          [t('2'), t('Water Absorption', { left: true }), t('IS 3495 part-2 : 1992 RA 2016'), i('wa'), t('%'), i('lim_wa')],
-          [t('3'), t('Efflorescence', { left: true }), t('IS 3495 part-3 : 1992 RA 2016'), i('eff'), t('-'), i('lim_eff')],
-          [t('4'), t('Compressive strength', { left: true }), t('IS 3495 part-1 : 1992 RA 2016'), c('cs_avg'), t('N/mm2'), i('lim_cs')],
+          [t('2'), t('Water Absorption', { left: true }), t(`IS 3495 part-2 : ${code.std}`), i('wa'), t('%'), i('lim_wa')],
+          [t('3'), t('Efflorescence', { left: true }), t(`IS 3495 part-3 : ${code.std}`), i('eff', { options: ['Nil', 'Slight', 'Moderate', 'Heavy', 'Serious'] }), t('-'), i('lim_eff')],
+          [t('4'), t('Compressive strength', { left: true }), t(`IS 3495 part-1 : ${code.std}`), c('cs_avg'), t('N/mm2'), i('lim_cs')],
         ],
       },
       {
-        head: [[t('ID Mark'), t('Length (mm)'), t('Width (mm)'), t('Load (kN)'), t('Compressive strength (N/mm2)'), t('Avg. Compressive strength in N/mm2')]],
-        rows: range(n).map((b) => [i(`b${b}_id`), i(`b${b}_l`), i(`b${b}_w`), i(`b${b}_load`), c(`b${b}_str`), ...(b === 1 ? [c('cs_avg', { rs: n })] : [])]),
+        head: [[t('S. No.'), t('ID Mark'), t('Length (mm)'), t('Width (mm)'), t('Load (kN)'), t('Compressive strength (N/mm2)'), t('Avg. Compressive strength in N/mm2')]],
+        refs: listRefs(ids, 'n_bricks', 5),
+        rows: ids.map((b, k) => [t(String(k + 1)), i(`b${b}_id`), i(`b${b}_l`), i(`b${b}_w`), i(`b${b}_load`), c(`b${b}_str`), ...(k === 0 ? [c('cs_avg', { rs: ids.length })] : [])]),
       },
     ]
   },
@@ -311,22 +402,30 @@ const bricks: LabFormat = {
   },
 }
 
+/** Fly ash bricks: the same tests with IS 12894 and Min 10.0 (Bricks software.xlsx) */
+const flyash: LabFormat = {
+  ...bricks,
+  key: 'flyash_bricks',
+  selects: undefined,
+  initial: undefined,
+  defaults: (v) => ({ ...bricks.defaults({ ...v, brick_type: 'Flyash' }), brick_type: 'Flyash' }),
+}
+
 /** Specimens crushed on one area: interlocking tiles (×1.06) and kerb stone */
 function crushFormat(key: string, o: {
-  title: string; groupText: string; location: string; area: string; iscode: string; n: number; factor: number
+  title: string; groupText: (v: Values) => string; location: (v: Values) => string; area: string; iscode: string; n: number; factor: (v: Values) => number
   head: string[]; withCollection: boolean; labels?: LabFormat['labels']
 }): LabFormat {
   return {
     key,
     labels: o.labels,
-    counts: [{ key: 'n_spec', label: 'Specimens', min: 1, max: 12 }],
-    defaults: () => ({ n_spec: String(o.n), group: o.groupText, loc: o.location, area: o.area, iscode: o.iscode }),
+    defaults: (v) => ({ n_spec: String(o.n), group: o.groupText(v), loc: o.location(v), area: o.area, iscode: o.iscode }),
     compute: (v) => {
       const out: Values = {}
       const area = num(v.area)
-      const s = range(count(v, 'n_spec', o.n)).map((k) => {
+      const s = rowIds(v, 'n_spec', o.n).map((k) => {
         const load = num(v[`p${k}_load`])
-        const x = area && load !== null ? (load / area) * 1000 * o.factor : null
+        const x = area && load !== null ? (load / area) * 1000 * o.factor(v) : null
         out[`p${k}_str`] = fx(x)
         return x
       })
@@ -334,17 +433,19 @@ function crushFormat(key: string, o: {
       return out
     },
     blocks: (v) => {
-      const n = count(v, 'n_spec', o.n)
+      const ids = rowIds(v, 'n_spec', o.n)
+      const n = ids.length
       return [{
         title: o.title,
         head: [o.head.map((h) => t(h))],
+        refs: [null, ...listRefs(ids, 'n_spec', o.n)],
         rows: [
           [group('group', o.head.length)],
-          ...range(n).map((k): Row => [
-            t(String(k)),
-            ...(k === 1 ? [i('loc', { rs: n }), i('area', { rs: n }), ...(o.withCollection ? [i('collect', { rs: n })] : []), i('test', { rs: n })] : []),
+          ...ids.map((k, at): Row => [
+            t(String(at + 1)),
+            ...(at === 0 ? [i('loc', { rs: n }), i('area', { rs: n }), ...(o.withCollection ? [i('collect', { rs: n })] : []), i('test', { rs: n })] : []),
             i(`p${k}_load`), c(`p${k}_str`),
-            ...(k === 1 ? [c('avg', { rs: n }), i('iscode', { rs: n })] : []),
+            ...(at === 0 ? [c('avg', { rs: n }), i('iscode', { rs: n })] : []),
           ]),
         ],
       }]
@@ -352,27 +453,39 @@ function crushFormat(key: string, o: {
   }
 }
 
-const interlocking: LabFormat = {
-  ...crushFormat('interlocking_60mm', {
+/** Correction factor by tile thickness (Interlocking Tiles Calculation sheets.xlsx): 60 = 1.06, 80 = 1.18, 100 = 1.24 */
+export const tileFactor = (mm: number) => Number((mm <= 80 ? 1.06 + (mm - 60) * 0.006 : 1.18 + (mm - 80) * 0.003).toFixed(3))
+const thickness = (v: Values) => Math.min(100, Math.max(60, num(v.thickness) ?? 60))
+
+/** Interlocking 60 / 80 / 100 mm: the format sets the thickness, which can still be changed on the report */
+const interlockingFormat = (mm: string): LabFormat => {
+  const base = crushFormat(`interlocking_${mm}mm`, {
     title: 'TEST RESULTS : Compressive Strength of Inter locking Tiles as per IS:15658-2006',
-    groupText: 'Compressive Strength of Inter locking Tiles 60 mm Thickness.', location: 'Inter Locking Tile(60mm)', area: '', iscode: '30 (For M-30)', n: 8, factor: 1.06,
+    groupText: (v) => `Compressive Strength of Inter locking Tiles ${thickness(v)} mm Thickness.`, location: (v) => `Inter Locking Tile(${thickness(v)}mm)`,
+    area: '', iscode: '30 (For M-30)', n: 8, factor: (v) => tileFactor(thickness(v)),
     head: ['S.No', 'Shape & Location', 'Size/Area of tiles mm2', 'Date of Testing', 'Crushing Load (KN)', 'Corrected Comp. Strength (N/mm2)', 'Ave. Corrected Comp. Strength (N/mm2)', 'As per IS Code 28 days comp. strength (N/mm2)'],
     withCollection: false, labels: { customer_details: 'Name of Department', source_location: 'Name of Work' },
-  }),
+  })
+  return {
+  ...base,
+  defaults: (v) => ({ ...base.defaults({ ...v, thickness: v.thickness || mm }), thickness: mm }),
+  selects: [{ key: 'thickness', label: 'Thickness (correction factor)', options: range(41).map((k): [string, string] => [String(59 + k), `${59 + k} mm (CF ${tileFactor(59 + k)})`]) }],
   fromDetails: (rows) => {
     const r = rows[0]
     if (!r) return {}
     const v: Values = { loc: str(r.location), area: str(r.size), test: str(r.date_of_testing) }
-    if (str(r.is_code_comp_strength)) v.iscode = str(r.is_code_comp_strength)
+    if (nz(r.is_code_comp_strength)) v.iscode = str(r.is_code_comp_strength)
     let n = 0
     for (const k of range(8)) if (nz(r[`crushing_load_${k}`])) { n = k; v[`p${k}_load`] = str(r[`crushing_load_${k}`]) }
     if (n) v.n_spec = String(n)
     return v
   },
+  }
 }
+const [interlocking60, interlocking80, interlocking100] = ['60', '80', '100'].map(interlockingFormat)
 
 const kerb = crushFormat('kerb_stone', {
-  title: 'TEST RESULTS', groupText: 'C.C : Compressive Strength', location: 'Kerb Stone', area: '22500', iscode: '20 (for CC M-20)', n: 6, factor: 1,
+  title: 'TEST RESULTS', groupText: () => 'C.C : Compressive Strength', location: () => 'Kerb Stone', area: '22500', iscode: '20 (for CC M-20)', n: 6, factor: () => 1,
   head: ['S. N', 'Location', 'Size of cubes mm2', 'Date of Collection', 'Date of testing', 'Load (KN)', 'Comp. Strength (N/mm2)', 'Avg. comp. strength (N/mm2)', 'As per IS Code 28 days comp. strength (N/mm2)'],
   withCollection: true,
 })
@@ -382,7 +495,7 @@ const sand: LabFormat = {
   key: 'sand',
   labels: { reference_no: 'Reference letter No.', material_details: 'Material Identification with details', source_location: 'Name of Work', environment: 'Environmental conditions' },
   defaults: () => ({ g_total: '1000', g_remarks: 'Confirm in Grade-III' }),
-  compute: (v) => gradation(v, 'g', SAND_SIEVES.length, 'g_total'),
+  compute: (v) => gradation(v, 'g', SAND_SIEVES, 'g_total'),
   blocks: (v) => [gradationBlock('TEST RESULTS — Gradation of Fine Aggregate for RCC ( As per IS 2386 (Part-1): 1963 RA 2021)', v, 'g', SAND_SIEVES, 'g_total', 'Table-9')],
   fromDetails: (rows) => {
     const v: Values = {}
@@ -397,7 +510,7 @@ function gritFormat(key: string, size: string, sieves: Array<[string, string]>, 
     key,
     labels: { reference_no: 'Reference letter No.', material_details: 'Material Identification with details', source_location: 'Name of Work', work_order_no: 'Work Order' },
     defaults: () => ({ g_total: '10000', g_remarks: 'with in limit' }),
-    compute: (v) => gradation(v, 'g', sieves.length, 'g_total'),
+    compute: (v) => gradation(v, 'g', sieves, 'g_total'),
     blocks: (v) => [
       {
         title: 'TEST RESULTS',
@@ -554,12 +667,12 @@ const perAggregate = (no: string, label: string, keyPrefix: string, aggs: Array<
 ]
 
 /** Blend of aggregates: % passing of each × its proportion, summed = combined grading */
-function blendCompute(v: Values, sieves: number, aggs: string[]): Values {
+function blendCompute(v: Values, sieves: Sieve3[], aggs: string[]): Values {
   const out: Values = {}
   let total = 0
   for (const a of aggs) total += num(v[`pr_${a}`]) ?? 0
   out.pr_total = fx(total)
-  for (const k of range(sieves)) {
+  for (const k of sieveIds(v, 'ig', sieves)) {
     let sum = 0, any = false
     for (const a of aggs) {
       const pass = num(v[`ig${k}_${a}`]), p = num(v[`pr_${a}`])
@@ -572,13 +685,13 @@ function blendCompute(v: Values, sieves: number, aggs: string[]): Values {
   return out
 }
 /** % passing of the blend against the specification limits, like the Excel "Combined % Passing" chart */
-function gradingChart(title: string, sieves: Array<[string, string, string]>, values: (k: number) => string | undefined, names = ['Lower', 'Upper', 'Combined Grading']): Block['chart'] {
+function gradingChart(title: string, sieves: Array<{ id: number; size: string; lo: string; hi: string }>, values: (id: number) => string | undefined, names = ['Lower', 'Upper', 'Combined Grading']): Block['chart'] {
   return () => ({
-    title, yLabel: '% Passing', yMin: 0, yMax: 120, categories: sieves.map(([s]) => s),
+    title, yLabel: '% Passing', yMin: 0, yMax: 120, categories: sieves.map((s) => s.size),
     series: [
-      { name: names[0], color: GRADING_COLORS.lower, points: sieves.map(([, lo]) => num(lo)) },
-      { name: names[1], color: GRADING_COLORS.upper, points: sieves.map(([, , hi]) => num(hi)) },
-      { name: names[2], color: GRADING_COLORS.combined, points: sieves.map((_, k) => num(values(k + 1))) },
+      { name: names[0], color: GRADING_COLORS.lower, points: sieves.map((s) => num(s.lo)) },
+      { name: names[1], color: GRADING_COLORS.upper, points: sieves.map((s) => num(s.hi)) },
+      { name: names[2], color: GRADING_COLORS.combined, points: sieves.map((s) => num(values(s.id))) },
     ],
   })
 }
@@ -586,12 +699,15 @@ function gradingChart(title: string, sieves: Array<[string, string, string]>, va
 /** Mark blocks (by index) as starting a new printed page */
 const withBreaks = (blocks: Block[], at: number[]): Block[] => blocks.map((b, k) => (at.includes(k) ? { ...b, pageBreak: true } : b))
 
-function gradingBlocks(o: { aggs: Array<[string, string]>; sieves: Array<[string, string, string]>; individual: string; combined: string; limitHead: string }): Block[] {
+function gradingBlocks(v: Values, o: { aggs: Array<[string, string]>; sieves: Array<[string, string, string]>; individual: string; combined: string; limitHead: string }): Block[] {
+  const sieves = sieveList(v, 'ig', o.sieves)
+  const refs = sieveRefs(v, 'ig', o.sieves)
   return [
     {
       heading: o.individual,
       head: [[t('S. No.'), t('Sieve size in mm'), ...o.aggs.map(([, n]) => t(`${n} % Passing`))]],
-      rows: o.sieves.map(([size], k) => [t(String(k + 1)), t(size), ...o.aggs.map(([a]) => i(`ig${k + 1}_${a}`))]),
+      refs,
+      rows: sieves.map((s, k) => [t(String(k + 1)), s.sizeCell, ...o.aggs.map(([a]) => i(`ig${s.id}_${a}`))]),
     },
     {
       heading: o.combined,
@@ -599,10 +715,11 @@ function gradingBlocks(o: { aggs: Array<[string, string]>; sieves: Array<[string
         [t('S.No', { rs: 2 }), t('Sieve Size mm', { rs: 2 }), ...o.aggs.map(([, n]) => t(n)), t('Combined Grading', { rs: 2 }), t(o.limitHead, { cs: 2 })],
         [...o.aggs.map(() => t('Proportion (%)')), t('Lower'), t('Upper')],
       ],
-      chart: (v, k) => gradingChart('Combined % Passing', o.sieves, (n) => k[`cg${n}`])?.(v, k) ?? null,
+      chart: (x, k) => gradingChart('Combined % Passing', sieves, (n) => k[`cg${n}`])?.(x, k) ?? null,
+      refs: [null, ...refs],
       rows: [
         [t(''), t('Proportion', { left: true }), ...o.aggs.map(([a]) => i(`pr_${a}`)), c('pr_total'), t(''), t('')],
-        ...o.sieves.map(([size, lo, hi], k): Row => [t(String(k + 1)), t(size), ...o.aggs.map(([a]) => c(`cg${k + 1}_${a}`)), c(`cg${k + 1}`), t(lo), t(hi)]),
+        ...sieves.map((s, k): Row => [t(String(k + 1)), s.sizeCell, ...o.aggs.map(([a]) => c(`cg${s.id}_${a}`)), c(`cg${s.id}`), s.loCell, s.hiCell]),
       ],
     },
   ]
@@ -655,7 +772,7 @@ const gsb: LabFormat = {
     h_materials: 'Aggregate: 40mm (50 kg.)\nAggregate: 20mm (50 kg.)\nAggregate: 10mm (50 kg.)\nStone Dust Sand: 50 kg',
     pr_40: '35', pr_20: '25', pr_10: '22', pr_sand: '18',
   }),
-  compute: (v) => ({ ...blendCompute(v, GSB_SIEVES.length, GSB_AGGS.map(([a]) => a)), ...compactionCompute(v) }),
+  compute: (v) => ({ ...blendCompute(v, GSB_SIEVES, GSB_AGGS.map(([a]) => a)), ...compactionCompute(v) }),
   blocks: (v) => [
     {
       pageBreak: true,
@@ -667,7 +784,7 @@ const gsb: LabFormat = {
         ...perAggregate('5', 'Water Absorption', 'wa', [['40', '40 mm'], ['20', '20 mm'], ['10', '10 mm'], ['sand', 'Sand']], 'Max. 2 %'),
       ]),
     },
-    ...withBreaks(gradingBlocks({ aggs: GSB_AGGS, sieves: GSB_SIEVES, individual: '(B) Grading of individual aggregates', combined: '(C) Combine grading (Percentage Passing)', limitHead: 'As per MoRTH specification Cumulative % by Weight of total aggregate passing Table 400-1' }), [1]),
+    ...withBreaks(gradingBlocks(v, { aggs: GSB_AGGS, sieves: GSB_SIEVES, individual: '(B) Grading of individual aggregates', combined: '(C) Combine grading (Percentage Passing)', limitHead: 'As per MoRTH specification Cumulative % by Weight of total aggregate passing Table 400-1' }), [1]),
     { ...compactionBlock(v, 'Moisture Content & Dry Density (Proctor)'), pageBreak: true },
     {
       heading: '(D) Moisture Content & Density of GSB-III',
@@ -701,7 +818,7 @@ const wmm: LabFormat = {
     h_materials: 'Aggregate: 40mm (50 kg.)\nAggregate: 20mm (50 kg.)\nAggregate: 10mm (50 kg.)\nCrushed Dust: 50 kg',
     pr_40: '28', pr_20: '19', pr_10: '18', pr_6: '20', pr_dust: '15',
   }),
-  compute: (v) => ({ ...blendCompute(v, WMM_SIEVES.length, WMM_AGGS.map(([a]) => a)), ...compactionCompute(v) }),
+  compute: (v) => ({ ...blendCompute(v, WMM_SIEVES, WMM_AGGS.map(([a]) => a)), ...compactionCompute(v) }),
   blocks: (v) => [
     {
       pageBreak: true,
@@ -714,7 +831,7 @@ const wmm: LabFormat = {
         ...perAggregate('5', 'Water Absorption', 'wa', [['40', '40 mm'], ['20', '20 mm'], ['10', '10 mm'], ['6', '6 mm'], ['dust', 'Stone Dust']], 'Max. 2 %'),
       ]),
     },
-    ...withBreaks(gradingBlocks({ aggs: WMM_AGGS, sieves: WMM_SIEVES, individual: '(B) Grading of individual aggregates', combined: '(C) Combine grading (Percentage Passing)', limitHead: 'As per MoRTH specification Cumulative % by Weight of total aggregate passing Table 400-13' }), [0]),
+    ...withBreaks(gradingBlocks(v, { aggs: WMM_AGGS, sieves: WMM_SIEVES, individual: '(B) Grading of individual aggregates', combined: '(C) Combine grading (Percentage Passing)', limitHead: 'As per MoRTH specification Cumulative % by Weight of total aggregate passing Table 400-13' }), [0]),
     { ...compactionBlock(v, 'Moisture Content & Dry Density (Proctor)'), pageBreak: true },
     {
       pageBreak: true,
@@ -742,17 +859,16 @@ const bm2: LabFormat = {
     ['sample_date', 'Date of Sample Receipt'], ['sample_tested_date', 'Date of Sample Testing'], ['dispatch_date', 'Date of Issue'],
     ['h_method', 'Method of test'], ['h_condition', 'Condition of sample when Received'], ['environment', 'Environment condition'],
   ]),
-  counts: [{ key: 'n_cdm', label: 'CDM specimens', min: 1, max: 6 }],
   defaults: () => ({
     ...MIX_DEFAULTS, h_method: 'As per MORTH specification Revision- V', n_cdm: '4', bit_type: 'VG-30', b_duct: 'Not Rupture',
     h_materials: 'Aggregate: 20mm (50 kg.)\nAggregate: 10mm (50 kg.)\nStone Dust: 50 kg\nBitumen VG-30',
     pr_20: '50', pr_10: '30', pr_sand: '20', ap_20: '48', ap_10: '29', ap_bit: '3.4', ap_sand: '19.6',
   }),
   compute: (v) => {
-    const out = blendCompute(v, BM_SIEVES.length, BM_AGGS.map(([a]) => a))
+    const out = blendCompute(v, BM_SIEVES, BM_AGGS.map(([a]) => a))
     const parts = ['ap_20', 'ap_10', 'ap_bit', 'ap_sand'].map((k) => num(v[k]))
     out.ap_total = parts.some((x) => x !== null) ? fx(parts.reduce<number>((a, b) => a + (b ?? 0), 0)) : ''
-    out.cdm_avg = fx(avg(range(count(v, 'n_cdm', 4)).map((k) => num(v[`cdm${k}`]))), 3)
+    out.cdm_avg = fx(avg(rowIds(v, 'n_cdm', 4).map((k) => num(v[`cdm${k}`]))), 3)
     return out
   },
   blocks: (v) => [
@@ -762,7 +878,8 @@ const bm2: LabFormat = {
       before: ['INTRODUCTION', 'Mix design Procedure for Bitumen Macadam (BM) is largely a Matter of Selecting and Proportioning Materials to obtain the desired Properties in the Finished Construction. Method of Mix Design is adopted for achieving the above objective.'],
       heading: '(A) Grading Composition of Bituminous Macadam: (grading-2) as per MoRTH',
       head: [[t('S.No.'), t('Sieve Size'), t('As per MORTH specification Cumulative % by Weight of total aggregate passing Table 500-7')]],
-      rows: BM_SIEVES.map(([size, lo, hi], k) => [t(String(k + 1)), t(size), t(lo === hi ? lo : `${lo}-${hi}`)]),
+      refs: sieveRefs(v, 'ig', BM_SIEVES),
+      rows: sieveList(v, 'ig', BM_SIEVES).map((s, k) => [t(String(k + 1)), s.sizeCell, t(s.lo === s.hi ? s.lo : `${s.lo}-${s.hi}`)]),
     },
     {
       heading: '(B) Property of Coarse Aggregate',
@@ -784,11 +901,11 @@ const bm2: LabFormat = {
       ]),
     },
     {
-      ...gradingBlocks({ aggs: BM_AGGS, sieves: BM_SIEVES, individual: '(C) Selection of aggregates to be used in the mix', combined: '', limitHead: '' })[0],
+      ...gradingBlocks(v, { aggs: BM_AGGS, sieves: BM_SIEVES, individual: '(C) Selection of aggregates to be used in the mix', combined: '', limitHead: '' })[0],
       before: ['The aggregate of nominal size 20mm, 10mm and Sand are blended in suitable proportions to satisfy the selected grading. The percentage of each type of aggregates depends on the individual gradation; the grading of individual aggregates are given below:'],
     },
     {
-      ...gradingBlocks({ aggs: BM_AGGS, sieves: BM_SIEVES, individual: '', combined: '(D) Determination of proportion of each type of aggregates — Combined Grading Percentage Passing', limitHead: 'Selected MORTH limits' })[1],
+      ...gradingBlocks(v, { aggs: BM_AGGS, sieves: BM_SIEVES, individual: '', combined: '(D) Determination of proportion of each type of aggregates — Combined Grading Percentage Passing', limitHead: 'Selected MORTH limits' })[1],
       before: [(x) => `The proportioning of various size of aggregates is done by trial and error method from grading of individual types of aggregates; the blend proportion are ${x.pr_20 || '—'}% : ${x.pr_10 || '—'}% : ${x.pr_sand || '—'}%. The combined grading along with limits of selected grading is given below:`],
     },
     {
@@ -801,21 +918,24 @@ const bm2: LabFormat = {
     {
       heading: '(G) CDM of Bituminous Macadam',
       head: [[t('S.No.'), t(`CDM At ${v.ap_bit || '—'} % (Bitumen ${v.bit_type || 'VG-30'}) (gm/cc)`), t('Avg. Density (gm/cc)')]],
-      rows: range(count(v, 'n_cdm', 4)).map((k) => [t(String(k)), i(`cdm${k}`), ...(k === 1 ? [c('cdm_avg', { rs: count(v, 'n_cdm', 4) })] : [])]),
+      refs: listRefs(rowIds(v, 'n_cdm', 4), 'n_cdm', 4),
+      rows: rowIds(v, 'n_cdm', 4).map((k, at, all) => [t(String(at + 1)), i(`cdm${k}`), ...(at === 0 ? [c('cdm_avg', { rs: all.length })] : [])]),
     },
   ],
 }
 
 /** M-30 gradation tables: weight retained → %, cumulative, passing; IS lower / higher limits */
 function m30Grad(title: string, prefix: string, sieves: Array<[string, string, string]>, v: Values): Block {
+  const list = sieveList(v, prefix, sieves)
   return {
     heading: title.replace('{total}', v[`${prefix}_total`] || '—'),
-    chart: (x, k) => gradingChart('% Passing', sieves, (n) => k[`${prefix}${n}_pass`], ['Lower', 'Higher', 'Passing (%)'])?.(x, k) ?? null,
+    chart: (x, k) => gradingChart('% Passing', list, (n) => k[`${prefix}${n}_pass`], ['Lower', 'Higher', 'Passing (%)'])?.(x, k) ?? null,
     head: [
       [t('IS sieve size (mm)', { rs: 2 }), t('Weight retained in (gm)', { rs: 2 }), t('Weight retained in (%)', { rs: 2 }), t('Cum. weight retained in (%)', { rs: 2 }), t('Passing (%)', { rs: 2 }), t('Range as per IS', { cs: 2 }), t('Remarks', { rs: 2 })],
       [t('Lower'), t('Higher')],
     ],
-    rows: sieves.map(([size, lo, hi], k): Row => [t(size), i(`${prefix}${k + 1}_w`), c(`${prefix}${k + 1}_pct`), c(`${prefix}${k + 1}_cum`), c(`${prefix}${k + 1}_pass`), t(lo), t(hi), ...(k === 0 ? [i(`${prefix}_remarks`, { rs: sieves.length })] : [])]),
+    refs: sieveRefs(v, prefix, sieves),
+    rows: list.map((s, k): Row => [s.sizeCell, i(`${prefix}${s.id}_w`), c(`${prefix}${s.id}_pct`), c(`${prefix}${s.id}_cum`), c(`${prefix}${s.id}_pass`), s.loCell, s.hiCell, ...(k === 0 ? [i(`${prefix}_remarks`, { rs: list.length })] : [])]),
   }
 }
 const FA_SIEVES: Array<[string, string, string]> = [['10', '100', '100'], ['4.75', '90', '100'], ['2.36', '75', '100'], ['1.18', '55', '90'], ['0.6', '35', '59'], ['0.3', '8', '30'], ['0.15', '0', '12']]
@@ -829,6 +949,9 @@ const AI_SIEVES: Array<{ size: string; lo: string; hi: string; fa: string; c10: 
   { size: '0.6', lo: '10', hi: '35', fa: 'fa5_pass', c10: '', c20: '' },
   { size: '0.15', lo: '0', hi: '6', fa: 'fa7_pass', c10: '', c20: '' },
 ]
+const AI_LIMITS = AI_SIEVES.map((s): Sieve3 => [s.size, s.lo, s.hi])
+/** A sieve the lab added: the three weighted values are typed */
+const AI_TYPED = { fa: '', c10: '', c20: '' }
 const m30: LabFormat = {
   key: 'm30_mix',
   subtitle: (v) => `CONCRETE MIX DESIGN ${v.grade || 'M-30'} ( REF STANDARD- IS -456: 2000 & IS:10262-2019 )`,
@@ -849,21 +972,22 @@ const m30: LabFormat = {
     adm_pct: '0.95', bag: '50',
   }),
   compute: (v) => {
-    const out: Values = { ...gradation(v, 'fa', FA_SIEVES.length, 'fa_total'), ...gradation(v, 'c10', C10_SIEVES.length, 'c10_total'), ...gradation(v, 'c20', C20_SIEVES.length, 'c20_total') }
+    const out: Values = { ...gradation(v, 'fa', FA_SIEVES, 'fa_total'), ...gradation(v, 'c10', C10_SIEVES, 'c10_total'), ...gradation(v, 'c20', C20_SIEVES, 'c20_total') }
     const val = (k: string) => (k === '100' ? 100 : num(out[k] ?? v[k]))
     // All-in aggregate: weighted passing; sieves an aggregate was not graded on are typed (weighted) values
     const pr = { fa: num(v.ai_fa), c10: num(v.ai_10), c20: num(v.ai_20) }
     out.ai_total = fx((pr.fa ?? 0) + (pr.c10 ?? 0) + (pr.c20 ?? 0))
-    AI_SIEVES.forEach((s, k) => {
+    for (const id of sieveIds(v, 'ai', AI_SIEVES)) {
+      const s = AI_SIEVES[id - 1] ?? AI_TYPED
       let sum = 0, any = false
       for (const a of ['fa', 'c10', 'c20'] as const) {
         const typed = s[a] === ''
-        const x = typed ? num(v[`ai${k + 1}_${a}`]) : (() => { const p = val(s[a]); return p !== null && pr[a] !== null ? (p * (pr[a] as number)) / 100 : null })()
-        if (!typed) out[`ai${k + 1}_${a}`] = fx(x)
+        const x = typed ? num(v[`ai${id}_${a}`]) : (() => { const p = val(s[a]); return p !== null && pr[a] !== null ? (p * (pr[a] as number)) / 100 : null })()
+        if (!typed) out[`ai${id}_${a}`] = fx(x)
         if (x !== null) { sum += x; any = true }
       }
-      out[`ai${k + 1}`] = any ? fx(sum) : ''
-    })
+      out[`ai${id}`] = any ? fx(sum) : ''
+    }
     // Copies of test data used in the design
     Object.assign(out, { d_sgc: v.c_sg ?? '', d_imp: v.imp20 ?? '', d_sg20: v.sg20 ?? '', d_sg10: v.sg10 ?? '', d_sgfa: v.sgfa ?? '', d_wa20: v.wa20 ?? '', d_wa10: v.wa10 ?? '', d_wafa: v.wafa ?? '' })
     const fck = num(v.fck), tf = num(v.t_factor), sd = num(v.s_dev)
@@ -965,17 +1089,18 @@ const m30: LabFormat = {
       { ...m30Grad('Table No-3 : Particle size distribution of 20mm coarse aggregate Total Wt. = {total} gm', 'c20', C20_SIEVES, v), pageBreak: true },
       {
         heading: 'Table No-4 : All-in-Aggregate Total (20mm, 10mm, Sand)',
-        chart: (x, k) => gradingChart('% Passing', AI_SIEVES.map((s) => [s.size, s.lo, s.hi]), (n) => k[`ai${n}`], ['Lower', 'Higher', 'Combine'])?.(x, k) ?? null,
+        chart: (x, k) => gradingChart('% Passing', sieveList(x, 'ai', AI_LIMITS), (n) => k[`ai${n}`], ['Lower', 'Higher', 'Combine'])?.(x, k) ?? null,
         head: [
           [t('IS sieve size (mm)', { rs: 2 }), t('Fine Aggregate'), t('10mm Aggregate'), t('20mm Aggregate'), t('Combine', { rs: 2 }), t('Range as per IS', { cs: 2 })],
           [t('Proportion (%)'), t('Proportion (%)'), t('Proportion (%)'), t('Lower'), t('Higher')],
         ],
+        refs: [null, ...sieveRefs(v, 'ai', AI_SIEVES)],
         rows: [
           [t('Proportion', { left: true }), i('ai_fa'), i('ai_10'), i('ai_20'), c('ai_total'), t(''), t('')],
-          ...AI_SIEVES.map((s, k): Row => [
-            t(s.size),
-            ...(['fa', 'c10', 'c20'] as const).map((a) => (s[a] === '' ? i(`ai${k + 1}_${a}`) : c(`ai${k + 1}_${a}`))),
-            c(`ai${k + 1}`), t(s.lo), t(s.hi),
+          ...sieveList(v, 'ai', AI_LIMITS).map((s): Row => [
+            s.sizeCell,
+            ...(['fa', 'c10', 'c20'] as const).map((a) => ((AI_SIEVES[s.id - 1] ?? AI_TYPED)[a] === '' ? i(`ai${s.id}_${a}`) : c(`ai${s.id}_${a}`))),
+            c(`ai${s.id}`), s.loCell, s.hiCell,
           ]),
         ],
       },
@@ -1053,26 +1178,26 @@ const SOIL_TESTS: Array<[string, string, string, string, string]> = [
 const soil: LabFormat = {
   key: 'soil_omc_mdd_cbr',
   labels: { material_details: 'Material Identification', source_location: 'Name of Work', sampled_by: 'Sampled by/Condition' },
-  counts: [{ key: 'n_samples', label: 'Samples', min: 1, max: 5 }],
   defaults: () => ({ n_samples: '3' }),
   compute: (v) => {
     const out: Values = {}
-    for (const s of range(count(v, 'n_samples', 3))) {
+    for (const s of rowIds(v, 'n_samples', 3)) {
       const parts = ['gravel', 'coarse', 'medium', 'fine'].map((p) => num(v[`s${s}_${p}`]))
       out[`s${s}_silt`] = parts.some((p) => p !== null) ? fx(100 - parts.reduce<number>((a, b) => a + (b ?? 0), 0)) : ''
     }
     return out
   },
   blocks: (v) => {
-    const n = count(v, 'n_samples', 3)
+    const ids = rowIds(v, 'n_samples', 3)
     return [
       {
         title: 'Grain Size Analysis : As per IS 2720 -IV',
         head: [[t('S. No.'), t('Gravel (%) (4.75mm)'), t('Coarse Sand (%) (2 mm)'), t('Medium Sand (%) (0.425 mm)'), t('Fine Sand (%) (0.075 mm)'), t('Silt & Clay (%) (PAN)')]],
-        rows: range(n).map((s) => [t(String(s)), i(`s${s}_gravel`), i(`s${s}_coarse`), i(`s${s}_medium`), i(`s${s}_fine`), c(`s${s}_silt`)]),
+        refs: listRefs(ids, 'n_samples', 3),
+        rows: ids.map((s, k) => [t(String(k + 1)), i(`s${s}_gravel`), i(`s${s}_coarse`), i(`s${s}_medium`), i(`s${s}_fine`), c(`s${s}_silt`)]),
       },
-      ...range(n).map((s): Block => ({
-        title: `Sample No. ${s}`,
+      ...ids.map((s, k): Block => ({
+        title: `Sample No. ${k + 1}`,
         head: [[t('S. No.'), t('Test Parameter'), t('Method of Test'), t('Test Results'), t('Unit')]],
         rows: SOIL_TESTS.map(([no, name, method, unit, key]) => [t(no), t(name, { left: true }), t(method), i(`s${s}_${key}`), t(unit)]),
       })),
@@ -1080,19 +1205,22 @@ const soil: LabFormat = {
   },
 }
 
+/** Bitumen Sample and Bitumen Core Density; others can be typed */
+const BITUMEN_TESTS = ['BC', 'DBM', 'PMC', 'Seal', 'Cold Mix'].map((m) => `Bitumen Content (${m})`)
+
 const bitumenLoose: LabFormat = {
   key: 'bitumen_sample_dbm_bc',
   labels: { customer_details: 'Name of Dept.', reference_no: 'Reference letter No.', material_details: 'Material Identification', sampled_by: 'Sampled by /Condition' },
-  counts: [{ key: 'n_rows', label: 'Samples', min: 1, max: 10 }],
-  defaults: () => {
+  defaults: (v) => {
     const d: Values = { n_rows: '2' }
-    for (const r of range(10)) Object.assign(d, { [`r${r}_name`]: r % 2 ? 'Bitumen Content (BC)' : 'Bitumen Content (DBM)', [`r${r}_method`]: 'IRC SP- 11' })
+    for (const r of defaultIds(v, 'n_rows')) Object.assign(d, { [`r${r}_name`]: r % 2 ? 'Bitumen Content (BC)' : 'Bitumen Content (DBM)', [`r${r}_method`]: 'IRC SP- 11' })
     return d
   },
   blocks: (v) => [{
     title: 'Test Results',
     head: [[t('S. No.'), t('Name of Test'), t('Date of Sampling'), t('Method of Test'), t('Bitumen Content'), t('Unit')]],
-    rows: range(count(v, 'n_rows', 2)).map((r) => [t(String(r)), i(`r${r}_name`, { left: true }), i(`r${r}_date`), i(`r${r}_method`), i(`r${r}_result`), t('%')]),
+    refs: listRefs(rowIds(v, 'n_rows', 2), 'n_rows', 2),
+    rows: rowIds(v, 'n_rows', 2).map((r, k) => [t(String(k + 1)), i(`r${r}_name`, { left: true, options: BITUMEN_TESTS }), i(`r${r}_date`), i(`r${r}_method`), i(`r${r}_result`), t('%')]),
   }],
   fromDetails: (rows) => {
     const v: Values = { n_rows: String(Math.max(1, rows.length)) }
@@ -1104,18 +1232,18 @@ const bitumenLoose: LabFormat = {
 const dbmDensity: LabFormat = {
   key: 'dbm_bc_density',
   labels: bitumenLoose.labels,
-  counts: [{ key: 'n_rows', label: 'Cores', min: 1, max: 12 }],
-  defaults: () => {
+  defaults: (v) => {
     const d: Values = { n_rows: '6', method: 'ASTM D 2726, IRC SP II' }
-    for (const r of range(12)) d[`r${r}_name`] = r % 2 ? 'Bitumen Content (DBM)' : 'Bitumen Content (BC)'
+    for (const r of defaultIds(v, 'n_rows')) d[`r${r}_name`] = r % 2 ? 'Bitumen Content (DBM)' : 'Bitumen Content (BC)'
     return d
   },
   blocks: (v) => {
-    const n = count(v, 'n_rows', 6)
+    const ids = rowIds(v, 'n_rows', 6)
     return [{
       title: 'Test Results',
       head: [[t('S. No.'), t('Name of Test'), t('Thickness'), t('Date of Sampling'), t('Method of Test'), t('Density (%)'), t('Result'), t('Unit')]],
-      rows: range(n).map((r) => [t(String(r)), i(`r${r}_name`, { left: true }), i(`r${r}_thick`), i(`r${r}_date`), ...(r === 1 ? [i('method', { rs: n })] : []), i(`r${r}_density`), i(`r${r}_result`), t('%')]),
+      refs: listRefs(ids, 'n_rows', 6),
+      rows: ids.map((r, k) => [t(String(k + 1)), i(`r${r}_name`, { left: true, options: BITUMEN_TESTS }), i(`r${r}_thick`), i(`r${r}_date`), ...(k === 0 ? [i('method', { rs: ids.length })] : []), i(`r${r}_density`), i(`r${r}_result`), t('%')]),
     }]
   },
   fromDetails: (rows) => {
@@ -1130,18 +1258,18 @@ function coverFormat(key: string, title: string, groupText: string, location: st
   return {
     key,
     labels: { customer_details: 'Name of Dept.', reference_no: 'Reference letter No.', material_details: 'Material Identification', sampled_by: 'Sampled by/Condition' },
-    counts: [{ key: 'n_rows', label: 'Covers', min: 1, max: 5 }],
-    defaults: () => {
+    defaults: (v) => {
       const d: Values = { n_rows: '1', group: groupText }
-      for (const r of range(5)) Object.assign(d, { [`r${r}_loc`]: location, [`r${r}_dia`]: '300', [`r${r}_obs`]: observation, [`r${r}_rem`]: 'OK' })
+      for (const r of defaultIds(v, 'n_rows')) Object.assign(d, { [`r${r}_loc`]: location, [`r${r}_dia`]: '300', [`r${r}_obs`]: observation, [`r${r}_rem`]: 'OK' })
       return d
     },
     blocks: (v) => [{
       title,
       head: [[t('S. N'), t('Location'), t('Dia of Plat mm'), t('Date of Sample Collection'), t('Date of testing'), t('Applying of Load (KN)'), t('Observation'), t('Remark')]],
+      refs: [null, ...listRefs(rowIds(v, 'n_rows', 1), 'n_rows', 1)],
       rows: [
         [group('group', 8)],
-        ...range(count(v, 'n_rows', 1)).map((r): Row => [t(String(r)), i(`r${r}_loc`), i(`r${r}_dia`), i(`r${r}_collect`), i(`r${r}_test`), i(`r${r}_load`), i(`r${r}_obs`), i(`r${r}_rem`)]),
+        ...rowIds(v, 'n_rows', 1).map((r, k): Row => [t(String(k + 1)), i(`r${r}_loc`), i(`r${r}_dia`), i(`r${r}_collect`), i(`r${r}_test`), i(`r${r}_load`), i(`r${r}_obs`), i(`r${r}_rem`)]),
       ],
     }],
     fromDetails: (rows) => {
@@ -1159,16 +1287,19 @@ const ferro = coverFormat('fcdc_ferro_cover', 'TEST RESULTS (As per IS : 12592-2
 const manhole = coverFormat('main_hole_cover_hd20', 'TEST RESULTS (As per IS : 12592-2002, Manhole Cover)', 'Main Hole Ring & Cover HD', 'SFRC Mainhole cover', 'Crack Not found', 'hole_type')
 
 export const LAB_FORMATS: Record<string, LabFormat> = Object.fromEntries(
-  [cube, core, bricks, interlocking, kerb, sand, grit10, grit20, water, cement, acc, tile22, floorTile, soil, bitumenLoose, dbmDensity, ferro, manhole, gsb, wmm, bm2, m30].map((f) => [f.key, f]),
+  [cube, core, bricks, flyash, interlocking60, interlocking80, interlocking100, kerb, sand, grit10, grit20, water, cement, acc, tile22, floorTile, soil, bitumenLoose, dbmDensity, ferro, manhole, gsb, wmm, bm2, m30].map((f) => [f.key, f]),
 )
 
 export const hasLabFormat = (key: string | undefined | null): key is string => !!key && key in LAB_FORMATS
 
 /** Defaults ← older saved rows ← what the lab typed; plus the calculated cells */
 export function effectiveValues(format: LabFormat, labData: Values, details: Array<Record<string, unknown>> = []): { values: Values; calc: Values } {
-  const base = { ...ENV_DEFAULTS, ...format.defaults(labData) }
-  const legacy = details.length && format.fromDetails ? stripEmpty(format.fromDetails(details)) : {}
-  const values = { ...base, ...legacy, ...labData }
+  // The edit screen's stand-in row ({ set_count }) is not a saved result
+  const rows = details.filter((d) => Object.keys(d).length > 1)
+  const legacy = rows.length && format.fromDetails ? stripEmpty(format.fromDetails(rows)) : {}
+  const base = { ...ENV_DEFAULTS, ...format.defaults({ ...legacy, ...labData }) }
+  const all = { ...base, ...legacy, ...labData }
+  const values = format.normalize?.(all, labData) ?? all
   return { values, calc: format.compute?.(values) ?? {} }
 }
 
@@ -1180,11 +1311,11 @@ function stripEmpty(v: Values): Values {
 export function headerRows(format: LabFormat | undefined): HeaderItem[] {
   if (format?.header) return format.header
   const order: StdField[] = ['customer_details', 'agency_name', 'reference_no', 'material_details', 'source_location', 'work_order_no', 'sample_date', 'sample_tested_date', 'sampled_by', 'environment']
-  const rows: Array<{ key: string; label: string }> = []
+  const rows: HeaderItem[] = []
   for (const key of order) {
-    if (key === 'environment') for (const e of (format?.extras ?? []).filter((x) => x.after === 'sampled_by')) rows.push({ key: e.key, label: e.label })
+    if (key === 'environment') for (const e of (format?.extras ?? []).filter((x) => x.after === 'sampled_by')) rows.push({ key: e.key, label: e.label, parts: e.parts })
     rows.push({ key, label: format?.labels?.[key] ?? DEFAULT_LABELS[key] })
-    if (key !== 'sampled_by') for (const e of (format?.extras ?? []).filter((x) => x.after === key)) rows.push({ key: e.key, label: e.label })
+    if (key !== 'sampled_by') for (const e of (format?.extras ?? []).filter((x) => x.after === key)) rows.push({ key: e.key, label: e.label, parts: e.parts })
   }
   return rows
 }
@@ -1192,16 +1323,28 @@ export function headerRows(format: LabFormat | undefined): HeaderItem[] {
 /** CC Cube create: the legacy cube rows (Lab Reports list shows their dates) from the grid */
 export function cubeSetsFromGrid(labData: Values): Array<Record<string, string>> {
   const { values, calc } = effectiveValues(cube, labData)
-  return range(count(values, 'n_sets', 1)).map((s) => ({
-    location: values[`s${s}_1_mark`] ?? '',
-    size_of_cube: calc[`s${s}_1_area`]?.replace(/\.00$/, '') ?? '',
+  return rowIds(values, 'n_sets', 1).map((s) => {
+    const [j1, j2, j3] = cubeIds(values, s)
+    return {
+    location: values[`s${s}_${j1}_mark`] ?? '',
+    size_of_cube: calc[`s${s}_${j1}_area`]?.replace(/\.00$/, '') ?? '',
     date_of_casting: values[`s${s}_cast`] ?? '',
     date_of_testing: values[`s${s}_test`] ?? '',
     age_of_specimen: values.h_age ?? '',
-    load_1: values[`s${s}_1_load`] ?? '', load_2: values[`s${s}_2_load`] ?? '', load_3: values[`s${s}_3_load`] ?? '',
-    comp_strength_1: calc[`s${s}_1_str`] ?? '', comp_strength_2: calc[`s${s}_2_str`] ?? '', comp_strength_3: calc[`s${s}_3_str`] ?? '',
+    load_1: values[`s${s}_${j1}_load`] ?? '', load_2: values[`s${s}_${j2}_load`] ?? '', load_3: values[`s${s}_${j3}_load`] ?? '',
+    comp_strength_1: calc[`s${s}_${j1}_str`] ?? '', comp_strength_2: calc[`s${s}_${j2}_str`] ?? '', comp_strength_3: calc[`s${s}_${j3}_str`] ?? '',
     avg_comp_strength: calc[`s${s}_avg`] ?? '',
     is_code_comp_strength: values[`s${s}_iscode`] ?? '',
-  }))
+    }
+  })
 }
 
+// ---------------------------------------------------------------- ULR No.
+
+/** 120018 → NCS/LAB/2026/120018 (year of the report); numbers already written in full stay as they are */
+export function fullUlr(ulr: unknown, date?: unknown): string {
+  const no = str(ulr)
+  if (!/^\d+[A-Z]*$/i.test(no)) return no
+  const year = str(date).match(/\d{4}/)?.[0]
+  return `NCS/LAB/${year && year !== '0000' ? year : new Date().getFullYear()}/${no}`
+}

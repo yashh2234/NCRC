@@ -4,7 +4,9 @@ import { api } from '../lib/api'
 import { DateInput } from '../components/DateInput'
 import { SearchableSelect } from '../components/SearchableSelect'
 import { EXCEL_TEMPLATE_OPTIONS, ExcelLabReportEditor } from '../components/ExcelLabReportEditor'
-import { cubeSetsFromGrid } from '../lib/labFormats'
+import { LabHeaderFields } from '../components/LabHeaderFields'
+import { CUBE_MATERIALS, LAB_FORMATS, cubeMaterialPatch, cubeSetsFromGrid, effectiveValues, fullUlr } from '../lib/labFormats'
+import { shownCounts } from '../lib/labRows'
 
 /**
  * Create Report.
@@ -16,10 +18,10 @@ import { cubeSetsFromGrid } from '../lib/labFormats'
 
 interface ReportTypeOption { key: string; label: string; is_template?: boolean }
 
-const CUBE_MATERIALS = ['Cube Sample (01 Set)', 'Cube Sample (02 Set)', 'Cube Sample (03 Set)', 'Cube Sample (04 Set)', 'Cube Sample (05 Set)']
 /** Final-report format → the report type it is saved as. Formats without their own type are kept under MES. */
 const FORMAT_TYPE: Record<string, string> = {
-  cc_cube: 'cc_cube', cc_core: 'cc_core', clay_bricks: 'bricks', interlocking_60mm: 'interlocking',
+  cc_cube: 'cc_cube', cc_core: 'cc_core', clay_bricks: 'bricks', flyash_bricks: 'bricks',
+  interlocking_60mm: 'interlocking', interlocking_80mm: 'interlocking', interlocking_100mm: 'interlocking',
   fcdc_ferro_cover: 'ferro_cover', main_hole_cover_hd20: 'mainhole_cover', sand: 'sand', water: 'water',
   bitumen_sample_dbm_bc: 'bitumen_loose', dbm_bc_density: 'bitumen_core',
 }
@@ -70,11 +72,11 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
   // Step 2: same fields as the edit screen
   const [linkedUlrs, setLinkedUlrs] = useState<string[]>([])
   const [form, setForm] = useState({
-    ulr_no: '', customer_details: '', agency_name: '', reference_no: '', material_details: '',
+    ulr_no: '', customer_details: '', agency_name: '', reference_no: '', material_details: isCube ? CUBE_MATERIALS[0] : '',
     source_location: '', work_order_no: '', sample_date: '', sample_tested_date: '',
     sampled_by: SAMPLED_BY[0], environment_condition: DEFAULT_ENVIRONMENT, dispatch_date: '',
   })
-  const [labData, setLabData] = useState<Record<string, string>>({})
+  const [labData, setLabData] = useState<Record<string, string>>(() => ({ ...LAB_FORMATS[format]?.initial }))
 
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -92,18 +94,13 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
     return () => window.clearTimeout(t)
   }, [uid])
 
-  // CC Cube: "Cube Sample (0N Set)" gives N cube sets in the results table
-  const setCount = isCube ? Math.max(1, CUBE_MATERIALS.indexOf(form.material_details) + 1) : 0
-  useEffect(() => {
-    if (isCube) setLabData((prev) => (prev.n_sets === String(setCount) ? prev : { ...prev, n_sets: String(setCount) }))
-  }, [isCube, setCount])
-
   const changeFormat = (next: string) => {
-    const wasCube = isCube
     setFormat(next)
-    setLabData({})
-    // CC Cube uses "Cube Sample (0N Set)"; other formats use free text
-    if (wasCube !== ((FORMAT_TYPE[next] ?? GENERAL_TYPE) === 'cc_cube')) update('material_details', '')
+    setLabData({ ...LAB_FORMATS[next]?.initial })
+    // CC Cube: one of its two materials; other formats: typed
+    const nextCube = (FORMAT_TYPE[next] ?? GENERAL_TYPE) === 'cc_cube'
+    if (nextCube) update('material_details', CUBE_MATERIALS[0])
+    else if (CUBE_MATERIALS.includes(form.material_details)) update('material_details', '')
   }
 
   // Our own searchable dropdown (type to filter, short scrolling list) instead of the browser's long list
@@ -139,7 +136,7 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
         source_location: reg.name_of_work || '',
         work_order_no: reg.work_order_no || '',
       }))
-      const same = links.data.filter((l) => l.uid_no.trim().toLowerCase() === id.toLowerCase()).map((l) => l.ulr_no)
+      const same = links.data.filter((l) => l.uid_no.trim().toLowerCase() === id.toLowerCase()).map((l) => fullUlr(l.ulr_no, l.date))
       setLinkedUlrs([...new Set(same)])
       const found = reg.uid_no || id
       pickedRef.current = found
@@ -173,6 +170,8 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
     if (!form.sample_tested_date) missing.push('Date of Sample Tested')
     if (missing.length) { setMessage({ type: 'error', text: `Please fill: ${missing.join(', ')}` }); return }
 
+    const labFormat = LAB_FORMATS[templateKey]
+    const counts = labFormat ? shownCounts(labFormat, effectiveValues(labFormat, labData).values) : {}
     setSaving(true)
     setMessage(null)
     try {
@@ -180,7 +179,7 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
         ...form,
         uid_no: loadedUid,
         dispatch_date: form.dispatch_date || undefined,
-        lab_data: { ...labData, _template: templateKey },
+        lab_data: { ...counts, ...labData, _template: templateKey },
         // Lab Reports list shows the cube dates from these rows
         ...(isCube ? { sets: cubeSetsFromGrid(labData) } : {}),
       }
@@ -202,7 +201,8 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
   )
 
   return (
-    <form onSubmit={submit} className="surface" style={{ padding: 24 }}>
+    <form onSubmit={submit} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 24 }}>
+      <div className="surface" style={{ padding: '28px 36px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <div>
           <p className="section-label">Laboratory · {formatLabel}</p>
@@ -268,11 +268,12 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
             <button type="button" className="ghost-button" onClick={() => { setLoadedUid(''); setUid(''); pickedRef.current = '' }}>Change UID</button>
           </div>
 
-          <div style={{ display: 'grid', gap: 12, marginBottom: 32 }}>
+          <div style={{ display: 'grid', gap: 14 }}>
             {row('Report format', formatSelect, true)}
             {row('ULR No.', (
               <>
                 <input className="input" list="create-report-ulrs" autoComplete="off" value={form.ulr_no} onChange={(e) => update('ulr_no', e.target.value)}
+                  onBlur={() => update('ulr_no', fullUlr(form.ulr_no))}
                   placeholder={linkedUlrs.length ? 'Pick a linked ULR or type' : 'Enter ULR No.'} />
                 <datalist id="create-report-ulrs">{linkedUlrs.map((u) => <option key={u} value={u} />)}</datalist>
               </>
@@ -281,8 +282,7 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
             {row('Name Of Agency', <input className="input" value={form.agency_name} onChange={(e) => update('agency_name', e.target.value)} />, true)}
             {row('Reference No.', <input className="input" value={form.reference_no} onChange={(e) => update('reference_no', e.target.value)} />)}
             {row('Material Identification Details.', isCube ? (
-              <select className="input" value={form.material_details} onChange={(e) => update('material_details', e.target.value)}>
-                <option value="">Select Cube Sample</option>
+              <select className="input" value={form.material_details} onChange={(e) => { update('material_details', e.target.value); setLabData((prev) => ({ ...prev, ...cubeMaterialPatch(e.target.value, prev) })) }}>
                 {CUBE_MATERIALS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             ) : (
@@ -297,10 +297,17 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
                 {SAMPLED_BY.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             ))}
-            {row('Environment Condition.', <input className="input" value={form.environment_condition} onChange={(e) => update('environment_condition', e.target.value)} />)}
+            <LabHeaderFields formatKey={templateKey} labData={labData} updateLabData={updateLabData}
+              environment={row('Environment Condition.', <input className="input" value={form.environment_condition} onChange={(e) => update('environment_condition', e.target.value)} />)} />
             {row('Dispatch Date', <DateInput value={form.dispatch_date} onChange={(v) => update('dispatch_date', v)} ariaLabel="Dispatch Date" style={{ width: '100%', flex: 'none' }} />)}
           </div>
+        </>
+      )}
+      </div>
 
+      {loadedUid ? (
+        <>
+          <div className="surface lab-results-card">
           {/* Same TEST RESULTS table the edit screen uses for this report type */}
           <ExcelLabReportEditor
             reportType={reportType}
@@ -311,13 +318,13 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
             updateDetail={updateDetail}
             updateLabData={updateLabData}
           />
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
+          </div>
+          <div className="surface" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '18px 36px' }}>
             <button type="button" className="btn btn-outline" onClick={onBack}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Creating…' : 'Create Report'}</button>
           </div>
         </>
-      )}
+      ) : null}
     </form>
   )
 }

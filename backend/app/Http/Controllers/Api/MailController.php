@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Bill;
 use App\Models\MailAccount;
 use App\Models\MailOutbox;
+use App\Models\PerformaInvoice;
 use App\Models\Quotation;
+use App\Models\Report;
 use App\Models\User;
 use App\Services\MailAddresses;
 use App\Services\MailComposer;
@@ -70,7 +73,7 @@ class MailController extends Controller
         $this->requireUserAdmin();
         $values = $request->validate([
             'enabled' => 'required|boolean',
-            'module' => ['nullable', 'in:mail,documents_site,quotation_approve'],
+            'module' => ['nullable', 'in:mail,documents_site,quotation_approve,report_approve,bill_approve'],
             'defaults' => 'nullable|array',
             'defaults.*' => 'string',
         ]);
@@ -254,6 +257,10 @@ class MailController extends Controller
             return response()->json(['message' => 'This quotation is not approved, so it cannot be mailed.'], 422);
         }
 
+        if ($payload['doc_type'] && ! $this->documentApproved($payload['doc_type'], (int) $payload['doc_id'])) {
+            return response()->json(['message' => 'This document is not approved, so it cannot be mailed.'], 422);
+        }
+
         if (! MailAddresses::parse($payload['to'])) {
             return response()->json(['message' => 'Enter at least one valid email address in To.', 'errors' => ['to' => ['Enter a valid email address.']]], 422);
         }
@@ -322,6 +329,18 @@ class MailController extends Controller
         return response()->json(['data' => $saved + ['attachments' => $attachments]]);
     }
 
+    /** A report, invoice, credit note or performa invoice is mailed only after its approval */
+    private function documentApproved(string $type, int $id): bool
+    {
+        return match ($type) {
+            'report' => Report::query()->whereKey($id)->where('status', 'Complete')->exists(),
+            'bill' => Bill::query()->whereKey($id)->where('approval', 'approved')->exists(),
+            'credit_note' => Bill::query()->whereKey($id)->whereNotNull('credit_note_no')->where('cn_approval', 'approved')->exists(),
+            'performa' => PerformaInvoice::query()->whereKey($id)->where('approval', 'approved')->exists(),
+            default => false,
+        };
+    }
+
     private function allowBigMail(): void
     {
         ini_set('memory_limit', '512M');
@@ -343,6 +362,8 @@ class MailController extends Controller
             'reply_folder' => 'nullable|string|max:255',
             'draft_uid' => 'nullable|integer',
             'quotation_id' => 'nullable|integer',
+            'doc_type' => ['nullable', 'in:report,bill,credit_note,performa'],
+            'doc_id' => 'required_with:doc_type|integer',
             'attachments' => 'nullable|array|max:20',
             'attachments.*' => 'file|max:20480',
             'keep' => 'nullable|array|max:50',
@@ -378,6 +399,8 @@ class MailController extends Controller
             'reply_folder' => (string) $request->input('reply_folder', ''),
             'draft_uid' => $request->integer('draft_uid') ?: null,
             'quotation_id' => $request->integer('quotation_id') ?: null,
+            'doc_type' => (string) $request->input('doc_type', ''),
+            'doc_id' => $request->integer('doc_id') ?: null,
             'keep' => array_map(fn ($k) => ['folder' => $k['folder'], 'uid' => (int) $k['uid'], 'part' => $k['part']], array_values($request->input('keep', []))),
             'files' => $files,
         ];

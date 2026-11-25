@@ -229,9 +229,8 @@ export function UlrRegisterPage() {
                       onClick={() => setRemoving(r)}
                       title="Remove"
                       aria-label={`Remove ULR ${r.ulr_no}`}
-                      style={{ border: '1px solid #fee2e2', borderRadius: 4, padding: '4px 6px', background: '#fef2f2' }}
                     >
-                      <Trash2 size={14} color="#ef4444" />
+                      <Trash2 size={16} />
                     </button>
                   </td>
                 </tr>

@@ -44,7 +44,29 @@ export interface BillInput {
   remark: string
 }
 
-export interface Bill extends Omit<BillInput, 'items' | 'transport' | 'advance' | 'amount_received'> {
+/** approved · pending = waiting for approval · returned = sent back with a remark */
+export type ApprovalState = 'approved' | 'pending' | 'returned'
+/** What prints, as the server compares it */
+export type BillContent = Record<string, unknown> & { items: Required<BillItem & { amount: number }>[] }
+export interface DocApproval {
+  approval: ApprovalState
+  approval_remark: string | null
+  approval_requested_by_name: string | null
+  approval_requested_at: string | null
+  /** Only while it waits: as last approved (null = never), as it is now, and what an approval counts for */
+  approved_content: BillContent | null
+  content: BillContent | null
+  content_hash: string | null
+}
+type CnApproval = { [K in keyof DocApproval as `cn_${K}`]: DocApproval[K] }
+
+/** Approval of the credit note that is kept on its invoice */
+export const creditNoteApproval = (b: Bill): DocApproval => ({
+  approval: b.cn_approval, approval_remark: b.cn_approval_remark, approval_requested_by_name: b.cn_approval_requested_by_name,
+  approval_requested_at: b.cn_approval_requested_at, approved_content: b.cn_approved_content, content: b.cn_content, content_hash: b.cn_content_hash,
+})
+
+export interface Bill extends DocApproval, CnApproval, Omit<BillInput, 'items' | 'transport' | 'advance' | 'amount_received'> {
   id: number
   items: Required<BillItem>[]
   subtotal: number
@@ -245,12 +267,14 @@ export const billsApi = {
     request<{ data: Bill }>(`/bills/${id}/cancel`, { method: 'POST', body: JSON.stringify(data) }),
   saveCreditNote: (id: number, data: BillInput & { credit_note_no: string; credit_note_date: string; reason: string }) =>
     request<{ data: Bill }>(`/bills/${id}/credit-note`, { method: 'PUT', body: JSON.stringify(data) }),
+  decide: (id: number, data: { action: 'approve' | 'send_back'; content_hash: string; remark: string; credit_note?: boolean }) =>
+    request<{ data: Bill }>(`/bills/${id}/approval`, { method: 'POST', body: JSON.stringify(data) }),
   restore: (id: number) => request<{ data: Bill }>(`/bills/${id}/restore`, { method: 'POST' }),
   remove: (id: number) => request<{ message: string }>(`/bills/${id}`, { method: 'DELETE' }),
   nextNumber: (company: BillCompany, date: string) => request<{ data: string }>(`/bills/next-number?${new URLSearchParams({ company, date })}`),
   billedUids: () => request<{ data: string[] }>('/bills/billed-uids'),
   fromRegistration: (uid: string) => request<{ data: {
     uid_no: string; uid_date: string | null; client_name: string; client_address: string; client_gstin: string
-    work_order_no: string; report_no: string; name_of_work: string; advance: number
+    work_order_no: string; report_no: string; name_of_work: string; advance: number; email: string
   } }>(`/bills/registration/${encodeURIComponent(uid)}`),
 }

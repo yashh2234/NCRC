@@ -560,18 +560,20 @@ export function MailPage({ onBack }: { onBack: () => void }) {
     try { localStorage.setItem(storageKey, String(id)) } catch { /* ignore */ }
   }
 
-  // #mail?quotation=…: a mail with that quotation as PDF
+  // #mail?quotation=… / ?doc=…: a mail with that document as PDF
   const [prepared, setPrepared] = useState<MailDraft | null>(null)
   const [preparing, setPreparing] = useState(Boolean(MAIL_COMPOSE))
   const [prepareError, setPrepareError] = useState('')
   useEffect(() => {
     if (!MAIL_COMPOSE) return
-    const { quotationId, sign } = MAIL_COMPOSE
+    const compose = MAIL_COMPOSE
     let wanted = true
-    import('../lib/quotationMail')
-      .then((m) => m.quotationDraft(quotationId, sign))
+    const ready = 'quotationId' in compose
+      ? import('../lib/quotationMail').then((m) => m.quotationDraft(compose.quotationId, compose.sign))
+      : import('../lib/documentMail').then((m) => m.documentDraft(compose))
+    ready
       .then((ready) => { if (wanted) setPrepared(ready) })
-      .catch((e: Error) => { if (wanted) setPrepareError(e.message || 'The quotation could not be prepared.') })
+      .catch((e: Error) => { if (wanted) setPrepareError(e.message || 'The document could not be prepared.') })
       .finally(() => { if (wanted) setPreparing(false) })
     return () => { wanted = false }
   }, [])
@@ -642,10 +644,10 @@ export function MailPage({ onBack }: { onBack: () => void }) {
 
       {sends.length || preparing || prepareError ? (
         <div className="tb-sends" role="status">
-          {preparing ? <div className="tb-send"><Loader2 size={16} className="tb-spin" /><span><strong>Preparing the quotation PDF…</strong></span></div> : null}
+          {preparing ? <div className="tb-send"><Loader2 size={16} className="tb-spin" /><span><strong>Preparing the PDF…</strong></span></div> : null}
           {prepareError ? (
             <div className="tb-send tb-send--failed">
-              <AlertTriangle size={16} /><span><strong>The quotation could not be attached.</strong><small>{prepareError}</small></span>
+              <AlertTriangle size={16} /><span><strong>The document could not be attached.</strong><small>{prepareError}</small></span>
               <button type="button" aria-label="Close" onClick={() => setPrepareError('')}><X size={14} /></button>
             </div>
           ) : null}

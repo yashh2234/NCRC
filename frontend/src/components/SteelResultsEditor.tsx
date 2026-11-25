@@ -1,3 +1,5 @@
+import { CircleMinus, Plus } from 'lucide-react'
+import { addListRow, removeListRow, rowIds } from '../lib/labRows'
 import {
   DEFAULT_BEND, DEFAULT_REBEND, STEEL_DIAS, STEEL_GRADES, STEEL_MAX_SAMPLES, STEEL_STANDARD,
   evaluateSteel, steelKey, utsRequirementText, type Check,
@@ -14,38 +16,42 @@ export function SteelResultsEditor({ templateKey, labData, updateLabData }: {
   updateLabData: (field: string, value: string) => void
 }) {
   const grade = STEEL_GRADES[templateKey]
-  const count = Math.min(STEEL_MAX_SAMPLES, Math.max(1, Number(labData.steel_count) || 1))
+  const ids = rowIds(labData, 'steel_count', 1).slice(0, STEEL_MAX_SAMPLES)
+  const count = ids.length
+  const patch = (p: Record<string, string>) => Object.entries(p).forEach(([key, value]) => updateLabData(key, value))
+  const deleteSample = (id: number) => {
+    const typed = Object.entries(labData).some(([k, x]) => k.startsWith(`s${id}_`) && x)
+    if (typed && !window.confirm('Delete this sample and the values typed in it?')) return
+    patch(removeListRow(labData, { key: 'steel_count', id, fallback: 1 }))
+  }
   const brand = labData.steel_brand ?? ''
   const get = (i: number, f: string, fallback = '') => labData[steelKey(i, f)] ?? fallback
 
   return (
-    <section style={{ marginTop: 28, border: '1px solid #e2e8f0', background: '#fff' }}>
+    <section className="lab-results lab-results--steel" style={{ border: '1px solid #e2e8f0' }}>
       <div style={{ background: '#000', color: '#fff', textAlign: 'center', padding: 10, fontWeight: 700, textTransform: 'uppercase' }}>
         Steel {grade.label} — Test Results ({STEEL_STANDARD})
       </div>
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', padding: 12, borderBottom: '1px solid #e2e8f0', alignItems: 'end' }}>
-        <label style={labelCol}>Number of samples
-          <select className="input" value={String(count)} onChange={(e) => updateLabData('steel_count', e.target.value)} style={{ width: 120 }}>
-            {Array.from({ length: STEEL_MAX_SAMPLES }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
-          </select>
-        </label>
         <label style={{ ...labelCol, flex: '1 1 220px' }}>Brand / make (used in heading)
           <input className="input" value={brand} placeholder="e.g. Kamdhenu" onChange={(e) => updateLabData('steel_brand', e.target.value)} />
         </label>
       </div>
 
-      {Array.from({ length: count }, (_, idx) => {
-        const i = idx + 1
+      {ids.map((i, idx) => {
         const dia = get(i, 'dia')
         const ev = evaluateSteel(grade, { dia, weight: get(i, 'weight'), uts: get(i, 'uts'), proof: get(i, 'proof'), elong: get(i, 'elong') })
-        const heading = `(${String.fromCharCode(64 + i)}) ${dia ? `${dia}mm dia ` : ''}${grade.label} ${brand ? `${brand} ` : ''}TMT Steel`
+        const heading = `(${String.fromCharCode(65 + idx)}) ${dia ? `${dia}mm dia ` : ''}${grade.label} ${brand ? `${brand} ` : ''}TMT Steel`
         const input = (f: string, extra: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
           <input className="input" value={get(i, f)} onChange={(e) => updateLabData(steelKey(i, f), e.target.value)} style={{ minWidth: 90 }} {...extra} />
         )
         return (
           <div key={i} style={{ overflowX: 'auto', borderBottom: '1px solid #e2e8f0' }}>
-            <div style={{ padding: '8px 12px', fontWeight: 700, background: '#f8fafc' }}>{heading}</div>
+            <div style={{ padding: '8px 12px', fontWeight: 700, background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button type="button" style={iconButton} title="Delete this sample" aria-label="Delete this sample" onClick={() => deleteSample(i)}><CircleMinus size={17} color="#dc2626" /></button>
+              <span style={{ marginLeft: 6 }}>{heading}</span>
+            </div>
             <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr>
@@ -94,6 +100,10 @@ export function SteelResultsEditor({ templateKey, labData, updateLabData }: {
         )
       })}
 
+      {count < STEEL_MAX_SAMPLES ? (
+        <button type="button" style={addButton} onClick={() => patch(addListRow(labData, { key: 'steel_count', id: ids[count - 1], fallback: 1 }))}><Plus size={15} /> Add sample</button>
+      ) : null}
+
       <div style={{ padding: 12 }}>
         <label style={labelCol}>Note below results (optional)
           <input className="input" value={labData.steel_note ?? ''} placeholder="e.g. Test Conducted in Presence of Sh ... AEN PWD Sub Div. ..." onChange={(e) => updateLabData('steel_note', e.target.value)} />
@@ -113,6 +123,8 @@ function Hint({ check, text }: { check: Check; text: string }) {
   )
 }
 
+const addButton = { display: 'inline-flex', alignItems: 'center', gap: 5, margin: '10px 12px 0', padding: '9px 16px', border: '1px dashed #86b79a', borderRadius: 6, background: '#f3faf5', color: '#15803d', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }
+const iconButton = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', borderRadius: 4 }
 const labelCol = { display: 'flex', flexDirection: 'column' as const, gap: 4, fontSize: '0.8rem', fontWeight: 600 }
 const headerStyle = { background: '#000', color: '#fff', border: '1px solid #333', padding: 8, textTransform: 'uppercase' as const }
 const cellStyle = { border: '1px solid #e2e8f0', padding: 8, verticalAlign: 'top' as const }

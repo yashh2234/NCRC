@@ -17,6 +17,8 @@ export function AdministrationPage() {
       <MailAccessPanel />
       <MailAccessPanel module="documents_site" />
       <MailAccessPanel module="quotation_approve" />
+      <MailAccessPanel module="report_approve" />
+      <MailAccessPanel module="bill_approve" />
       {user?.is_admin ? <AiProvidersPanel /> : null}
       <UsersPage />
     </div>

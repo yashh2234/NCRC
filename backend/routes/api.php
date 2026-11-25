@@ -408,8 +408,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('bills/{bill}/cancel', [BillController::class, 'cancel']);
     Route::post('bills/{bill}/restore', [BillController::class, 'restore']);
     Route::put('bills/{bill}/credit-note', [BillController::class, 'saveCreditNote']);
+    Route::post('bills/{bill}/approval', [BillController::class, 'decide']);
     Route::apiResource('bills', BillController::class);
     Route::get('performa-invoices/next-number', [PerformaInvoiceController::class, 'nextNumber']);
+    Route::post('performa-invoices/{performa}/approval', [PerformaInvoiceController::class, 'decide']);
     Route::apiResource('performa-invoices', PerformaInvoiceController::class)->parameters(['performa-invoices' => 'performa']);
 
     Route::prefix('quotations')->group(function (): void {

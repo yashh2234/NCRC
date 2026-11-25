@@ -28,7 +28,6 @@ class FinalReportsController extends Controller
     {
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
-        $statusFilter = $request->query('status');
         $typeFilter = $request->query('type');
 
         $reports = Report::query()
@@ -36,7 +35,8 @@ class FinalReportsController extends Controller
                 $query->whereDate('create_date', '>=', $startDate)
                     ->whereDate('create_date', '<=', $endDate);
             })
-            ->when($statusFilter, fn ($q, $s) => $q->where('status', $s))
+            // Final = approved; the rest is under Lab Reports
+            ->where('status', 'Complete')
             ->when($typeFilter, fn ($q, $t) => $q->where('report_type', $t))
             ->orderByDesc('create_date')
             ->orderByDesc('iReportId')
@@ -82,7 +82,6 @@ class FinalReportsController extends Controller
     {
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
-        $statusFilter = $request->query('status');
         $typeFilter = $request->query('type');
 
         $reports = Report::query()
@@ -90,7 +89,8 @@ class FinalReportsController extends Controller
                 $query->whereDate('create_date', '>=', $startDate)
                     ->whereDate('create_date', '<=', $endDate);
             })
-            ->when($statusFilter, fn ($q, $s) => $q->where('status', $s))
+            // Final = approved; the rest is under Lab Reports
+            ->where('status', 'Complete')
             ->when($typeFilter, fn ($q, $t) => $q->where('report_type', $t))
             ->orderByDesc('create_date')
             ->orderByDesc('iReportId')

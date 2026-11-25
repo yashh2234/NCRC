@@ -40,7 +40,7 @@ class User extends Authenticatable
     public const FEATURE_KEYS = [
         'tenders', 'inquiries', 'registrations', 'quotations', 'proposals', 'work_orders', 'outsource', 'reports',
         'ulr_add', 'ulr_register', 'final_reports', 'billing', 'due_reports', 'expenses',
-        'purchase_orders', 'admin', 'mail', 'documents_site', 'quotation_approve',
+        'purchase_orders', 'admin', 'mail', 'documents_site', 'quotation_approve', 'report_approve', 'bill_approve',
     ];
 
     /** Job roles that drive the dashboard and the job queues. */
@@ -89,6 +89,18 @@ class User extends Authenticatable
     public function canApproveQuotations(): bool
     {
         return $this->isFullAdmin() || in_array('quotation_approve', $this->allowed_modules ?? [], true);
+    }
+
+    /** Full admins, and users given "Approve Reports" */
+    public function canApproveReports(): bool
+    {
+        return $this->isFullAdmin() || in_array('report_approve', $this->allowed_modules ?? [], true);
+    }
+
+    /** Full admins, and users given "Approve Invoices" (invoices, performa invoices, credit notes) */
+    public function canApproveBills(): bool
+    {
+        return $this->isFullAdmin() || in_array('bill_approve', $this->allowed_modules ?? [], true);
     }
 
     public function getNameAttribute(): string

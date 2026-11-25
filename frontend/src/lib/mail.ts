@@ -146,7 +146,7 @@ export const mailApi = {
   removeAccount: (id: number) => request(`/mail/accounts/${id}`, { method: 'DELETE' }),
   unread: (fresh = false) => request<{ configured: boolean; unread: number | null }>(`/mail/unread${fresh ? '?fresh=1' : ''}`),
   access: () => request<{ data: MailAccessUser[] }>('/mail/access'),
-  setAccess: (userId: number, enabled: boolean, defaults: string[], module: 'mail' | 'documents_site' | 'quotation_approve' = 'mail') =>
+  setAccess: (userId: number, enabled: boolean, defaults: string[], module: 'mail' | 'documents_site' | 'quotation_approve' | 'report_approve' | 'bill_approve' = 'mail') =>
     request<{ data: { id: number; allowed_modules: string[] } }>(`/mail/access/${userId}`, { method: 'PUT', body: JSON.stringify({ enabled, defaults, module }) }),
   folders: () => request<{ data: MailFolder[] }>('/mail/folders'),
   messages: (folder: string, page: number, search: string, filter: MailFilter) =>

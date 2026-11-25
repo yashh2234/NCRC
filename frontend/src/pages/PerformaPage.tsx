@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Download, Pencil, Plus, Printer, Save, Search, Stamp, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Download, Mail, Pencil, Plus, Printer, Save, Search, Stamp, Trash2 } from 'lucide-react'
 import { DateRangeFilter } from '../components/DateRangeFilter'
+import { ApprovalNote, BillReview } from '../components/BillReview'
 import { Modal } from '../components/Modal'
 import { Req } from '../components/ui'
-import { openPerformaPrint } from '../lib/billPrint'
+import { useAuth } from '../lib/auth'
+import { billPreview, openPerformaPrint } from '../lib/billPrint'
+import { documentMailUrl, openMailWindow } from '../lib/mailTab'
+import { canUserAccess } from '../lib/roleConfig'
 import { COMPANIES, billsApi, calcBill, dotDate, emptyItem, itemAmount, money2, type BillInput, type BillItem } from '../lib/bills'
 import { emptyPerforma, performaApi, performaToInput, type Performa } from '../lib/performa'
 import { useTracking } from '../lib/useTracking'
@@ -29,7 +33,12 @@ export function PerformaPage() {
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [editing, setEditing] = useState<Editing | null>(null)
-  const [printing, setPrinting] = useState<Performa | null>(null)
+  const [printing, setPrinting] = useState<{ performa: Performa; mail: boolean } | null>(null)
+  const { user } = useAuth()
+  const canMail = canUserAccess(user, 'mail')
+  const canApprove = canUserAccess(user, 'bill_approve')
+  const [onlyWaiting, setOnlyWaiting] = useState(false)
+  const [reviewing, setReviewing] = useState<Performa | null>(null)
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
@@ -45,9 +54,18 @@ export function PerformaPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return list.filter((p) =>
+      (!onlyWaiting || p.approval !== 'approved') &&
       (!start || (p.invoice_date ?? '') >= start) && (!end || (p.invoice_date ?? '') <= end) &&
       (!q || [p.invoice_no, p.uid_no, p.client_name, p.client_address, p.work_order_no, p.report_no].some((v) => (v ?? '').toLowerCase().includes(q))))
-  }, [list, search, start, end])
+  }, [list, search, start, end, onlyWaiting])
+  const waiting = list.filter((p) => p.approval !== 'approved').length
+
+  const choose = (withSign: boolean) => {
+    if (!printing) return
+    if (printing.mail) openMailWindow(documentMailUrl('performa', printing.performa.id, withSign))
+    else openPerformaPrint(performaToInput(printing.performa), withSign)
+    setPrinting(null)
+  }
 
   const remove = async (p: Performa) => {
     if (!window.confirm(`Delete performa invoice ${p.invoice_no ?? ''} (${p.client_name ?? ''})?`)) return
@@ -95,6 +113,7 @@ export function PerformaPage() {
         <div className="surface-heading">
           <div><p className="section-label">Accounts</p><h2>Performa Invoices ({filtered.length})</h2></div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {waiting || onlyWaiting ? <button type="button" className={`btn ${onlyWaiting ? 'btn-primary' : 'btn-outline'}`} onClick={() => setOnlyWaiting((v) => !v)}><ClipboardCheck size={16} /> Not approved ({waiting})</button> : null}
             <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={!filtered.length}><Download size={16} /> Export</button>
             <button type="button" className="btn btn-primary" onClick={() => setEditing({ id: null, form: emptyPerforma() })}><Plus size={16} /> Create Performa Invoice</button>
           </div>
@@ -111,14 +130,16 @@ export function PerformaPage() {
               ) : filtered.map((p) => (
                 <tr key={p.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(p.invoice_date) || '-'}</td>
-                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{p.invoice_no}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{p.invoice_no}<ApprovalNote approval={p} /></td>
                   <td style={{ whiteSpace: 'nowrap' }}>{p.uid_no || '-'}</td>
                   <td style={{ minWidth: 200, maxWidth: 320, whiteSpace: 'normal' }}>{p.client_name || '-'}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{inr(p.subtotal)}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{inr(p.cgst + p.sgst + p.igst)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{inr(p.net_amount)}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    <button className="icon-button" type="button" title="Print / PDF" onClick={() => setPrinting(p)}><Printer size={16} /></button>
+                    {canApprove && p.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(p)}><ClipboardCheck size={16} /></button> : null}
+                    <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: false })}><Printer size={16} /></button>
+                    {canMail ? <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: true })}><Mail size={16} /></button> : null}
                     <button className="icon-button" type="button" title="Edit" onClick={() => setEditing({ id: p.id, form: performaToInput(p) })}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(p)}><Trash2 size={16} /></button>
                   </td>
@@ -130,12 +151,28 @@ export function PerformaPage() {
       </section>
 
       {printing ? (
-        <Modal title="Print Performa Invoice" subtitle={`${printing.invoice_no ?? ''} · ${printing.client_name ?? ''}`} onClose={() => setPrinting(null)} size="sm" footer={null}>
+        <Modal title={printing.mail ? 'Mail Performa Invoice' : 'Print Performa Invoice'} subtitle={`${printing.performa.invoice_no ?? ''} · ${printing.performa.client_name ?? ''}`} onClose={() => setPrinting(null)} size="sm" footer={null}>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" style={{ ...choiceBtn, borderColor: '#2563eb', color: '#1d4ed8' }} onClick={() => { openPerformaPrint(performaToInput(printing), true); setPrinting(null) }}><Stamp size={18} /> With Sign</button>
-            <button type="button" style={choiceBtn} onClick={() => { openPerformaPrint(performaToInput(printing), false); setPrinting(null) }}><Printer size={18} /> Without Sign</button>
+            <button type="button" style={{ ...choiceBtn, borderColor: '#2563eb', color: '#1d4ed8' }} onClick={() => choose(true)}><Stamp size={18} /> With Sign</button>
+            <button type="button" style={choiceBtn} onClick={() => choose(false)}>{printing.mail ? <Mail size={18} /> : <Printer size={18} />} Without Sign</button>
           </div>
         </Modal>
+      ) : null}
+
+      {reviewing ? (
+        <BillReview
+          kind="performa invoice"
+          subtitle={`${reviewing.invoice_no ?? ''} · ${reviewing.client_name ?? ''}`}
+          approval={reviewing}
+          preview={billPreview(performaToInput(reviewing), undefined, true)}
+          onClose={() => { setReviewing(null); reload() }}
+          onEdit={() => { setEditing({ id: reviewing.id, form: performaToInput(reviewing) }); setReviewing(null) }}
+          onDecide={async (action, remark) => {
+            const { data } = await performaApi.decide(reviewing.id, { action, remark, content_hash: reviewing.content_hash ?? '' })
+            setList((rows) => rows.map((r) => (r.id === data.id ? data : r)))
+            setReviewing(null)
+          }}
+        />
       ) : null}
     </div>
   )
@@ -152,6 +189,8 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
   const [uidBusy, setUidBusy] = useState(false)
   /** Number typed by hand: stop replacing it with the suggestion */
   const manualNo = useRef(Boolean(id))
+  /** What was saved last is approved, so it may print */
+  const approvedNow = useRef(false)
   const co = COMPANIES.ncs
   const t = calcBill(form)
 
@@ -213,6 +252,8 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
     return ''
   }
 
+  const { user } = useAuth()
+  const canApprove = canUserAccess(user, 'bill_approve')
   const save = async (): Promise<BillInput | null> => {
     const problem = check()
     if (problem) { showError(problem); return null }
@@ -228,7 +269,9 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
       setForm(saved)
       setChanged(true)
       setDirty(false)
-      setNotice(`Saved performa invoice ${data.invoice_no ?? ''}.`)
+      const waits = data.approval !== 'approved'
+      setNotice(`Saved performa invoice ${data.invoice_no ?? ''}.${waits ? ' It waits for approval; then it can be printed and mailed from the list.' : ''}`)
+      approvedNow.current = !waits
       return saved
     } catch (e) {
       showError(message(e, 'Could not save the performa invoice'))
@@ -244,7 +287,7 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
     if (problem) { showError(problem); return }
     const w = window.open('', '_blank')
     const saved = await save()
-    if (saved) openPerformaPrint(saved, withSign, w)
+    if (saved && approvedNow.current) openPerformaPrint(saved, withSign, w)
     else w?.close()
   }
 
@@ -372,11 +415,11 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
         <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()} style={{ justifyContent: 'center', width: '100%' }}>
           <Save size={16} /> {saving ? 'Saving…' : 'Save'}
         </button>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        {!canApprove ? <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e' }}>New or changed performa invoices wait for approval; after that they can be printed and mailed from the list.</p> : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <strong style={{ flex: 1, minWidth: 200 }}>Save and print / PDF</strong>
           <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button>
           <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> Without Sign</button>
-        </div>
+        </div>}
       </div>
     </div>
   )

@@ -1,7 +1,11 @@
+import { fullUlr } from '../lib/labFormats'
 import { useCallback, useEffect, useState } from 'react'
-import { Trash2, Printer, Pencil, X, ArrowLeft } from 'lucide-react'
+import { Trash2, Printer, Pencil, ArrowLeft, Mail } from 'lucide-react'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { documentMailUrl, openMailWindow } from '../lib/mailTab'
+import { canUserAccess } from '../lib/roleConfig'
 import { DataTable } from '../components/DataTable'
 import { ReportEditPage } from './ReportEditPage'
 
@@ -39,7 +43,8 @@ export function FinalReportsPage() {
   const [error, setError] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const { user } = useAuth()
+  const canMail = canUserAccess(user, 'mail')
   const [printingId, setPrintingId] = useState<number | null>(null)
   const [editingReport, setEditingReport] = useState<{ type: string; id: number } | null>(null)
 
@@ -50,7 +55,6 @@ export function FinalReportsPage() {
       const params: Record<string, string> = {}
       if (startDate) params.start_date = startDate
       if (endDate) params.end_date = endDate
-      if (statusFilter) params.status = statusFilter
       const res = await api.finalReports(params)
       setData(res.data as FinalReport[])
     } catch {
@@ -58,7 +62,7 @@ export function FinalReportsPage() {
     } finally {
       setLoading(false)
     }
-  }, [startDate, endDate, statusFilter])
+  }, [startDate, endDate])
 
   useEffect(() => { void load() }, [load])
 
@@ -167,7 +171,7 @@ export function FinalReportsPage() {
       ),
       ulr_no: (
         <span style={{ fontSize: '0.82rem', fontFamily: 'monospace', fontWeight: 600, color: r.ulr_no ? '#0f766e' : '#94a3b8' }}>
-          {r.ulr_no || '-'}
+          {fullUlr(r.ulr_no, r.create_date) || '-'}
         </span>
       ),
       customer_details: (
@@ -229,52 +233,10 @@ export function FinalReportsPage() {
       ),
       actions: (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button
-            className="icon-button"
-            onClick={() => void handlePrint(r)}
-            type="button"
-            title="Print Report PDF"
-            disabled={printingId === r.iReportId}
-            style={{
-              border: '1px solid #cbd5e1',
-              borderRadius: 6,
-              background: '#ffffff',
-              padding: '6px 8px',
-              cursor: 'pointer'
-            }}
-          >
-            <Printer size={15} color="#0f766e" />
-          </button>
-          <button
-            className="icon-button"
-            onClick={() => setEditingReport({ type: r.report_type, id: r.iReportId })}
-            type="button"
-            title="Edit Report"
-            style={{
-              border: '1px solid #cbd5e1',
-              borderRadius: 6,
-              background: '#ffffff',
-              padding: '6px 8px',
-              cursor: 'pointer'
-            }}
-          >
-            <Pencil size={15} color="#2563eb" />
-          </button>
-          <button
-            className="icon-button"
-            onClick={() => void handleDelete(r.iReportId)}
-            type="button"
-            title="Delete report"
-            style={{
-              border: '1px solid #fee2e2',
-              borderRadius: 6,
-              background: '#fef2f2',
-              padding: '6px 8px',
-              cursor: 'pointer'
-            }}
-          >
-            <Trash2 size={15} color="#ef4444" />
-          </button>
+          <button className="icon-button" type="button" title="Print / PDF" disabled={printingId === r.iReportId} onClick={() => void handlePrint(r)}><Printer size={16} /></button>
+          {canMail ? <button className="icon-button" type="button" title="Mail the PDF" onClick={() => openMailWindow(documentMailUrl('report', r.iReportId, false, r.report_type))}><Mail size={16} /></button> : null}
+          <button className="icon-button" type="button" title="Edit report" onClick={() => setEditingReport({ type: r.report_type, id: r.iReportId })}><Pencil size={16} /></button>
+          <button className="icon-button" type="button" title="Delete report" onClick={() => void handleDelete(r.iReportId)}><Trash2 size={16} /></button>
         </div>
       ),
     }
@@ -290,34 +252,7 @@ export function FinalReportsPage() {
         rows={loading ? [] : rows}
         filename="final-reports"
         showCount={false}
-        emptyText={loading ? 'Loading reports...' : 'No records found.'}
-        toolbarStart={
-          <>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Filter by status"
-              style={{ width: 'auto', minWidth: 160, minHeight: 36, padding: '6px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff' }}
-            >
-              <option value="">All Statuses</option>
-              <option value="Complete">Approved</option>
-              <option value="Pending">Pending</option>
-              <option value="Testing">Testing</option>
-              <option value="Report Generated">Report Generated</option>
-              <option value="Cancel">Cancel</option>
-            </select>
-            {statusFilter && (
-              <button
-                className="ghost-button"
-                onClick={() => setStatusFilter('')}
-                type="button"
-                style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-              >
-                <X size={14} /> Clear
-              </button>
-            )}
-          </>
-        }
+        emptyText={loading ? 'Loading reports...' : 'No approved reports found.'}
         toolbarEnd={<DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end) }} />}
       />
     </div>

@@ -4,7 +4,8 @@
  * Printed by the browser (handles Hindi text; "Save as PDF" in the print dialog gives a PDF).
  */
 import { EXCEL_TEMPLATE_OPTIONS, getTemplate, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
-import { LAB_FORMATS, effectiveValues, headerRows, type Block, type Cell, type Line, type Values } from './labFormats'
+import { LAB_FORMATS, effectiveValues, fullUlr, headerRows, type Block, type Cell, type Line, type Values } from './labFormats'
+import { layoutBlocks, rowIds } from './labRows'
 import { chartSvg } from './labCharts'
 import qrcode from 'qrcode-generator'
 import { DEFAULT_BEND, DEFAULT_REBEND, STEEL_DIAS, STEEL_GRADES, STEEL_MAX_SAMPLES, STEEL_STANDARD, steelKey, utsRequirementText } from './steel'
@@ -60,19 +61,18 @@ function table(block: Block, values: Values, calc: Values, ulrLabel = ''): strin
 
 function steelTables(key: string, lab: Values): string {
   const g = STEEL_GRADES[key]
-  const n = Math.min(STEEL_MAX_SAMPLES, Math.max(1, Number(lab.steel_count) || 1))
   const brand = str(lab.steel_brand)
   const get = (i: number, f: string, d = '') => str(lab[steelKey(i, f)]) || d
   const rows: Cell[][] = []
-  for (let i = 1; i <= n; i++) {
+  rowIds(lab, 'steel_count', 1).slice(0, STEEL_MAX_SAMPLES).forEach((i, at) => {
     const dia = get(i, 'dia')
     const spec = STEEL_DIAS[dia]
-    rows.push([{ text: `(${String.fromCharCode(64 + i)}) ${dia ? `${dia}mm dia ` : ''}${g.label} ${brand ? `${brand} ` : ''}TMT Steel`, cs: 8, left: true, bold: true }])
+    rows.push([{ text: `(${String.fromCharCode(65 + at)}) ${dia ? `${dia}mm dia ` : ''}${g.label} ${brand ? `${brand} ` : ''}TMT Steel`, cs: 8, left: true, bold: true }])
     rows.push([{ text: '1' }, { text: `Sample${dia ? ` ${dia} mm dia` : ''}` }, { text: get(i, 'weight', '--') }, { text: get(i, 'uts', '--') }, { text: get(i, 'proof', '--') }, { text: get(i, 'elong', '--') },
       { text: get(i, 'bend', DEFAULT_BEND), rs: 3 }, { text: get(i, 'rebend', DEFAULT_REBEND), rs: 3 }])
     rows.push([{ text: '2' }, { text: 'As per IS Code' }, { text: spec ? String(spec.weight) : '--' }, { text: utsRequirementText(g), rs: 2 }, { text: `Not less than ${g.proofMin}`, rs: 2 }, { text: String(g.elongationMin), rs: 2 }])
     rows.push([{ text: '3' }, { text: 'Permissible Limit' }, { text: spec ? `=+/- ${spec.tolerance}%` : '--' }])
-  }
+  })
   if (str(lab.steel_note)) rows.push([{ text: `*** ${str(lab.steel_note)}`, cs: 8, left: true, bold: true }])
   return table({
     title: `Test Results ( ${STEEL_STANDARD} )`,
@@ -113,6 +113,8 @@ function qrBlock(report: Rec): string {
   return `<div class="qr">${qrSvg(PUBLIC_REPORT_BASE + token, 24)}<div>Scan to view report</div></div>`
 }
 
+const DRAFT_CSS = '.draft{position:fixed;left:0;right:0;top:42%;z-index:9;text-align:center;transform:rotate(-32deg);font-size:120pt;font-weight:800;letter-spacing:14px;color:rgba(200,0,0,.13);pointer-events:none}'
+
 export function buildReportHtml(type: string, report: Rec, details: Rec[], opts: { qr?: boolean } = {}): string {
   const lab = (report.lab_data ?? {}) as Values
   const material = str(report.material_details)
@@ -122,13 +124,20 @@ export function buildReportHtml(type: string, report: Rec, details: Rec[], opts:
 
   // Header rows: the format's own labels and extra rows, numbered like the Excel
   const [envT, envH] = format?.envLabels ?? ['Temperature', 'Humidity']
-  const header = headerRows(format).map(({ key: field, label, fallback }, n) => {
+  const header = headerRows(format).map(({ key: field, label, fallback, parts }, n) => {
     let value: string
+    let cls = field === 'customer_details' || field === 'material_details' ? ' class="b"' : ''
     if (field === 'environment') {
       const temp = str(values.h_temperature), hum = str(values.h_humidity)
-      value = format && (temp || hum)
-        ? `<div class="env"><span>${esc(envT)}</span><span>${esc(temp)}</span></div><div class="env"><span>${esc(envH)}</span><span>${esc(hum)}</span></div>`
-        : text(report.environment_condition)
+      const line = (name: string, v: string) => `<div class="env"><span>${esc(name)}</span><span>${esc(v)}</span></div>`
+      // Two rows with a line in between, like the Excel
+      if (format && (temp || hum)) return `<tr><th rowspan="2">${n + 1}. ${esc(label)}</th><td>${line(envT, temp)}</td></tr><tr><td>${line(envH, hum)}</td></tr>`
+      value = text(report.environment_condition)
+    } else if (parts) {
+      // Machine | capacity | calibration date: boxes on one line
+      const boxes = parts.filter((p) => str(values[p.key])).map((p) => `<span>${esc(p.prefix ?? '')}${esc(showDate(values[p.key]))}</span>`)
+      value = boxes.length ? `<div class="parts">${boxes.join('')}</div>` : '--'
+      if (boxes.length) cls = ' class="cells"'
     } else if (field.startsWith('h_')) {
       value = text(str(values[field]) || (fallback ? report[fallback] : ''))
     } else if (field === 'sample_date' || field === 'sample_tested_date' || field === 'dispatch_date') {
@@ -136,20 +145,23 @@ export function buildReportHtml(type: string, report: Rec, details: Rec[], opts:
     } else {
       value = text(report[field])
     }
-    const bold = field === 'customer_details' || field === 'material_details'
-    return `<tr><th>${n + 1}. ${esc(label)}</th><td${bold ? ' class="b"' : ''}>${value}</td></tr>`
+    return `<tr><th>${n + 1}. ${esc(label)}</th><td${cls}>${value}</td></tr>`
   }).join('')
 
   // ULR No. (+ format suffix, e.g. /GSB-III); repeated at the top of each page of the mix designs
-  const ulrLabel = text(report.ulr_no) + (format?.ulrSuffix && str(report.ulr_no) ? esc(format.ulrSuffix) : '')
+  const ulrDate = showDate(report.create_date) ? report.create_date : report.dispatch_date
+  const ulrLabel = text(fullUlr(report.ulr_no, ulrDate)) + (format?.ulrSuffix && str(report.ulr_no) ? esc(format.ulrSuffix) : '')
   const results = format
-    ? format.blocks(values).map((b) => table(b, values, calc, ulrLabel)).join('')
+    ? layoutBlocks(format, values).map((b) => table(b, values, calc, ulrLabel)).join('')
     : key in STEEL_GRADES ? steelTables(key, lab) : generalTable(type, material, key, details, lab)
 
   const date = showDate(report.dispatch_date) || showDate(report.create_date)
-  const label = EXCEL_TEMPLATE_OPTIONS.find(([k]) => k === key)?.[1] ?? ''
+  const label = format?.name?.(values) ?? EXCEL_TEMPLATE_OPTIONS.find(([k]) => k === key)?.[1] ?? ''
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Test Report ${esc(report.uid_no)}${label ? ` - ${esc(label)}` : ''}</title><style>
+  // Not approved yet: DRAFT across every page (fixed boxes repeat on each printed page)
+  const draft = str(report.status) !== 'Complete'
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${draft ? 'DRAFT ' : ''}Test Report ${esc(report.uid_no)}${label ? ` - ${esc(label)}` : ''}</title><style>
 @page{size:A4;margin:12mm 10mm}
 *{box-sizing:border-box}
 body{margin:0;color:#000;background:#fff;font-family:Arial,"Nirmala UI","Mangal","Noto Sans Devanagari",sans-serif;font-size:10.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -160,6 +172,7 @@ td,th{border:1px solid #000;padding:3px 5px;vertical-align:middle;word-wrap:brea
 .info .title{font-size:15pt;font-weight:bold;text-align:center;padding:6px;letter-spacing:.5px}
 .meta .row{display:flex;justify-content:space-between;margin-top:2px}
 .env{display:flex;gap:40px}.env span:first-child{min-width:90px}
+.info td.cells{padding:0}.parts{display:flex;font-size:9pt}.parts span{padding:4px 5px;white-space:nowrap;border-left:1px solid #000}.parts span:first-child{border-left:0;flex:1}
 .b{font-weight:bold}
 .sec-title{font-weight:bold;text-align:center;padding:5px;font-size:10pt}
 .subtitle{font-size:11pt;margin-top:2px}
@@ -183,10 +196,10 @@ td,th{border:1px solid #000;padding:3px 5px;vertical-align:middle;word-wrap:brea
 .notes{font-size:8pt;line-height:1.35;margin-top:8px}.notes p{margin:1px 0}
 .end{text-align:center;font-weight:bold;font-size:9.5pt;margin-top:6px}
 @media screen{body{background:#e5e7eb;padding:16px}.sheet{max-width:210mm;margin:0 auto;background:#fff;padding:10mm;box-shadow:0 2px 10px rgba(0,0,0,.15)}}
-</style></head><body><div class="sheet"><div class="doc">
+${draft ? DRAFT_CSS : ''}</style></head><body>${draft ? '<div class="draft" aria-hidden="true">DRAFT</div>' : ''}<div class="sheet"><div class="doc">
 <table class="info">
 <tr><td colspan="2" class="title">TEST REPORT${format?.subtitle ? `<div class="subtitle">${esc(format.subtitle(values))}</div>` : ''}</td></tr>
-<tr><td colspan="2" class="meta">${format?.header ? '' : '<div>Format No: NCS/TR/09</div>'}<div class="row"><span class="b">${ulrLabel}</span><span class="b">Date: ${esc(date)}</span></div></td></tr>
+<tr><td colspan="2" class="meta">${format?.header ? '' : '<div class="b">Format No: NCS/TR/09</div>'}<div class="row"><span class="b">${ulrLabel}</span><span class="b">Date: ${esc(date)}</span></div></td></tr>
 ${header}
 </table>
 ${results}

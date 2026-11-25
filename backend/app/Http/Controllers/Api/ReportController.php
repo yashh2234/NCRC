@@ -7,6 +7,7 @@ use App\Models\CubeReport;
 use App\Models\Notification;
 use App\Models\Company;
 use App\Models\Report;
+use App\Services\ReportApproval;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UserActivity;
@@ -101,17 +102,20 @@ class ReportController extends Controller
 
     public const EXCEL_TEMPLATES = [
         'acc_block' => 'ACC Block',
-        'bitumen_sample_dbm_bc' => 'Bitumen Sample DBM / BC',
+        'bitumen_sample_dbm_bc' => 'Bitumen Sample',
         'bm_ii_mix' => 'BM-II Mix',
         'cement_opc_43' => 'Cement OPC-43',
         'chequered_tile_22mm' => 'Chequered Tile 22 mm',
         'clay_bricks' => 'Clay Bricks',
-        'dbm_bc_density' => 'DBM BC Bitumen Core Density',
+        'flyash_bricks' => 'Fly Ash Bricks',
+        'dbm_bc_density' => 'Bitumen Core Density',
         'fcdc_ferro_cover' => 'FCDC Ferro Cover',
         'grit_10mm' => 'Grit 10mm',
         'grit_20mm' => 'Grit 20mm',
         'gsb_iii_mix' => 'GSB-III Mix',
         'interlocking_60mm' => 'Interlocking 60mm',
+        'interlocking_80mm' => 'Interlocking 80mm',
+        'interlocking_100mm' => 'Interlocking 100mm',
         'kerb_stone' => 'Kerb Stone',
         'm30_mix' => 'M-30 Mix',
         'main_hole_cover_hd20' => 'Main Hole Cover HD 20',
@@ -456,24 +460,14 @@ class ReportController extends Controller
             'created_at' => now(),
         ]);
 
-        $adminIds = User::query()->where('is_admin', true)->pluck('id')->toArray();
-        $groupAdminIds = DB::table('user_group')->where('group_id', 1)->pluck('user_id')->toArray();
-        $admins = array_unique(array_merge($adminIds, $groupAdminIds));
-        foreach ($admins as $adminId) {
-            NotificationController::create(
-                $adminId,
-                'approval_needed',
-                'Report pending approval',
-                "Report {$report->uid_no} has been generated and needs approval.",
-                ['report_id' => $report->iReportId, 'uid_no' => $report->uid_no],
-            );
-        }
+        ReportApproval::notify($report, 'Report pending approval', "Report {$report->uid_no} has been generated and needs approval.");
 
         return response()->json(['message' => 'Report generated']);
     }
 
     public function approve(int $reportId): JsonResponse
     {
+        abort_unless(request()->user()?->canApproveReports(), 403, 'You cannot approve reports.');
         $report = Report::query()->where('iReportId', $reportId)->firstOrFail();
         // Old software: "Approved Report" works from any status (confirm popup on the edit page).
         abort_if($report->status === 'Complete', 422, 'Report is already approved');
@@ -634,16 +628,28 @@ class ReportController extends Controller
             'details' => ['required', 'array'],
         ]);
 
+        $plain = fn ($v) => trim(str_replace("\r\n", "\n", (string) $v));
+        $changed = false;
         foreach ($validated['details'] as $index => $item) {
             $pk = $config['pk'];
             $detail = $details->get($index);
             if ($detail) {
+                $old = $detail->getAttributes();
                 $detail->update($item);
+                foreach ($detail->getChanges() as $key => $value) {
+                    $changed = $changed || $plain($old[$key] ?? '') !== $plain($value);
+                }
             } else {
+                // The edit screen's stand-in row ({ set_count }) is not a result
+                $changed = $changed || array_filter(array_diff_key($item, ['set_count' => 1]), fn ($v) => $plain($v) !== '') !== [];
                 $item['iReportId'] = $reportId;
                 $item[$pk] = ((int) ($detailModel::query()->max($pk) ?? 0)) + $index + 1;
                 $detailModel::query()->create($item);
             }
+        }
+
+        if ($changed) {
+            ReportApproval::changed($report, $request->user());
         }
 
         if ($request->input('mark_complete')) {
@@ -662,16 +668,7 @@ class ReportController extends Controller
                 "Report #{$report->iReportId} observations complete — report generated"
             );
 
-            $adminIds = User::query()->where('is_admin', true)->pluck('id')->toArray();
-            $groupAdminIds = DB::table('user_group')->where('group_id', 1)->pluck('user_id')->toArray();
-            $admins = array_unique(array_merge($adminIds, $groupAdminIds));
-            foreach ($admins as $adminId) {
-                NotificationController::create(
-                    $adminId, 'approval_needed', 'Report pending approval',
-                    "Report {$report->uid_no} has been generated and needs approval.",
-                    ['report_id' => $report->iReportId, 'uid_no' => $report->uid_no],
-                );
-            }
+            ReportApproval::notify($report, 'Report pending approval', "Report {$report->uid_no} has been generated and needs approval.");
 
             UserActivity::query()->create([
                 'user_id' => $request->user()->id,
@@ -764,10 +761,14 @@ class ReportController extends Controller
             if ($value === null && $key !== 'lab_data') $validated[$key] = '';
         }
 
+        $before = ReportApproval::content($report);
         $report->update(array_merge($validated, [
             'updated_date' => now(),
             'updated_by' => $request->user()?->id,
         ]));
+        if ($before !== ReportApproval::content($report->fresh())) {
+            ReportApproval::changed($report, $request->user());
+        }
 
         UserActivity::query()->create([
             'user_id' => $request->user()->id,
@@ -802,8 +803,8 @@ class ReportController extends Controller
             'sampled_by' => ['nullable', 'string'],
             'environment_condition' => ['nullable', 'string'],
             'lab_data' => ['nullable', 'array'],
-            // Old Create Report page: up to 5 cube sets entered while creating
-            'sets' => ['nullable', 'array', 'max:5'],
+            // Cube sets entered while creating
+            'sets' => ['nullable', 'array', 'max:40'],
             'sets.*.location' => ['nullable', 'string'],
             'sets.*.size_of_cube' => ['nullable', 'string'],
             'sets.*.date_of_casting' => ['nullable', 'string'],

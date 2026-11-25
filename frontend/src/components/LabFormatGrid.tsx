@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
-import { LAB_FORMATS, effectiveValues, type Cell, type Line, type Values } from '../lib/labFormats'
+import { CircleMinus, Plus, RotateCcw } from 'lucide-react'
+import { LAB_FORMATS, effectiveValues, type Block, type Cell, type Line, type Values } from '../lib/labFormats'
+import { addListRow, addTableRow, deletedCount, layoutBlocks, removeListRow, removeTableRow, restoreTable, type RowRef } from '../lib/labRows'
+import { ComboInput } from './ComboInput'
 import { chartSvg } from '../lib/labCharts'
 
 /**
@@ -18,8 +21,34 @@ export function LabFormatGrid({ formatKey, label, labData, details, updateLabDat
   const { values, calc } = useMemo(() => effectiveValues(format, labData, details ?? []), [format, labData, details])
   const set = (key: string) => (e: { target: { value: string } }) => updateLabData(key, e.target.value)
 
+  const patch = (p: Values) => Object.entries(p).forEach(([key, value]) => updateLabData(key, value))
+
+  const addRow = (ref: RowRef) => patch('list' in ref ? addListRow(values, ref.list) : addTableRow(labData, ref.table, ref.token))
+  const deleteRow = (ref: RowRef, row: Cell[]) => {
+    // Values of the whole set / sample / sieve, or the boxes of this row only (not shared ones like Age)
+    const own = !('list' in ref) ? '' : ref.list.key === 'n_sets' || ref.list.key === 'n_samples' ? `s${ref.list.id}_` : ref.list.key.endsWith('_sieves') ? `${ref.list.key.slice(0, -7)}${ref.list.id}_` : ''
+    const typed = own
+      ? Object.entries(labData).some(([k, x]) => k.startsWith(own) && x)
+      : row.some((c) => 'in' in c && !(c.rs && c.rs > 1) && labData[c.in])
+    if (typed && !window.confirm('Delete this row and the values typed in it?')) return
+    patch('list' in ref ? removeListRow(values, ref.list) : removeTableRow(labData, ref.table, ref.token))
+  }
+  /** "+ Add" below a table: a new row after its last one (cubes: a new set; cubes have their own buttons) */
+  const addBelow = (block: Block) => {
+    const refs = (block.refs ?? []).filter((r): r is RowRef => !!r)
+    const sets = refs.filter((r) => isSet(r))
+    const last = (sets.length ? sets : refs).at(-1)
+    if (last) return addRow(last)
+    if (block.table) patch(addTableRow(labData, block.table, ''))
+  }
+  /** The last cube row of each set, for the "Add cube" buttons */
+  const lastCubes = (block: Block): RowRef[] => (block.refs ?? []).filter((ref, r): ref is RowRef => {
+    const next = block.refs?.[r + 1]
+    return !!ref && 'list' in ref && /^s\d+_n$/.test(ref.list.key) && !(next && 'list' in next && next.list.key === ref.list.key)
+  })
+
   const renderLines = (lines?: Line[]) => (lines?.length ? (
-    <div style={{ padding: '6px 12px', fontSize: '0.8rem', color: '#334155' }}>
+    <div style={{ marginLeft: GUTTER, padding: '6px 12px', fontSize: '0.8rem', color: '#334155' }}>
       {lines.map((line, k) => <p key={k} style={{ margin: '3px 0' }}>{typeof line === 'function' ? line(values, calc) : line}</p>)}
     </div>
   ) : null)
@@ -33,70 +62,68 @@ export function LabFormatGrid({ formatKey, label, labData, details, updateLabDat
       return <td key={k} {...span} style={{ ...cellStyle, textAlign: 'center', background: '#f1f5f9', color: '#0f172a', fontWeight: 600 }} title="Calculated">{calc[cell.calc] || '—'}</td>
     }
     return (
-      <td key={k} {...span} style={{ ...cellStyle, padding: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <td key={k} {...span} style={cellStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {cell.prefix ? <strong style={{ whiteSpace: 'nowrap' }}>{cell.prefix}</strong> : null}
-          <input className="input" value={values[cell.in] ?? ''} onChange={set(cell.in)}
-            style={{ width: '100%', minWidth: cell.wide ? 240 : 70, padding: '4px 6px', fontSize: '0.8rem', textAlign: cell.left || cell.wide ? 'left' : 'center' }} />
+          {cell.options ? <ComboInput options={cell.options} value={values[cell.in] ?? ''} onChange={(x) => updateLabData(cell.in, x)} /> : <input className="input" value={showDate(values[cell.in])} onChange={set(cell.in)}
+            style={{ width: '100%', minWidth: cell.wide ? 240 : /_(cast|test|collect|date)$|^(test|collect)$/.test(cell.in) ? 112 : /^loc$|_(loc|name)$/.test(cell.in) ? 190 : 72, padding: '8px 10px', fontSize: '0.84rem', textAlign: cell.left || cell.wide ? 'left' : 'center' }} />}
         </div>
       </td>
     )
   }
 
   return (
-    <section style={{ marginTop: 28, border: '1px solid #e2e8f0', background: '#fff' }}>
-      <div style={{ background: '#000', color: '#fff', textAlign: 'center', padding: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-        {label} — Test Results
+    <section className="lab-results">
+      <div style={{ marginLeft: GUTTER, background: '#000', color: '#fff', textAlign: 'center', padding: '14px 12px', fontWeight: 700, textTransform: 'uppercase' }}>
+        {format.name?.(values) ?? label} — Test Results
       </div>
 
-      {/* Header rows this format prints (environment, cube machine/curing…) and row counts */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: 12, borderBottom: '1px solid #e2e8f0', alignItems: 'end' }}>
-        {(format.counts ?? []).map((cnt) => (
-          <label key={cnt.key} style={labelCol}>{cnt.label}
-            <select className="input" value={values[cnt.key] ?? String(cnt.min)} onChange={set(cnt.key)} style={{ width: 110 }}>
-              {Array.from({ length: cnt.max - cnt.min + 1 }, (_, k) => cnt.min + k).map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-        ))}
-        {!format.header || format.header.some((h) => h.key === 'environment') ? (
-          <>
-            <label style={labelCol}>{format.envLabels?.[0] ?? 'Temperature'}
-              <input className="input" value={values.h_temperature ?? ''} onChange={set('h_temperature')} style={{ width: 150 }} />
-            </label>
-            <label style={labelCol}>{format.envLabels?.[1] ?? 'Humidity'}
-              <input className="input" value={values.h_humidity ?? ''} onChange={set('h_humidity')} style={{ width: 150 }} />
-            </label>
-          </>
-        ) : null}
-        {/* Header rows of this format typed here (mix designs: source, method, materials…) */}
-        {[...(format.header ?? []).filter((h) => h.key.startsWith('h_')), ...(format.extras ?? [])].map((x) => (
-          <label key={x.key} style={{ ...labelCol, flex: x.key === 'h_machine' || x.key === 'h_materials' ? '1 1 320px' : '0 1 200px' }}>{x.label}
-            {'multiline' in x && x.multiline
-              ? <textarea className="input" rows={Math.max(4, (values[x.key] ?? '').split(/\r?\n/).length)} value={values[x.key] ?? ''} onChange={set(x.key)} />
-              : <input className="input" value={values[x.key] ?? ''} onChange={set(x.key)} />}
-          </label>
-        ))}
-      </div>
-
-      {format.blocks(values).map((block, b) => (
-        <div key={b} style={{ overflowX: 'auto', borderBottom: '1px solid #e2e8f0' }}>
-          {block.title ? <div style={{ padding: '8px 12px', fontWeight: 700, background: '#f8fafc', textAlign: 'center' }}>{block.title}</div> : null}
+      {layoutBlocks(format, values).map((block, b) => (
+        <div key={b} style={{ overflowX: 'auto', marginTop: b ? 28 : 0 }}>
+          {block.title ? <div style={{ marginLeft: GUTTER, padding: '14px 12px', fontWeight: 700, textAlign: 'center' }}>{block.title}</div> : null}
           {renderLines(block.before)}
-          {block.heading ? <div style={{ padding: '8px 12px', fontWeight: 700 }}>{block.heading}</div> : null}
-          {block.rows ? <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          {block.heading ? <div style={{ marginLeft: GUTTER, padding: '14px 2px 10px', fontWeight: 700 }}>{block.heading}</div> : null}
+          {block.rows ? <table style={{ width: '100%', minWidth: Math.max(820, 110 * (block.head?.[0] ?? block.rows[0] ?? []).reduce((n, c) => n + (c.cs ?? 1), 0)), borderCollapse: 'collapse', fontSize: '0.84rem' }}>
             {block.head ? (
               <thead>
                 {block.head.map((row, r) => (
-                  <tr key={r}>{row.map((cell, k) => (
+                  <tr key={r}>{block.refs && r === 0 ? <th rowSpan={block.head?.length} style={gutterCell} aria-label="Row options" /> : null}{row.map((cell, k) => (
                     <th key={k} rowSpan={cell.rs} colSpan={cell.cs} style={headerStyle}>{'text' in cell ? cell.text : ''}</th>
                   ))}</tr>
                 ))}
               </thead>
             ) : null}
             <tbody>
-              {block.rows.map((row, r) => <tr key={r}>{row.map(renderCell)}</tr>)}
+              {block.rows.map((row, r) => {
+                const ref = block.refs?.[r]
+                return (
+                  <tr key={r}>
+                      {block.refs ? (
+                        <td style={gutterCell}>
+                          {ref ? (
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                              <button type="button" style={iconButton} title={isSet(ref) ? 'Delete this set' : 'Delete this row'} aria-label={isSet(ref) ? 'Delete this set' : 'Delete this row'} onClick={() => deleteRow(ref, row)}><CircleMinus size={17} color="#dc2626" /></button>
+                            </div>
+                          ) : null}
+                        </td>
+                      ) : null}
+                      {row.map(renderCell)}
+                    </tr>
+                )
+              })}
             </tbody>
           </table> : null}
+          {block.refs ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, margin: `16px 0 4px ${GUTTER}px` }}>
+              {lastCubes(block).map((ref, k, all) => (
+                <button key={k} type="button" style={addButton} onClick={() => addRow(ref)}><Plus size={15} /> Add cube{all.length > 1 ? ` (${String.fromCharCode(65 + k)})` : ''}</button>
+              ))}
+              <button type="button" style={addButton} onClick={() => addBelow(block)}><Plus size={15} /> {block.refs.some((r) => isSet(r)) ? 'Add set' : 'Add row'}</button>
+              {block.table && deletedCount(labData, block.table) ? (
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => patch(restoreTable(block.table as string))}><RotateCcw size={13} /> Restore deleted rows ({deletedCount(labData, block.table)})</button>
+              ) : null}
+            </div>
+          ) : null}
           {(() => {
             // Same chart as the print (grading / compaction curve), redrawn as values are typed
             const spec = block.chart?.(values, calc)
@@ -105,7 +132,7 @@ export function LabFormatGrid({ formatKey, label, labData, details, updateLabDat
           })()}
           {renderLines(block.after)}
           {block.footKey ? (
-            <div style={{ padding: 8 }}>
+            <div style={{ padding: '16px 0 0', marginLeft: GUTTER }}>
               <input className="input" value={values[block.footKey] ?? ''} onChange={set(block.footKey)} style={{ width: '100%', fontSize: '0.8rem' }} />
             </div>
           ) : null}
@@ -115,6 +142,13 @@ export function LabFormatGrid({ formatKey, label, labData, details, updateLabDat
   )
 }
 
-const labelCol = { display: 'flex', flexDirection: 'column' as const, gap: 4, fontSize: '0.78rem', fontWeight: 600 }
-const headerStyle = { background: '#000', color: '#fff', border: '1px solid #333', padding: 6, fontSize: '0.72rem', textTransform: 'uppercase' as const, whiteSpace: 'normal' as const, maxWidth: 260, verticalAlign: 'middle' as const }
-const cellStyle = { border: '1px solid #e2e8f0', padding: 6, verticalAlign: 'middle' as const }
+/** 2026-02-17 → 17/02/2026, other text as typed */
+const showDate = (v: string | null | undefined) => String(v ?? '').replace(/^(\d{4})-(\d{2})-(\d{2})(T.*)?$/, '$3/$2/$1')
+const isSet = (ref: RowRef | null | undefined) => !!ref && 'list' in ref && ref.list.key === 'n_sets'
+const iconButton = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', borderRadius: 4 }
+/** Room left of the table for the row icons */
+const GUTTER = 36
+const gutterCell = { width: GUTTER, minWidth: GUTTER, padding: 0, border: 0, background: '#fff', verticalAlign: 'middle' as const, position: 'sticky' as const, left: 0, zIndex: 1 }
+const addButton = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 16px', border: '1px dashed #86b79a', borderRadius: 6, background: '#f3faf5', color: '#15803d', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }
+const headerStyle = { background: '#000', color: '#fff', border: '1px solid #475569', padding: '12px 10px', fontSize: '0.74rem', lineHeight: 1.45, textTransform: 'uppercase' as const, textAlign: 'center' as const, whiteSpace: 'normal' as const, maxWidth: 260, verticalAlign: 'middle' as const }
+const cellStyle = { border: '1px solid #cbd5e1', padding: '9px 10px', verticalAlign: 'middle' as const, background: '#fff' }

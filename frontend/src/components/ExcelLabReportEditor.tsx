@@ -21,10 +21,10 @@ interface ExcelLabReportEditorProps {
 }
 
 export const EXCEL_TEMPLATE_OPTIONS = [
-  ['acc_block', 'ACC Block'], ['bitumen_sample_dbm_bc', 'Bitumen Sample DBM / BC'], ['bm_ii_mix', 'BM-II Mix'],
+  ['acc_block', 'ACC Block'], ['dbm_bc_density', 'Bitumen Core Density'], ['bitumen_sample_dbm_bc', 'Bitumen Sample'], ['bm_ii_mix', 'BM-II Mix'],
   ['cc_core', 'CC Core'], ['cc_cube', 'CC Cube'], ['cement_opc_43', 'Cement OPC-43'], ['chequered_tile_22mm', 'Chequered Tile 22 mm'],
-  ['clay_bricks', 'Clay Bricks'], ['dbm_bc_density', 'DBM BC Bitumen Core Density'], ['fcdc_ferro_cover', 'FCDC Ferro Cover'],
-  ['grit_10mm', 'Grit 10mm'], ['grit_20mm', 'Grit 20mm'], ['gsb_iii_mix', 'GSB-III Mix'], ['interlocking_60mm', 'Interlocking 60mm'],
+  ['clay_bricks', 'Clay Bricks'], ['flyash_bricks', 'Fly Ash Bricks'], ['fcdc_ferro_cover', 'FCDC Ferro Cover'],
+  ['grit_10mm', 'Grit 10mm'], ['grit_20mm', 'Grit 20mm'], ['gsb_iii_mix', 'GSB-III Mix'], ['interlocking_60mm', 'Interlocking 60mm'], ['interlocking_80mm', 'Interlocking 80mm'], ['interlocking_100mm', 'Interlocking 100mm'],
   ['kerb_stone', 'Kerb Stone'], ['m30_mix', 'M-30 Mix'], ['main_hole_cover_hd20', 'Main Hole Cover HD 20'],
   ['sand', 'Sand'], ['soil_omc_mdd_cbr', 'Soil OMC MDD & CBR'],
   ['steel_fe415', 'Steel Fe-415'], ['steel_fe415d', 'Steel Fe-415D'], ['steel_fe500', 'Steel Fe-500'],
@@ -53,7 +53,7 @@ const templates: Record<string, { title: string; standard: string; fields: Templ
     { key: 'date_of_sampling', label: 'Date of sampling', type: 'date' }, { key: 'mathod_of_test', label: 'Method of test' },
     { key: 'density', label: 'Density' }, { key: 'result', label: 'Result' },
   ] },
-  bitumen_loose: { title: 'Bitumen Sample DBM / BC', standard: 'TEST RESULTS', fields: [
+  bitumen_loose: { title: 'Bitumen Sample', standard: 'TEST RESULTS', fields: [
     { key: 'name_of_test', label: 'Name of test' }, { key: 'date_of_sampling', label: 'Date of sampling', type: 'date' },
     { key: 'mathod_of_test', label: 'Method of test' }, { key: 'result', label: 'Bitumen content' },
   ] },
@@ -88,7 +88,7 @@ const templates: Record<string, { title: string; standard: string; fields: Templ
 const materialTemplates: Array<[string, string, string, string[]]> = [
   ['acc', 'ACC Block', 'TEST RESULTS', ['parameter', 'method_of_test', 'unit', 'result', 'limit']],
   ['aac', 'ACC Block', 'TEST RESULTS', ['parameter', 'method_of_test', 'unit', 'result', 'limit']],
-  ['dbm', 'DBM BC Bitumen Core Density Report', 'TEST RESULTS', ['name_of_test', 'method_of_test', 'result', 'unit', 'limit']],
+  ['dbm', 'Bitumen Core Density', 'TEST RESULTS', ['name_of_test', 'method_of_test', 'result', 'unit', 'limit']],
   ['m-30', 'M-30 Mix', 'MIX DESIGN', ['parameter', 'result', 'requirement']],
   ['cement', 'Cement OPC-43', 'TEST RESULTS', ['name_of_test', 'method_of_test', 'result', 'unit', 'limit']],
   ['soil', 'Soil OMC MDD & CBR', 'TEST RESULTS', ['property', 'result', 'unit', 'limit']],
@@ -108,10 +108,10 @@ export function resolveExcelTemplateKey(reportType: string, material: string): s
   const lower = material.toLowerCase()
   if (reportType === 'cc_cube') return 'cc_cube'
   if (reportType === 'cc_core') return 'cc_core'
-  // Bitumen cores: thickness + density (DBM BC Bitumen Core Density format)
+  // Bitumen cores: thickness + density (Bitumen Core Density format)
   if (reportType === 'bitumen_core') return 'dbm_bc_density'
   if (reportType === 'bitumen_loose') return 'bitumen_sample_dbm_bc'
-  if (reportType === 'bricks') return 'clay_bricks'
+  if (reportType === 'bricks') return /fly\s*-?\s*ash/.test(lower) ? 'flyash_bricks' : 'clay_bricks'
   if (reportType === 'ferro_cover') return 'fcdc_ferro_cover'
   if (reportType === 'interlocking') return 'interlocking_60mm'
   if (reportType === 'mainhole_cover') return 'main_hole_cover_hd20'
@@ -140,7 +140,7 @@ export function getTemplate(type: string, material: string, selectedKey: string)
     const title = selectedOption[1]
     if (title === 'CC Cube') return templates.cc_cube
     if (title === 'CC Core') return templates.cc_core
-    if (title === 'Bitumen Sample DBM / BC') return templates.bitumen_loose
+    if (title === 'Bitumen Sample') return templates.bitumen_loose
     if (title === 'Clay Bricks') return templates.bricks
     if (title === 'Interlocking 60mm') return templates.interlocking
     if (title === 'Main Hole Cover HD 20') return templates.mainhole_cover

@@ -1,6 +1,10 @@
+import { fullUlr } from '../lib/labFormats'
 import { useCallback, useEffect, useState } from 'react'
-import { Pencil, Printer, Trash2 } from 'lucide-react'
+import { CheckCircle2, Mail, Pencil, Printer, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { documentMailUrl, openMailWindow } from '../lib/mailTab'
+import { canUserAccess } from '../lib/roleConfig'
 import { ReportEditPage } from './ReportEditPage'
 import { ReportCreatePage } from './ReportCreatePage'
 
@@ -52,6 +56,11 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
   const [lastPage, setLastPage] = useState(1)
   const [totalRecords, setTotalRecords] = useState(0)
   const [removing, setRemoving] = useState<ReportRow | null>(null)
+  const { user } = useAuth()
+  const canMail = canUserAccess(user, 'mail')
+  const canApprove = canUserAccess(user, 'report_approve')
+  const [approving, setApproving] = useState<ReportRow | null>(null)
+  const [approvingBusy, setApprovingBusy] = useState(false)
   const [removingBusy, setRemovingBusy] = useState(false)
   const [editing, setEditing] = useState<{ id: number; type: string } | null>(null)
   // "All tests" and format selections mix types, so each row acts with its own report type
@@ -124,6 +133,23 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
     }
   }
 
+  const confirmApprove = async () => {
+    if (!approving) return
+    setApprovingBusy(true)
+    try {
+      await api.approveReport(approving.iReportId)
+      setApproving(null)
+      setLocalError('')
+      await loadTypes()
+      await loadReports()
+    } catch (e) {
+      setApproving(null)
+      setLocalError(e instanceof Error && e.message ? e.message : 'Could not approve the report')
+    } finally {
+      setApprovingBusy(false)
+    }
+  }
+
   const activeTypeInfo = types.find((t) => t.key === activeType)
   const isCube = activeType === 'cc_cube'
   const mixed = activeType === 'all' || activeType.startsWith('template:')
@@ -187,7 +213,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                   : step === 'Report Generated'
                     ? activeTypeInfo?.generated
                     : undefined
-              return <option key={step} value={step}>{step}{count !== undefined ? ` (${count})` : ''}</option>
+              return <option key={step} value={step}>{step === 'Complete' ? 'Approved' : step}{count !== undefined ? ` (${count})` : ''}</option>
             })}
           </select>
           <DateRangeFilter start={startDate} end={endDate} onApply={(start, end) => { setStartDate(start); setEndDate(end); setPage(1) }} />
@@ -234,8 +260,8 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                     <th>Work order No.</th>
                     <th>Sample Date</th>
                     <th>Sample Tested Date</th>
-                    <th style={{ textAlign: 'center' }}>Action</th>
                     <th>Status</th>
+                    <th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,7 +275,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                             {report.uid_no}
                           </button>
                         </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{report.ulr_no || '-'}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{fullUlr(report.ulr_no, report.create_date) || '-'}</td>
                         {mixed ? <td style={{ whiteSpace: 'nowrap' }}>{report.format_label || report.type_label || '-'}</td> : null}
                         <td style={{ minWidth: 180 }}>{report.customer_details || '-'}</td>
                         <td style={{ minWidth: 140 }}>{report.agency_name || '-'}</td>
@@ -261,15 +287,17 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                         <td>{report.work_order_no || '-'}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>{showDate(report.sample_date)}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>{showDate(report.sample_tested_date)}</td>
-                        <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: 4 }}>
-                            <button className="icon-button" onClick={() => void handlePrint(report)} type="button" title="Print report" aria-label={`Print report ${report.uid_no}`}><Printer size={16} /></button>
-                            <button className="icon-button" onClick={() => openReport(report)} type="button" title="Edit report" aria-label={`Edit report ${report.uid_no}`}><Pencil size={16} /></button>
-                            <button className="icon-button" onClick={() => setRemoving(report)} type="button" title="Remove report" aria-label={`Remove report ${report.uid_no}`} style={{ color: '#dc2626' }}><Trash2 size={16} /></button>
-                          </div>
-                        </td>
                         <td style={{ whiteSpace: 'nowrap' }}>
-                          <span className="status-tag" style={{ background: `${color}1f`, color, border: `1px solid ${color}55` }}>{report.status || '-'}</span>
+                          <span className="status-tag" style={{ background: `${color}1f`, color, border: `1px solid ${color}55` }}>{report.status === 'Complete' ? 'Approved' : report.status || '-'}</span>
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                            {canApprove && report.status !== 'Complete' && report.status !== 'Cancel' ? <button className="icon-button" onClick={() => setApproving(report)} type="button" title="Approve report" aria-label={`Approve report ${report.uid_no}`}><CheckCircle2 size={16} /></button> : null}
+                            <button className="icon-button" onClick={() => void handlePrint(report)} type="button" title={report.status === 'Complete' ? 'Print report' : 'Print draft (not approved yet)'} aria-label={`Print report ${report.uid_no}`}><Printer size={16} /></button>
+                            {canMail && report.status === 'Complete' ? <button className="icon-button" onClick={() => openMailWindow(documentMailUrl('report', report.iReportId, false, rowType(report)))} type="button" title="Mail the PDF" aria-label={`Mail report ${report.uid_no}`}><Mail size={16} /></button> : null}
+                            <button className="icon-button" onClick={() => openReport(report)} type="button" title="Edit report" aria-label={`Edit report ${report.uid_no}`}><Pencil size={16} /></button>
+                            <button className="icon-button" onClick={() => setRemoving(report)} type="button" title="Remove report" aria-label={`Remove report ${report.uid_no}`}><Trash2 size={16} /></button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -290,6 +318,12 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
         ) : null}
         </section>
       </div>
+
+      {approving ? (
+        <Modal title="Approve Report" size="sm" onClose={() => setApproving(null)} onSave={() => void confirmApprove()} saveLabel="Approve" cancelLabel="Close" saving={approvingBusy}>
+          <p style={{ margin: 0 }}>Approve the report for UID <strong>{approving.uid_no}</strong>? It then moves to Final Reports and prints without DRAFT, with its QR code.</p>
+        </Modal>
+      ) : null}
 
       {removing ? (
         <Modal title="Remove Report" size="sm" onClose={() => setRemoving(null)} onSave={() => void confirmRemove()} saveLabel="Remove" cancelLabel="Close" saving={removingBusy}>

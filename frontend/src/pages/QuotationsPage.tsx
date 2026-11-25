@@ -19,9 +19,6 @@ type Editing = { id: number | null; form: QuotationInput; approval: QuotationApp
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
-/** The actions stay in view when the table is wider than the screen */
-const stickyRight: React.CSSProperties = { position: 'sticky', right: 0, background: '#fff' }
-
 const companyBadge = (c: BillCompany) => (
   <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', background: c === 'ncrc' ? '#ede9fe' : '#e0f2fe', color: c === 'ncrc' ? '#6d28d9' : '#0369a1' }}>
     {COMPANIES[c].short}
@@ -163,7 +160,7 @@ export default function QuotationsPage() {
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table data-table--tight" style={{ minWidth: 1000 }}>
             <thead>
-              <tr><th>Date</th><th>Quotation No</th><th>Company</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Valid Till</th><th>Status</th><th style={stickyRight}>Actions</th></tr>
+              <tr><th>Date</th><th>Quotation No</th><th>Company</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Valid Till</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
@@ -190,8 +187,8 @@ export default function QuotationsPage() {
                       {QUOTATION_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                     </select>
                   </td>
-                  <td style={{ ...stickyRight, whiteSpace: 'nowrap' }}>
-                    {canApprove && r.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(r)} style={{ color: '#15803d', borderColor: '#bbf7d0', background: '#f0fdf4' }}><ClipboardCheck size={16} /></button> : null}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {canApprove && r.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(r)}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={r.approval !== 'approved'} onClick={() => print(r)}><Printer size={16} /></button>
                     {canMail ? <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={r.approval !== 'approved'} onClick={() => mail(r)}><Mail size={16} /></button> : null}
                     <button className="icon-button" type="button" title="Edit" onClick={() => openEditor(r)}><Pencil size={16} /></button>

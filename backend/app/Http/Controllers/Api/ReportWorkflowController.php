@@ -148,6 +148,7 @@ class ReportWorkflowController extends Controller
      */
     public function approve(Request $request, Report $report)
     {
+        abort_unless($request->user()?->canApproveReports(), 403, 'You cannot approve reports.');
         if ($report->status !== 'Under Review') {
             return response()->json(['message' => 'Report must be under review'], 422);
         }
@@ -210,6 +211,7 @@ class ReportWorkflowController extends Controller
      */
     public function lock(Request $request, Report $report)
     {
+        abort_unless($request->user()?->canApproveReports(), 403, 'You cannot approve reports.');
         if ($report->status !== 'Approved') {
             return response()->json(['message' => 'Only approved reports can be locked'], 422);
         }

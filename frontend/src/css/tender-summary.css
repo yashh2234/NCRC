@@ -68,7 +68,6 @@
 .ts-dates__when { white-space: nowrap; font-weight: 600; color: var(--gray-900, #0f172a); }
 .ts-dates__left { white-space: nowrap; text-align: right; color: var(--gray-500, #64748b); font-size: 0.8rem; }
 .ts-dates__left.urgent { color: #b91c1c; font-weight: 700; }
-.ts-foot { text-align: right; }
 
 .ts-count { padding: 1px 9px; border-radius: 999px; background: #f1f5f9; color: #475569 !important; font-weight: 700 !important; }
 .ts-count--all { background: #dcfce7; color: #15803d !important; }

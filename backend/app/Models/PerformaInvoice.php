@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BillApproval;
 use Illuminate\Database\Eloquent\Model;
 
 /** Performa invoice of NCS LLP (GST always 18%) */
@@ -27,7 +28,12 @@ class PerformaInvoice extends Model
         'sgst' => 'float',
         'igst' => 'float',
         'net_amount' => 'float',
+        'approval_at' => 'datetime',
+        'approval_requested_at' => 'datetime',
+        'approved_content' => 'array',
     ];
+
+    protected $hidden = ['approved_content'];
 
     /** PI/2026/0001: by calendar year, starting again at 0001 on 1 January */
     public static function nextNumber(?string $date = null): string
@@ -53,6 +59,17 @@ class PerformaInvoice extends Model
         }
         $data['items'] = $this->items ?? [];
 
-        return $data;
+        return array_merge($data, BillApproval::api($this));
+    }
+
+    /** What it prints; a change in it needs approval (the office remark does not print) */
+    public function printedContent(): array
+    {
+        $data = $this->only(['invoice_no', 'uid_no', 'work_order_no', 'report_no', 'terms_of_delivery', 'client_name', 'client_address', 'client_gstin', 'gst_type', 'transport', 'net_amount']);
+        foreach (self::DATES as $key) {
+            $data[$key] = $this->{$key}?->format('Y-m-d');
+        }
+
+        return $data + ['items' => $this->items ?? []];
     }
 }

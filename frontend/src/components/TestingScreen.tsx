@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { X, Save, FileText } from 'lucide-react'
 import { api } from '../lib/api'
+import { LabHeaderFields } from './LabHeaderFields'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from './ExcelLabReportEditor'
 
 interface DetailRow {
@@ -106,6 +107,10 @@ export function TestingScreen({ reportId, reportType, uid_no, agencyName, onClos
           <p style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>Loading details...</p>
         ) : (
           <>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <LabHeaderFields formatKey={templateKey} labData={labData} details={details as unknown as Array<Record<string, unknown>>} updateLabData={(field, value) => setLabData((previous) => ({ ...previous, [field]: value }))} />
+            </div>
+            <div className="testing-results">
             <ExcelLabReportEditor
               reportType={reportType}
               material={material}
@@ -115,6 +120,7 @@ export function TestingScreen({ reportId, reportType, uid_no, agencyName, onClos
               updateDetail={updateDetail}
               updateLabData={(field, value) => setLabData((previous) => ({ ...previous, [field]: value }))}
             />
+            </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid #e5eaed', paddingTop: 16 }}>
               <button type="button" className="ghost-button" onClick={() => void handleSave(false)} disabled={saving}>

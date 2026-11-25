@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PerformaInvoice;
+use App\Services\BillApproval;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -27,14 +29,19 @@ class PerformaInvoiceController extends Controller
         return response()->json(['data' => PerformaInvoice::nextNumber($request->query('date'))]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, BillApproval $approval): JsonResponse
     {
-        $performa = PerformaInvoice::create($this->validated($request) + [
-            'created_by' => $request->user()?->id,
-            'updated_by' => $request->user()?->id,
-        ]);
+        $performa = DB::transaction(function () use ($request, $approval): PerformaInvoice {
+            $performa = PerformaInvoice::create($this->validated($request) + [
+                'created_by' => $request->user()?->id,
+                'updated_by' => $request->user()?->id,
+            ]);
+            $approval->saved($performa, null, $request->user());
 
-        return response()->json(['data' => $performa->toApi()], 201);
+            return $performa;
+        });
+
+        return response()->json(['data' => $performa->fresh()->toApi()], 201);
     }
 
     public function show(PerformaInvoice $performa): JsonResponse
@@ -42,9 +49,28 @@ class PerformaInvoiceController extends Controller
         return response()->json(['data' => $performa->toApi()]);
     }
 
-    public function update(Request $request, PerformaInvoice $performa): JsonResponse
+    public function update(Request $request, PerformaInvoice $performa, BillApproval $approval): JsonResponse
     {
-        $performa->update($this->validated($request, $performa) + ['updated_by' => $request->user()?->id]);
+        $data = $this->validated($request, $performa);
+        DB::transaction(function () use ($request, $performa, $data, $approval): void {
+            $row = PerformaInvoice::query()->lockForUpdate()->findOrFail($performa->id);
+            $before = BillApproval::content($row);
+            $row->update($data + ['updated_by' => $request->user()?->id]);
+            $approval->saved($row, $before, $request->user());
+        });
+
+        return response()->json(['data' => $performa->fresh()->toApi()]);
+    }
+
+    /** Approve or send back */
+    public function decide(Request $request, PerformaInvoice $performa, BillApproval $approval): JsonResponse
+    {
+        $v = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'send_back'])],
+            'content_hash' => ['required', 'string'],
+            'remark' => ['required_if:action,send_back', 'nullable', 'string', 'max:1000'],
+        ], ['remark.required_if' => 'Write what should be corrected.']);
+        $approval->decide($performa, $request->user(), $v['action'], $v['content_hash'], trim((string) ($v['remark'] ?? '')));
 
         return response()->json(['data' => $performa->fresh()->toApi()]);
     }
