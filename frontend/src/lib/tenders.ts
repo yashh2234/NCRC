@@ -1,4 +1,4 @@
-import { api, BASE_URL, getToken, request } from './api'
+import { api, request } from './api'
 
 export interface Tender {
   id: number
@@ -6,6 +6,10 @@ export interface Tender {
   tenderId: string
   title: string
   department: string
+  /** Contact person on the client's side */
+  contactName: string
+  contactDesignation: string
+  contactPhone: string
   portal: string
   location: string
   value: string
@@ -20,6 +24,8 @@ export interface Tender {
   preBidDate: string
   queryDate: string
   closingDate: string
+  /** HH:MM, '' when not known */
+  closingTime: string
   openingDate: string
   eligibility: string
   decision: string
@@ -31,9 +37,12 @@ export interface Tender {
   remarks: string
   /** Set by the server when an AI summary of the tender document is saved. */
   hasSummary?: boolean
+  /** Checklist of the summary: documents in all / ticked */
+  docsTotal?: number
+  docsDone?: number
 }
 
-export type TenderInput = Omit<Tender, 'id' | 'srNo' | 'hasSummary'>
+export type TenderInput = Omit<Tender, 'id' | 'srNo' | 'hasSummary' | 'docsTotal' | 'docsDone'>
 
 /** Where tenders used to live before they were stored on the server. */
 const LEGACY_STORAGE_KEY = 'ncrc_tender_tracker'
@@ -94,13 +103,20 @@ export function daysLeft(date: string): number | null {
   return Math.ceil((new Date(`${date}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)
 }
 
+/** The closing date is over, or it is today and the closing time has passed. */
+export function isClosed(tender: Pick<Tender, 'closingDate' | 'closingTime'>): boolean {
+  const days = daysLeft(tender.closingDate)
+  if (days === null || days > 0) return false
+  return days < 0 || (Boolean(tender.closingTime) && new Date(`${tender.closingDate}T${tender.closingTime}:00`).getTime() <= Date.now())
+}
+
 export type Urgency = 'red' | 'yellow' | null
 
 /** Red when 0–4 days left, yellow when 5–7 days left. Submitted / closed tenders are not flagged. */
 export function tenderUrgency(tender: Tender): Urgency {
   if (CLOSED_STATUSES.includes(tender.submissionStatus)) return null
   const days = daysLeft(tender.closingDate)
-  if (days === null || days < 0) return null
+  if (days === null || isClosed(tender)) return null
   if (days <= 4) return 'red'
   if (days <= 7) return 'yellow'
   return null
@@ -114,6 +130,20 @@ export const URGENCY_STYLES = {
 export function formatDate(date: string) {
   if (!date) return '-'
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+/** "18:00" → "6:00 PM"; anything else is shown as written. */
+export function formatTime(time: string) {
+  const match = (time || '').match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return time || ''
+  const hour = Number(match[1])
+  return `${hour % 12 || 12}:${match[2]} ${hour < 12 ? 'AM' : 'PM'}`
+}
+
+/** Closing date with its time: "24 Nov 2026, 6:00 PM" */
+export function formatClosing(tender: Pick<Tender, 'closingDate' | 'closingTime'>) {
+  if (!tender.closingDate) return '-'
+  return tender.closingTime ? `${formatDate(tender.closingDate)}, ${formatTime(tender.closingTime)}` : formatDate(tender.closingDate)
 }
 
 /**
@@ -173,8 +203,16 @@ export interface TenderSummary {
   conflicts?: string[]
 }
 
+/** Who ticked a document of the checklist, and when */
+export interface DocumentCheck {
+  by: string | null
+  at: string | null
+}
+
 export interface SavedTenderSummary {
   summary: TenderSummary
+  /** One for each of the documents required; null = not ticked */
+  checks: Array<DocumentCheck | null>
   file: string | null
   model: string | null
   analysed_at: string | null
@@ -185,20 +223,7 @@ export function fetchTenderSummary(id: number) {
   return request<{ data: SavedTenderSummary | null }>(`/tenders/${id}/summary`).then((r) => r.data)
 }
 
-/** Uploads the tender PDF for analysis (multipart, so not the JSON request helper). */
-export async function analyseTenderDocument(id: number, file: File): Promise<SavedTenderSummary> {
-  const form = new FormData()
-  form.append('document', file)
-  const token = getToken()
-  const response = await fetch(`${BASE_URL}/tenders/${id}/analyze`, {
-    method: 'POST',
-    body: form,
-    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    if (response.status === 413) throw new Error('The PDF is too large for the server upload limit.')
-    throw new Error(payload.message ?? 'Could not analyse the document')
-  }
-  return payload.data as SavedTenderSummary
+/** Ticks or unticks one document of the checklist, for everyone. */
+export function checkTenderDocument(id: number, document: string, checked: boolean) {
+  return request<{ data: SavedTenderSummary; tender: Tender }>(`/tenders/${id}/checklist`, { method: 'POST', body: JSON.stringify({ document, checked }) })
 }

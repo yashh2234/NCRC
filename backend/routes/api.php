@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\DueReportsController;
 use App\Http\Controllers\Api\FinalReportsController;
 use App\Http\Controllers\Api\UlrLinkController;
 use App\Http\Controllers\Api\StoreController;
+use App\Http\Controllers\Api\PerformaInvoiceController;
+use App\Http\Controllers\Api\TenderAnalysisController;
 use App\Http\Controllers\Api\TenderController;
 use App\Http\Controllers\Api\MailAccountController;
 use App\Http\Controllers\Api\MailController;
@@ -203,7 +205,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
     Route::post('tenders/import', [TenderController::class, 'import']);
     Route::get('tenders/{tender}/summary', [TenderController::class, 'summary']);
-    Route::post('tenders/{tender}/analyze', [TenderController::class, 'analyze']);
+    Route::post('tenders/{tender}/checklist', [TenderController::class, 'checkDocument']);
+    Route::prefix('tender-analyses')->group(function (): void {
+        Route::get('/', [TenderAnalysisController::class, 'index']);
+        Route::post('/', [TenderAnalysisController::class, 'store'])->middleware('throttle:20,1');
+        Route::get('{analysis}', [TenderAnalysisController::class, 'show'])->whereNumber('analysis');
+        Route::post('{analysis}/run', [TenderAnalysisController::class, 'run'])->whereNumber('analysis');
+        Route::post('{analysis}/retry', [TenderAnalysisController::class, 'retry'])->whereNumber('analysis');
+        Route::post('{analysis}/attach', [TenderAnalysisController::class, 'attach'])->whereNumber('analysis');
+        Route::delete('{analysis}', [TenderAnalysisController::class, 'destroy'])->whereNumber('analysis');
+    });
     Route::apiResource('tenders', TenderController::class)->only(['index', 'store', 'update', 'destroy']);
 
     Route::get('reports/{type}/export', [ReportController::class, 'export']);
@@ -398,6 +409,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('bills/{bill}/restore', [BillController::class, 'restore']);
     Route::put('bills/{bill}/credit-note', [BillController::class, 'saveCreditNote']);
     Route::apiResource('bills', BillController::class);
+    Route::get('performa-invoices/next-number', [PerformaInvoiceController::class, 'nextNumber']);
+    Route::apiResource('performa-invoices', PerformaInvoiceController::class)->parameters(['performa-invoices' => 'performa']);
 
     Route::prefix('quotations')->group(function (): void {
         Route::get('/', [QuotationController::class, 'index']);

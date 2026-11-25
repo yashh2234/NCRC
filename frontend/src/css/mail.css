@@ -13,6 +13,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .topbar-mail { position: relative; }
@@ -32,7 +33,7 @@
 @media (max-width: 640px) {
   .topbar-mail__badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; line-height: 18px; padding: 0 4px; }
 }
-.topbar-mail:hover { background: var(--color-primary-tint, #eff4ff); border-color: #bfd3fe; }
+.topbar-mail:hover { text-decoration: none; background: var(--color-primary-tint, #eff4ff); border-color: #bfd3fe; }
 @media (max-width: 640px) {
   .topbar-mail { width: 40px; padding: 0; justify-content: center; }
   .topbar-mail span { display: none; }
@@ -117,7 +118,7 @@
 .tb-appbar > .tb-back { justify-self: start; }
 .tb-brand { display: flex; align-items: center; gap: 12px; }
 .tb-appbar__end { display: flex; justify-content: flex-end; }
-.tb-logo { height: 30px; width: auto; }
+.tb-logo { height: 40px; width: auto; }
 .tb-appname { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; }
 
 /* Toolbar */

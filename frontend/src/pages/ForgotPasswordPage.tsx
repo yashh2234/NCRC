@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { FlaskConical, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { api } from '../lib/api'
 
 interface ForgotPasswordPageProps {
@@ -46,10 +46,7 @@ export function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
     return (
       <main className="login-screen">
         <section className="login-art">
-          <div className="brand-mark">
-            <FlaskConical size={26} />
-            <span>NCRC</span>
-          </div>
+          <img className="login-logo" src={`${import.meta.env.BASE_URL}namotech-logo.png`} alt="Namotech Consultancy" />
           <h1>Forgot Password</h1>
           <p>Enter your email address to receive a password reset token.</p>
         </section>
@@ -78,10 +75,7 @@ export function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
   return (
     <main className="login-screen">
       <section className="login-art">
-        <div className="brand-mark">
-          <FlaskConical size={26} />
-          <span>NCRC</span>
-        </div>
+        <img className="login-logo" src={`${import.meta.env.BASE_URL}namotech-logo.png`} alt="Namotech Consultancy" />
         <h1>Reset Password</h1>
         <p>Use the token to set a new password for your account.</p>
       </section>

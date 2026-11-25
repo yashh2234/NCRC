@@ -207,6 +207,9 @@ select, .form-select {
   cursor: pointer;
 }
 select[multiple] { background-image: none; padding-right: 12px; }
+/* The opened list is white, also where the closed field is tinted (status colours) */
+select option, select optgroup { background-color: #fff; color: #0f172a; }
+select option:disabled { color: #94a3b8; }
 
 input[type="checkbox"], input[type="radio"] {
   width: 16px;
@@ -919,3 +922,6 @@ select:not([multiple]) {
 .combo-option strong { font-weight: 500; }
 .combo-option__meta { margin-left: 8px; color: var(--gray-500); font-size: 0.78rem; }
 .combo-empty { padding: 14px; color: var(--gray-400); font-size: 0.84rem; text-align: center; }
+
+/* Tables with many columns */
+.data-table--tight th, .data-table--tight td { padding-left: 9px !important; padding-right: 9px !important; }

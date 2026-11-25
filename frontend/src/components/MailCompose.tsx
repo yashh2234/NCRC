@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FileText, Paperclip, X } from 'lucide-react'
 import { formatSize, mailApi, type MailAttachment, type OutboxMail } from '../lib/mail'
 import { MailEditor, type MailEditorHandle } from './MailEditor'
@@ -16,6 +16,10 @@ export interface MailDraft {
   subject: string
   html: string
   kept: KeptAttachment[]
+  /** New files already attached, e.g. the PDF of a quotation */
+  files?: File[]
+  /** This quotation becomes Sent when the mail is out */
+  quotationId?: number
   replyUid?: number
   replyFolder?: string
   /** Set when it was opened from the Drafts folder */
@@ -41,7 +45,7 @@ export function MailCompose({ draft, from, onClose, onQueued, onDraftSaved }: Ma
   const [form, setForm] = useState({ to: draft.to, cc: draft.cc, bcc: draft.bcc, subject: draft.subject })
   const [showCc, setShowCc] = useState(Boolean(draft.cc))
   const [showBcc, setShowBcc] = useState(Boolean(draft.bcc))
-  const [files, setFiles] = useState<File[]>([])
+  const [files, setFiles] = useState<File[]>(draft.files ?? [])
   const [kept, setKept] = useState(draft.kept)
   const [draftUid, setDraftUid] = useState(draft.draftUid)
   const [busy, setBusy] = useState<'' | 'send' | 'draft'>('')
@@ -51,6 +55,14 @@ export function MailCompose({ draft, from, onClose, onQueued, onDraftSaved }: Ma
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const editor = useRef<MailEditorHandle>(null)
+
+  // Mail has its own browser tab: closing it must not lose what was written
+  useEffect(() => {
+    if (!dirty && !busy) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty, busy])
 
   const touch = () => { setDirty(true); setNotice('') }
   const set = (key: keyof typeof form, value: string) => { setForm((f) => ({ ...f, [key]: value })); touch() }
@@ -79,6 +91,7 @@ export function MailCompose({ draft, from, onClose, onQueued, onDraftSaved }: Ma
       data.append('reply_folder', draft.replyFolder ?? 'INBOX')
     }
     if (draftUid) data.append('draft_uid', String(draftUid))
+    if (draft.quotationId) data.append('quotation_id', String(draft.quotationId))
     files.forEach((file) => data.append('attachments[]', file))
     kept.forEach((a, i) => {
       data.append(`keep[${i}][folder]`, a.folder)

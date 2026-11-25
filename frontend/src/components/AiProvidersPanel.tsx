@@ -84,7 +84,7 @@ export function AiProvidersPanel() {
         <button type="button" className="btn btn-primary" disabled={!dirty || Boolean(busy)} onClick={() => void save()}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
       </div>
       <p className="text-muted" style={{ margin: '0 0 12px', fontSize: '0.8rem' }}>
-        The first one is asked; when it is full or not answering, the next. No feature uses them at the moment; Proposals and Tenders keep their own key.
+        Used to fill in the tender details after a tender PDF is analysed: Groq is asked first, then OpenRouter, then Gemini. Reading the PDF itself and Proposals use the Gemini key of the server.
         Free services may use what is sent to improve their products.
       </p>
       {error ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 10px' }}>{error}</p> : null}

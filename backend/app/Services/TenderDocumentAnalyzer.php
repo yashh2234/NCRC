@@ -35,7 +35,7 @@ Read the whole attached tender document (all pages, including tables, corrigenda
   "technical_requirements": [""],
   "payment_terms": [""],
   "penalties": [""],
-  "contact": "",
+  "contact": "name; designation; phone; e-mail",
   "points_to_watch": [""],
   "conflicts": [""]
 }
@@ -54,14 +54,18 @@ Rules:
 - penalties: every penalty, liquidated damages, compensation rate with its cap, deduction, forfeiture, ban/blacklisting and performance security.
 - points_to_watch: everything a bidder could lose the bid or money over - short deadlines (e.g. physical documents within N days, appeal within N days), bans, EMD exemptions, MSE provisions, site visit, vetting/approval by outside bodies, jurisdiction and arbitration, unusual or onerous conditions.
 - conflicts: every place where the document contradicts itself, comparing the SAME topic across pages - completion period, penalty/compensation rate, amounts, dates, portal/website, jurisdiction, accepting officer, name of work, or text that obviously belongs to a different tender. State both versions with their pages, e.g. "Completion period: 180 days (p. 9) vs 04 months (p. 16, p. 21) vs 06 months (p. 14)". Use [] only if there is truly no contradiction.
+- contact: the person or office on the client's side to contact (officer inviting the tender): name, designation, phone and e-mail, separated by "; ". Leave out what is not given.
 - Keep each list item to one clear sentence. Write in English.
 TXT;
 
     /** Error code used for "Gemini is busy / overloaded", which triggers the fallback model. */
-    private const BUSY = 503;
+    public const BUSY = 503;
 
     /** Model that actually produced the last summary (the main model, or the fallback). */
     private ?string $usedModel = null;
+
+    /** Called before every request, to show that the work is still going on */
+    private ?\Closure $progress = null;
 
     public function __construct(private ?string $apiKey = null, private ?string $model = null, private ?string $fallbackModel = null)
     {
@@ -73,6 +77,11 @@ TXT;
     public function model(): string
     {
         return (string) ($this->usedModel ?? $this->model);
+    }
+
+    public function onProgress(?\Closure $progress): void
+    {
+        $this->progress = $progress;
     }
 
     /** @return array<string, mixed> normalised summary */
@@ -184,6 +193,10 @@ TXT;
 
     private function request(int $timeout = 60)
     {
+        if ($this->progress) {
+            ($this->progress)();
+        }
+
         return Http::withHeaders(['x-goog-api-key' => (string) $this->apiKey])->timeout($timeout)->acceptJson();
     }
 

@@ -53,6 +53,8 @@ body { font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif; font-size: 1
 .doc-title { text-align: right; flex: none; }
 .doc-title h1 { margin: 0; padding-bottom: 1.4mm; border-bottom: 2.5px solid var(--accent); display: inline-block;
                 font-size: 22pt; font-weight: 800; letter-spacing: 2.5px; color: var(--brand); line-height: 1.1; }
+.doc-title.performa { display: flex; flex-direction: column; align-items: flex-end; }
+.doc-title.performa h1 { font-size: 16pt; letter-spacing: 1.2px; white-space: nowrap; }
 .doc-title .copy { font-size: 8pt; color: #6A7889; text-transform: uppercase; letter-spacing: 1px; margin-top: 1.5mm; }
 .doc-title .docno { margin-top: 4mm; display: inline-grid; grid-template-columns: auto auto; gap: 1mm 5mm; text-align: left; font-size: 9.5pt; }
 .doc-title .docno .k { color: #6A7889; }
@@ -136,12 +138,14 @@ export function billFileName(b: BillInput, cn?: CreditNote): string {
   return [...head, d ? `Dt. ${d}` : '', b.client_name.split('\n')[0].trim()].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-')
 }
 
-function billHtml(b: BillInput, cn?: CreditNote): string {
+function billHtml(b: BillInput, cn?: CreditNote, performa = false): string {
   const co = COMPANIES[b.company]
   const isNcs = b.company === 'ncs'
   const t = calcBill(b)
   const origin = window.location.origin
-  const kind = cn ? 'credit note' : 'invoice'
+  const kind = performa ? 'performa invoice' : cn ? 'credit note' : 'invoice'
+  // The performa invoice (Excel) has no HSN column and no advance
+  const withHsn = isNcs && !performa
 
   // Totals: GST on the items total, transport after GST, round-off on its own line
   const grand = Math.round(t.total)
@@ -152,7 +156,7 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
   // ── Header ──
   const docRows: [string, string][] = cn
     ? [['Credit Note No.', cn.no], ['Date', dotDate(cn.date)], ['Against Invoice', b.invoice_no], ['Invoice Date', dotDate(b.invoice_date)]]
-    : [['Invoice No.', b.invoice_no], ['Date', dotDate(b.invoice_date)]]
+    : [[performa ? 'Performa No.' : 'Invoice No.', b.invoice_no], ['Date', dotDate(b.invoice_date)]]
   const header = `
     <div class="header">
       <div class="company">
@@ -168,9 +172,9 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
           </div>
         </div>
       </div>
-      <div class="doc-title">
-        <h1>${cn ? 'CREDIT NOTE' : esc(co.title)}</h1>
-        <div class="copy">Original for Recipient</div>
+      <div class="doc-title${performa ? ' performa' : ''}">
+        <h1>${performa ? 'PERFORMA INVOICE' : cn ? 'CREDIT NOTE' : esc(co.title)}</h1>
+        ${performa ? '' : '<div class="copy">Original for Recipient</div>'}
         <div class="docno">${docRows.map(([k, v]) => `<span class="k">${esc(k)}</span><span class="v">${esc(v)}</span>`).join('')}</div>
       </div>
     </div>
@@ -195,21 +199,21 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
         ${b.client_gstin.trim() ? `<div class="client-ids"><div><b>GSTIN</b> ${esc(b.client_gstin)}</div></div>` : ''}
       </div>
       <div>
-        <div class="k-label">${cn ? 'Credit Note Details' : 'Invoice Details'}</div>
+        <div class="k-label">${performa ? 'Performa Details' : cn ? 'Credit Note Details' : 'Invoice Details'}</div>
         <table class="details">${details}</table>
       </div>
     </div>`
 
   // ── Items: first line of the particular in bold, the rest as a grey description ──
   const items = b.items.filter((it) => it.description.trim() || Number(it.rate))
-  const cols = isNcs ? 7 : 6
+  const cols = withHsn ? 7 : 6
   const itemRows = items.map((it, i) => {
     const [main, ...rest] = it.description.trim().split('\n')
     const sub = rest.join('\n').trim()
     return `<tr class="item">
       <td class="ctr">${i + 1}</td>
       <td><div class="desc-main">${esc(main)}</div>${sub ? `<div class="desc-sub">${esc(sub)}</div>` : ''}</td>
-      ${isNcs ? `<td class="ctr">${DEFAULT_HSN}</td>` : ''}
+      ${withHsn ? `<td class="ctr">${DEFAULT_HSN}</td>` : ''}
       <td class="num">${esc(fmtQty(it.qty))}</td>
       <td class="num">${money2(Number(it.rate) || 0)}</td>
       <td class="num">${Number(it.discount) ? `${esc(fmtQty(it.discount))}%` : '—'}</td>
@@ -219,7 +223,7 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
   const itemsTable = `
     <div class="items-wrap"><table class="items">
       <thead><tr>
-        <th class="sr ctr">#</th><th>Particulars</th>${isNcs ? '<th class="ctr">HSN</th>' : ''}
+        <th class="sr ctr">#</th><th>Particulars</th>${withHsn ? '<th class="ctr">HSN</th>' : ''}
         <th class="num">Qty</th><th class="num">Rate (₹)</th><th class="num">Disc.</th><th class="num">Amount (₹)</th>
       </tr></thead>
       <tbody>${itemRows}<tr class="filler">${'<td></td>'.repeat(cols)}</tr></tbody>
@@ -232,8 +236,9 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
   if (isNcs) totals.push(line('CGST @ 9%', t.cgst), line('SGST @ 9%', t.sgst), line('IGST @ 18%', t.igst))
   totals.push(line('Transportation &amp; Other Exp.', t.transport))
   if (roundOff) totals.push(`<tr class="muted"><td>Round Off</td><td class="v">${roundOff > 0 ? '' : '−'}${money2(Math.abs(roundOff))}</td></tr>`)
-  totals.push(`<tr class="grand"><td colspan="2"><div class="grandbox"><span>${cn ? 'Total Credit' : 'Invoice Total'}</span><span>₹ ${money2(grand)}</span></div></td></tr>`)
-  if (!cn) {
+  totals.push(`<tr class="grand"><td colspan="2"><div class="grandbox"><span>${performa ? 'Total Amount' : cn ? 'Total Credit' : 'Invoice Total'}</span><span>₹ ${money2(grand)}</span></div></td></tr>`)
+  if (performa) totals.push(`<tr class="net"><td>Net Due Amount</td><td class="v">₹ ${money2(grand)}</td></tr>`)
+  else if (!cn) {
     totals.push(`<tr class="after"><td>Advance Received</td><td class="v">− ${money2(advance)}</td></tr>`,
       `<tr class="net"><td>Net Amount Due</td><td class="v">₹ ${money2(net)}</td></tr>`)
   }
@@ -266,7 +271,7 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
     : 'We declare that this invoice shows the actual price of the services described and that all particulars are true and correct.'
   const bottom = `
     <div class="bottom">
-      <div class="notes"><div class="k-label">Terms &amp; Declaration</div><div class="decl">${decl}</div></div>
+      <div class="notes">${performa ? '<div class="k-label">E. &amp; O.E.</div>' : `<div class="k-label">Terms &amp; Declaration</div><div class="decl">${decl}</div>`}</div>
       <div class="sign">
         <div class="for">For ${esc(co.name)}</div>
         <div class="seal">${co.seal ? `<img src="${origin}/letterhead/${co.seal}" alt="" onerror="this.remove()">` : ''}</div>
@@ -281,14 +286,19 @@ function billHtml(b: BillInput, cn?: CreditNote): string {
   return `<div class="page"><div class="brandbar"></div>${header}${parties}${itemsTable}${summary}${bottom}</div>`
 }
 
-export function openBillPrint(b: BillInput, withSign: boolean, cn?: CreditNote) {
-  const w = window.open('', '_blank')
+/** Performa invoice of NCS LLP in the invoice design; pass a window opened beforehand when saving comes first */
+export function openPerformaPrint(b: BillInput, withSign: boolean, target?: Window | null) {
+  openBillPrint(b, withSign, undefined, { target })
+}
+
+export function openBillPrint(b: BillInput, withSign: boolean, cn?: CreditNote, performa?: { target?: Window | null }) {
+  const w = performa?.target ?? window.open('', '_blank')
   if (!w) {
     window.alert('Allow pop-ups for this site to preview or print the invoice.')
     return
   }
   const co = COMPANIES[b.company]
-  const title = billFileName(b, cn) || 'Invoice'
+  const title = (performa ? `Performa ${billFileName(b).replace(/^bill no /, '')}` : billFileName(b, cn)) || 'Invoice'
   w.document.open()
   // No toolbar: sign was chosen in the app; the print dialog opens once fonts and images have loaded
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
@@ -296,7 +306,7 @@ export function openBillPrint(b: BillInput, withSign: boolean, cn?: CreditNote) 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>${BILL_CSS}</style></head>
     <body class="theme-${co.theme}${withSign ? '' : ' nosign'}">
-      ${billHtml(b, cn)}
+      ${billHtml(b, cn, Boolean(performa))}
       <script>
         window.addEventListener('load', function () {
           var go = function () { setTimeout(function () { window.print() }, 150) };

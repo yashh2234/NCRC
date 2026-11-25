@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { FlaskConical, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { ForgotPasswordPage } from "./ForgotPasswordPage";
 import { Req } from '../components/ui'
@@ -22,10 +22,7 @@ export function LoginPage() {
   return (
     <main className="login-screen">
       <section className="login-art">
-        <div className="brand-mark">
-          <span className="sidebar-brand__logo"><FlaskConical size={18} /></span>
-          <span>Namotech Consultancy</span>
-        </div>
+        <img className="login-logo" src={`${import.meta.env.BASE_URL}namotech-logo.png`} alt="Namotech Consultancy" />
         <div className="login-art__body">
           <h1>NCRC <em>Lab</em> Management</h1>
           <p>

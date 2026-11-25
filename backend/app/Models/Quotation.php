@@ -87,8 +87,10 @@ class Quotation extends Model
             $data['sections'] = [['title' => 'Terms & Conditions', 'style' => 'text', 'body' => trim($this->terms_and_conditions), 'half' => false]];
         }
         $data['items'] = $this->items->map(fn (QuotationItem $it) => [
+            'kind' => $it->kind ?? 'item',
             'description' => $it->description,
             'details' => $it->details ?? '',
+            'extra' => $it->extra ?? [],
             'quantity' => $it->quantity,
             'unit' => $it->unit,
             'rate' => $it->rate,

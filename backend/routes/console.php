@@ -22,3 +22,6 @@ Schedule::command('mail:outbox')->everyMinute()->withoutOverlapping(30);
 
 // Mail accounts: bell notifications for new mail (the top-bar poll also does this while people are online).
 Schedule::command('mail:check')->everyFiveMinutes()->withoutOverlapping();
+
+// Tender PDFs not read yet (closed tab, busy AI). Last in the list: reading one can take minutes.
+Schedule::command('tender:analyse')->everyMinute()->withoutOverlapping(30);

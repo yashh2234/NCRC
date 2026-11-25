@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jobs;
 use App\Models\Quotation;
+use App\Models\QuotationItem;
 use App\Models\WorkOrder;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTemplate;
@@ -129,8 +130,12 @@ class QuotationController extends Controller
             'signatory_designation' => ['nullable', 'string', 'max:222'],
             'notes' => ['nullable', 'string', 'max:3000'],
             'items' => ['required', 'array', 'min:1', 'max:200'],
+            'items.*.kind' => ['nullable', Rule::in(QuotationItem::KINDS)],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
             'items.*.details' => ['nullable', 'string', 'max:6000'],
+            'items.*.extra' => ['nullable', 'array', 'max:30'],
+            'items.*.extra.*.title' => ['nullable', 'string', 'max:2000'],
+            'items.*.extra.*.details' => ['nullable', 'string', 'max:6000'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:9999999'],
             'items.*.unit' => ['nullable', 'string', 'max:50'],
             'items.*.rate' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
@@ -142,23 +147,42 @@ class QuotationController extends Controller
             'email.email' => 'Enter a valid email address.',
         ]);
 
-        // Items: amount = qty × rate; an "Included" item carries no amount
+        // Items: amount = qty × rate; an "Included" item carries no amount, nor does a heading
         $items = [];
         foreach ($v['items'] as $it) {
             $description = trim((string) ($it['description'] ?? ''));
             $details = trim((string) ($it['details'] ?? ''));
+            $kind = $it['kind'] ?? 'item';
+            if ($kind !== 'item') {
+                if ($description !== '') {
+                    $items[] = [
+                        'kind' => $kind, 'description' => $description, 'details' => null, 'extra' => null,
+                        'quantity' => 0, 'unit' => '', 'rate' => 0, 'amount' => 0, 'included' => false, 'sort_order' => count($items),
+                    ];
+                }
+                continue;
+            }
+            $extra = [];
+            foreach ($it['extra'] ?? [] as $part) {
+                $part = ['title' => trim((string) ($part['title'] ?? '')), 'details' => trim((string) ($part['details'] ?? ''))];
+                if ($part['title'] !== '' || $part['details'] !== '') {
+                    $extra[] = $part;
+                }
+            }
             $included = (bool) ($it['included'] ?? false);
             $quantity = round((float) ($it['quantity'] ?? 0), 2);
             $rate = $included ? 0.0 : round((float) ($it['rate'] ?? 0), 2);
-            if ($description === '' && $details === '' && $rate == 0.0) {
+            if ($description === '' && $details === '' && ! $extra && $rate == 0.0) {
                 continue;
             }
             if ($description === '') {
                 throw ValidationException::withMessages(['items' => 'Enter the description of work for every item.']);
             }
             $items[] = [
+                'kind' => 'item',
                 'description' => $description,
                 'details' => $details === '' ? null : $details,
+                'extra' => $extra ?: null,
                 'quantity' => $quantity,
                 'unit' => trim((string) ($it['unit'] ?? '')),
                 'rate' => $rate,
@@ -167,7 +191,7 @@ class QuotationController extends Controller
                 'sort_order' => count($items),
             ];
         }
-        if (! $items) {
+        if (! in_array('item', array_column($items, 'kind'), true)) {
             throw ValidationException::withMessages(['items' => 'Add at least one item.']);
         }
 
@@ -306,7 +330,7 @@ class QuotationController extends Controller
             $nextId = ((int) (DB::table('client_registration')->max('iClientId') ?? 0)) + 1;
 
             // Build sample details from quotation items
-            $items = $quotation->items;
+            $items = $quotation->items->where('kind', 'item');
             $sampleDetails = $items->pluck('description')->filter()->implode(', ');
             $totalAmount = (float) $quotation->net_amount;
 

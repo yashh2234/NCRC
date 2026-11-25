@@ -24,10 +24,17 @@ class AiRouter
 
     private const TIMEOUT = 25;
 
-    /** @return array{data: array, provider: string}|null the answered JSON, null when no service could answer */
-    public function json(string $prompt): ?array
+    /**
+     * @param  string[]  $order  services to ask in this order instead of the one in the settings
+     * @return array{data: array, provider: string}|null the answered JSON, null when no service could answer
+     */
+    public function json(string $prompt, array $order = []): ?array
     {
-        foreach (AiProvider::ordered() as $provider) {
+        $providers = AiProvider::ordered();
+        if ($order) {
+            $providers = $providers->sortBy(fn (AiProvider $p) => ($i = array_search($p->provider, $order, true)) === false ? 99 : $i);
+        }
+        foreach ($providers as $provider) {
             if (! $provider->enabled || $provider->key() === '' || $provider->isPaused()) {
                 continue;
             }

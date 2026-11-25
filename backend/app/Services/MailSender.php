@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\MailAccount;
 use App\Models\MailOutbox;
 use App\Models\Notification;
+use App\Models\Quotation;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -78,6 +79,7 @@ class MailSender
                 return $this->fail($row, $account, $payload, $refused ? 'The mail server did not accept it: '.$this->short($e) : self::UNCERTAIN);
             }
             $row->update(['status' => 'sent', 'error' => null]);
+            $this->markQuotationSent((int) ($payload['quotation_id'] ?? 0));
 
             // The mail is out: nothing below may make it look as if sending failed
             $this->after($row, $account, $payload, $email, $bcc);
@@ -134,6 +136,20 @@ class MailSender
         ]);
 
         return $row;
+    }
+
+    /** A quotation that was still a draft is Sent once its mail is out. */
+    private function markQuotationSent(int $id): void
+    {
+        if (! $id) {
+            return;
+        }
+        try {
+            Quotation::query()->whereKey($id)->where('status', 'draft')
+                ->update(['status' => 'sent', 'sent_via' => 'email', 'sent_at' => now()]);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function toDrafts(MailOutbox $row, MailAccount $account, array $payload): void

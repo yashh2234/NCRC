@@ -14,11 +14,21 @@ export type GstMode = 'add' | 'extra' | 'none'
 export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
 export type SectionStyle = 'text' | 'bullets' | 'numbers'
 
+/** heading / subheading: a full-width row over the items, without quantity, rate and amount */
+export type ItemKind = 'item' | 'heading' | 'subheading'
+
+/** A further heading with its text inside one item */
+export interface ItemPart { title: string; details: string }
+
 export interface QuotationItem {
+  kind: ItemKind
   description: string
   details: string
+  extra: ItemPart[]
   quantity: number | ''
   unit: string
+  /** "Other" is chosen: the unit is typed (only in the form, not saved) */
+  unitOther?: boolean
   rate: number | ''
   included: boolean
 }
@@ -77,22 +87,23 @@ export interface Quotation extends Omit<QuotationInput, NullableText | 'items' |
   status: QuotationStatus
 }
 
-export const QUOTATION_STATUSES: { key: QuotationStatus; label: string; color: string }[] = [
-  { key: 'draft', label: 'Draft', color: '#64748b' },
-  { key: 'sent', label: 'Sent', color: '#2563eb' },
-  { key: 'accepted', label: 'Accepted', color: '#16a34a' },
-  { key: 'rejected', label: 'Rejected', color: '#dc2626' },
-  { key: 'expired', label: 'Expired', color: '#d97706' },
+export const QUOTATION_STATUSES: { key: QuotationStatus; label: string }[] = [
+  { key: 'draft', label: 'Draft' },
+  { key: 'sent', label: 'Sent' },
+  { key: 'accepted', label: 'Accepted' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'expired', label: 'Expired' },
 ]
 
 /** GST is fixed per company */
 export const companyGst = (company: BillCompany): GstMode => (company === 'ncs' ? 'add' : 'none')
 
-export const UNITS = ['Nos', 'Mtr', 'Per bore', 'LS']
+export const UNITS = ['Nos', 'Mtr', 'Per bore', 'Acres', 'LS']
 export const SECTION_TITLES = ['Scope of Work', 'Deliverables', 'Exclusions', 'Terms & Conditions', 'SWL Clarification', 'Client Scope', 'Time Schedule']
 export const DEFAULT_PAYMENT_TERMS = '50% along with PO; remaining 50% after submission of report'
 
-export const emptyQuotationItem = (): QuotationItem => ({ description: '', details: '', quantity: 1, unit: 'Nos', rate: '', included: false })
+export const emptyQuotationItem = (): QuotationItem => ({ kind: 'item', description: '', details: '', extra: [], quantity: 1, unit: 'Nos', rate: '', included: false })
+export const emptyHeading = (kind: 'heading' | 'subheading'): QuotationItem => ({ ...emptyQuotationItem(), kind, quantity: '', unit: '' })
 export const emptySection = (): QuotationSection => ({ title: '', style: 'numbers', body: '', half: false })
 
 /** 2026-06-10 + 1 → 2026-07-10 (31 Jan → 28 / 29 Feb) */
@@ -136,8 +147,26 @@ export function emptyQuotation(company: BillCompany): QuotationInput {
 const num = (v: unknown) => Number(v) || 0
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
-export const quotationItemAmount = (it: Pick<QuotationItem, 'quantity' | 'rate' | 'included'>) =>
-  (it.included ? 0 : r2(r2(num(it.quantity)) * r2(num(it.rate))))
+/** Something is filled in, so it is saved and printed */
+export const itemUsed = (it: QuotationItem) => Boolean(it.description.trim())
+  || (it.kind === 'item' && Boolean(it.details.trim() || Number(it.rate) || it.extra.some((p) => p.title.trim() || p.details.trim())))
+
+/** Numbers of the rows: headings A, B …, sub-headings A.1, A.2 …, items 1, 2, 3 … running on */
+export function itemNumbers(items: Pick<QuotationItem, 'kind'>[]): string[] {
+  let heading = 0
+  let sub = 0
+  let item = 0
+  const letters = (n: number): string => (n > 26 ? letters(Math.floor((n - 1) / 26)) : '') + String.fromCharCode(65 + ((n - 1) % 26))
+  return items.map((it) => {
+    if (it.kind === 'heading') { heading += 1; sub = 0; return letters(heading) }
+    if (it.kind === 'subheading') { sub += 1; return heading ? `${letters(heading)}.${sub}` : '' }
+    item += 1
+    return String(item)
+  })
+}
+
+export const quotationItemAmount = (it: Pick<QuotationItem, 'kind' | 'quantity' | 'rate' | 'included'>) =>
+  (it.included || it.kind !== 'item' ? 0 : r2(r2(num(it.quantity)) * r2(num(it.rate))))
 
 export function calcQuotation(q: Pick<QuotationInput, 'items' | 'discount' | 'gst_mode' | 'transport' | 'transport_gst'>) {
   const subtotal = r2(q.items.reduce((s, it) => s + quotationItemAmount(it), 0))
@@ -179,7 +208,7 @@ export function quotationToInput(q: Quotation): QuotationInput {
     location: s(q.location), ref_no: s(q.ref_no), ref_date: s(q.ref_date), prepared_by: s(q.prepared_by),
     subject: s(q.subject), intro: s(q.intro),
     items: q.items.length
-      ? q.items.map((it) => ({ description: it.description, details: it.details, quantity: it.quantity, unit: it.unit, rate: it.included ? '' : it.rate, included: it.included }))
+      ? q.items.map((it) => ({ kind: it.kind ?? 'item', description: it.description, details: it.details, extra: (it.extra ?? []).map((p) => ({ ...p })), quantity: it.quantity, unit: it.unit, rate: it.included ? '' : it.rate, included: it.included }))
       : [emptyQuotationItem()],
     discount: q.discount || '', gst_mode: q.gst_mode, transport: q.transport || '', transport_gst: Boolean(q.transport_gst),
     payment_terms: s(q.payment_terms),
@@ -191,6 +220,7 @@ export function quotationToInput(q: Quotation): QuotationInput {
 
 export const quotationsApi = {
   list: () => request<{ data: Quotation[] }>('/quotations'),
+  get: (id: number) => request<{ data: Quotation }>(`/quotations/${id}`),
   create: (data: QuotationInput) => request<{ data: Quotation }>('/quotations', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: QuotationInput) => request<{ data: Quotation }>(`/quotations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   setStatus: (id: number, status: QuotationStatus) => request<{ data: Quotation }>(`/quotations/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),

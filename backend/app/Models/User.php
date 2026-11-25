@@ -40,7 +40,7 @@ class User extends Authenticatable
     public const FEATURE_KEYS = [
         'tenders', 'inquiries', 'registrations', 'quotations', 'proposals', 'work_orders', 'outsource', 'reports',
         'ulr_add', 'ulr_register', 'final_reports', 'billing', 'due_reports', 'expenses',
-        'purchase_orders', 'admin', 'mail',
+        'purchase_orders', 'admin', 'mail', 'documents_site',
     ];
 
     /** Job roles that drive the dashboard and the job queues. */

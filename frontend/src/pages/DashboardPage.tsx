@@ -11,7 +11,7 @@ import { RegistrationWizard } from '../components/RegistrationWizard'
 import { api, request } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import { getRoleConfig, shouldShowWidget, canUserAccess } from '../lib/roleConfig'
-import { type Tender, fetchTenders, tenderUrgency, daysLeft, formatDate, URGENCY_STYLES } from '../lib/tenders'
+import { type Tender, fetchTenders, tenderUrgency, daysLeft, formatClosing, URGENCY_STYLES } from '../lib/tenders'
 import type { TrackerRole, MyQueueItem, Registration } from '../lib/types'
 
 interface TrendsData {
@@ -779,8 +779,8 @@ export function DashboardPage() {
                     <td><span className="uid-link">{tender.tenderId}</span></td>
                     <td className="work-name">{tender.title}</td>
                     <td className="agency-name">{tender.department || '—'}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(tender.closingDate)}</td>
-                    <td><strong style={{ color: style.color }}>{days === 0 ? 'Today' : `${days} days`}</strong></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatClosing(tender)}</td>
+                    <td><strong style={{ color: style.color }}>{days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'}`}</strong></td>
                     <td style={{ fontSize: '0.72rem', color: '#475569' }}>{tender.submissionStatus}</td>
                   </tr>
                 )

@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Download, Pencil, Plus, Printer, Search, Stamp, Trash2 } from 'lucide-react'
+import { Download, Mail, Pencil, Plus, Printer, Search, Stamp, Trash2 } from 'lucide-react'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { Modal } from '../components/Modal'
 import { QuotationEditor } from '../components/QuotationEditor'
 import { COMPANIES, dotDate, money2, type BillCompany } from '../lib/bills'
+import { useAuth } from '../lib/auth'
+import { openMailWindow, quotationMailUrl } from '../lib/mailTab'
 import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
+import { canUserAccess } from '../lib/roleConfig'
 import {
   QUOTATION_COMPANY_KEYS, QUOTATION_STATUSES, emptyQuotation, quotationToInput, quotationsApi,
   type Quotation, type QuotationInput, type QuotationStatus,
 } from '../lib/quotations'
 import { useTracking } from '../lib/useTracking'
-import { softTone } from '../lib/utils'
 
 type Editing = { id: number | null; form: QuotationInput }
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
-const statusColor = (s: QuotationStatus) => QUOTATION_STATUSES.find((o) => o.key === s)?.color ?? '#64748b'
+
+/** The actions stay in view when the table is wider than the screen */
+const stickyRight: React.CSSProperties = { position: 'sticky', right: 0, background: '#fff' }
 
 const companyBadge = (c: BillCompany) => (
   <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', background: c === 'ncrc' ? '#ede9fe' : '#e0f2fe', color: c === 'ncrc' ? '#6d28d9' : '#0369a1' }}>
@@ -35,7 +39,9 @@ export default function QuotationsPage() {
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [editing, setEditing] = useState<Editing | null>(null)
-  const [printing, setPrinting] = useState<Quotation | null>(null)
+  const [printing, setPrinting] = useState<{ quotation: Quotation; mail: boolean } | null>(null)
+  const { user } = useAuth()
+  const canMail = canUserAccess(user, 'mail')
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion((v) => v + 1), [])
 
@@ -78,10 +84,21 @@ export default function QuotationsPage() {
 
   /** With / without sign is asked only when the company has a seal */
   const print = (row: Quotation) => {
-    if (COMPANIES[row.company].seal) { setPrinting(row); return }
+    if (COMPANIES[row.company].seal) { setPrinting({ quotation: row, mail: false }); return }
     const w = openPrintWindow()
     if (w) printQuotation(w, quotationToInput(row), false)
   }
+
+  const mail = (row: Quotation) => {
+    if (COMPANIES[row.company].seal) setPrinting({ quotation: row, mail: true })
+    else openMailWindow(quotationMailUrl(row.id, false))
+  }
+
+  // Back from the mail tab: a mailed draft is Sent now
+  useEffect(() => {
+    window.addEventListener('focus', reload)
+    return () => window.removeEventListener('focus', reload)
+  }, [reload])
 
   const exportCsv = () => {
     const head = ['Date', 'Quotation No', 'Company', 'Client', 'Subject', 'Site / Location', 'Sub Total', 'Discount', 'GST', 'Transport', 'Total', 'Valid Till', 'Status']
@@ -134,9 +151,9 @@ export default function QuotationsPage() {
         </div>
         {error ? <p style={{ color: '#b91c1c', margin: '0 0 12px' }}>{error} <button type="button" className="ghost-button" onClick={() => { setLoading(true); reload() }}>Retry</button></p> : null}
         <div style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ minWidth: 1000 }}>
+          <table className="data-table data-table--tight" style={{ minWidth: 1000 }}>
             <thead>
-              <tr><th>Date</th><th>Quotation No</th><th>Company</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Valid Till</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>Date</th><th>Quotation No</th><th>Company</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Valid Till</th><th>Status</th><th style={stickyRight}>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
@@ -146,18 +163,19 @@ export default function QuotationsPage() {
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.date)}</td>
                   <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{r.quotation_no}</td>
                   <td>{companyBadge(r.company)}</td>
-                  <td style={{ minWidth: 160, maxWidth: 260, whiteSpace: 'normal' }}>{r.client_name}</td>
-                  <td style={{ minWidth: 180, maxWidth: 320, whiteSpace: 'normal' }}>{r.subject || '-'}{r.location ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{r.location}</div> : null}</td>
+                  <td style={{ minWidth: 120, maxWidth: 260, whiteSpace: 'normal' }}>{r.client_name}</td>
+                  <td style={{ minWidth: 120, maxWidth: 320, whiteSpace: 'normal' }}>{r.subject || '-'}{r.location ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{r.location}</div> : null}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{money2(r.net_amount)}{r.gst_mode === 'extra' ? <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>+ GST</div> : null}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.valid_until) || '-'}</td>
                   <td>
                     <select className="input" aria-label={`Status of ${r.quotation_no}`} value={r.status} onChange={(e) => void changeStatus(r, e.target.value as QuotationStatus)}
-                      style={{ width: 118, minHeight: 32, padding: '2px 8px', fontSize: '0.8rem', fontWeight: 700, ...softTone(statusColor(r.status)) }}>
+                      style={{ width: 118, minHeight: 32, padding: '2px 8px', fontSize: '0.8rem', fontWeight: 600, background: '#fff', color: '#0f172a' }}>
                       {QUOTATION_STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                     </select>
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td style={{ ...stickyRight, whiteSpace: 'nowrap' }}>
                     <button className="icon-button" type="button" title="Print / PDF" onClick={() => print(r)}><Printer size={16} /></button>
+                    {canMail ? <button className="icon-button" type="button" title="Mail the PDF" onClick={() => mail(r)}><Mail size={16} /></button> : null}
                     <button className="icon-button" type="button" title="Edit" onClick={() => setEditing({ id: r.id, form: quotationToInput(r) })}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(r)}><Trash2 size={16} /></button>
                   </td>
@@ -182,24 +200,27 @@ export default function QuotationsPage() {
         </Modal>
       ) : null}
 
-      {printing ? <PrintChooser quotation={printing} onClose={() => setPrinting(null)} /> : null}
+      {printing ? <PrintChooser quotation={printing.quotation} mail={printing.mail} onClose={() => setPrinting(null)} /> : null}
     </div>
   )
 }
 
 const choiceBtn: React.CSSProperties = { flex: 1, padding: '12px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }
 
-function PrintChooser({ quotation, onClose }: { quotation: Quotation; onClose: () => void }) {
+function PrintChooser({ quotation, mail, onClose }: { quotation: Quotation; mail: boolean; onClose: () => void }) {
   const go = (withSign: boolean) => {
-    const w = openPrintWindow()
-    if (w) printQuotation(w, quotationToInput(quotation), withSign)
+    if (mail) openMailWindow(quotationMailUrl(quotation.id, withSign))
+    else {
+      const w = openPrintWindow()
+      if (w) printQuotation(w, quotationToInput(quotation), withSign)
+    }
     onClose()
   }
   return (
-    <Modal title="Print Quotation" subtitle={`${quotation.quotation_no} · ${quotation.client_name}`} onClose={onClose} size="sm" footer={null}>
+    <Modal title={mail ? 'Mail Quotation' : 'Print Quotation'} subtitle={`${quotation.quotation_no} · ${quotation.client_name}`} onClose={onClose} size="sm" footer={null}>
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="button" style={{ ...choiceBtn, borderColor: '#2563eb', color: '#1d4ed8' }} onClick={() => go(true)}><Stamp size={18} /> With Sign</button>
-        <button type="button" style={choiceBtn} onClick={() => go(false)}><Printer size={18} /> Without Sign</button>
+        <button type="button" style={choiceBtn} onClick={() => go(false)}>{mail ? <Mail size={18} /> : <Printer size={18} />} Without Sign</button>
       </div>
     </Modal>
   )

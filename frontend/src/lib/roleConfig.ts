@@ -164,6 +164,7 @@ export function isModuleAllowed(role: TrackerRole, moduleKey: string): boolean {
 export const FEATURES: Array<{ key: string; label: string; group: string }> = [
   { key: 'tenders', label: 'Tenders', group: 'General' },
   { key: 'mail', label: 'Mail (office mailbox)', group: 'General' },
+  { key: 'documents_site', label: 'Documents (documents.namotech.in)', group: 'General' },
   { key: 'inquiries', label: 'Inquiries', group: 'Clients' },
   { key: 'proposals', label: 'Proposals', group: 'Clients' },
   { key: 'registrations', label: 'Client Registrations', group: 'Clients' },
@@ -214,8 +215,8 @@ export function defaultFeaturesForRole(role: TrackerRole): string[] {
  */
 export function canUserAccess(user: AccessUser | null | undefined, requestedKey: string): boolean {
   if (!user) return false
-  // Credit notes come from cancelled invoices: same access as Invoice
-  const moduleKey = requestedKey === 'credit_notes' ? 'billing' : requestedKey
+  // Credit notes come from cancelled invoices: same access as Invoice. So have performa invoices
+  const moduleKey = requestedKey === 'credit_notes' || requestedKey === 'performa' ? 'billing' : requestedKey
   if (ALWAYS_ALLOWED.includes(moduleKey)) return true
   const role = user.tracker_role ?? 'staff'
   if (user.is_admin || role === 'admin') return true

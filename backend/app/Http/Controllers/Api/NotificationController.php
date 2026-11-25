@@ -53,6 +53,7 @@ class NotificationController extends Controller
     {
         Notification::query()
             ->where('user_id', $request->user()->id)
+            ->when($request->input('type'), fn ($q, $type) => $q->where('type', (string) $type))
             ->unread()
             ->update(['read_at' => now()]);
 

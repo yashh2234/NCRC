@@ -19,15 +19,19 @@ import { ProposalsPage } from './pages/ProposalsPage'
 import WorkOrdersPage from './pages/WorkOrdersPage'
 import OutsourcePage from './pages/OutsourcePage'
 import { JobTypesPage } from './pages/JobTypesPage'
+import { PerformaPage } from './pages/PerformaPage'
 import { TenderPage } from './pages/TenderPage'
 import { InquiriesPage } from './pages/InquiriesPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { AppShell } from './components/AppShell'
+import { TenderAnalysesDock, TenderAnalysesProvider } from './components/TenderAnalyses'
+import { useTenderAnalyses } from './lib/tenderAnalyses'
 import { MailPage } from './pages/MailPage'
-import { useCallback, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { IS_MAIL_TAB, leaveMailTab, openMailTab } from './lib/mailTab'
 import type { ModuleKey } from './lib/types'
 import { canUserAccess } from './lib/roleConfig'
-import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, FileMinus, type LucideIcon } from 'lucide-react'
+import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, FileClock, FileMinus, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
   key: string
@@ -43,8 +47,23 @@ interface NavGroup {
 function AuthenticatedApp() {
   const { user } = useAuth()
   const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard')
-  // Mail opens full-screen on top of NCRC, so Back returns to the same page untouched
-  const [mailOpen, setMailOpen] = useState(false)
+  const showTenderPage = useCallback(() => setActiveModule('tenders' as ModuleKey), [])
+
+  return (
+    <TenderAnalysesProvider enabled={canUserAccess(user, 'tenders')} onOpen={showTenderPage}>
+      <Workspace activeModule={activeModule} setActiveModule={setActiveModule} />
+    </TenderAnalysesProvider>
+  )
+}
+
+interface WorkspaceProps {
+  activeModule: ModuleKey
+  setActiveModule: (key: ModuleKey) => void
+}
+
+function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
+  const { user } = useAuth()
+  const { open: openAnalysis } = useTenderAnalyses()
   const canUseMail = canUserAccess(user, 'mail')
 
   const trackerRole = user?.tracker_role ?? 'staff'
@@ -88,6 +107,13 @@ function AuthenticatedApp() {
       icon: ReceiptText,
       items: [
         { key: 'billing', label: 'Invoice' },
+      ],
+    },
+    {
+      label: 'Performa Invoice',
+      icon: FileClock,
+      items: [
+        { key: 'performa', label: 'Performa Invoice' },
       ],
     },
     {
@@ -171,8 +197,9 @@ function AuthenticatedApp() {
       showInquiries={canUserAccess(user, 'inquiries')}
       showProposals={canUserAccess(user, 'proposals')}
       showTenders={canUserAccess(user, 'tenders')}
-      onOpenMail={canUseMail ? () => setMailOpen(true) : undefined}
-      mailOpen={mailOpen}
+      showDocuments={canUserAccess(user, 'documents_site')}
+      onOpenMail={canUseMail ? openMailTab : undefined}
+      onOpenAnalysis={canUserAccess(user, 'tenders') ? openAnalysis : undefined}
       activeModule={activeModule}
       onModuleChange={handleModuleChange}
     >
@@ -212,6 +239,9 @@ function AuthenticatedApp() {
       <div className={`view ${activeModule === 'billing' ? 'visible' : ''}`}>
         {activeModule === 'billing' && <BillingPage uidFilter={billingUid} onClearUidFilter={() => setBillingUid('')} createForUid={createBillUid} onCreateHandled={clearCreateBillUid} />}
       </div>
+      <div className={`view ${activeModule === 'performa' ? 'visible' : ''}`}>
+        {activeModule === 'performa' && <PerformaPage />}
+      </div>
       <div className={`view ${activeModule === 'credit_notes' ? 'visible' : ''}`}>
         {activeModule === 'credit_notes' && <BillingPage mode="credit_notes" />}
       </div>
@@ -249,9 +279,18 @@ function AuthenticatedApp() {
         {activeModule === 'job_types' && <JobTypesPage />}
       </div>
     </AppShell>
-    {mailOpen && canUseMail ? <MailPage onBack={() => setMailOpen(false)} /> : null}
+    <TenderAnalysesDock />
     </>
   )
+}
+
+/** Mail in its own browser tab (#mail) */
+function MailTab() {
+  const { user } = useAuth()
+  useEffect(() => { document.title = 'Mail · Namotech Software' }, [])
+  if (!user) return <div className="loading-screen"><p>Loading mail...</p></div>
+  if (!canUserAccess(user, 'mail')) return <div className="loading-screen"><p>You do not have access to Mail.</p></div>
+  return <MailPage onBack={leaveMailTab} />
 }
 
 export default function App() {
@@ -277,5 +316,5 @@ function AppInner() {
     return <LoginPage />
   }
 
-  return <AuthenticatedApp />
+  return IS_MAIL_TAB ? <MailTab /> : <AuthenticatedApp />
 }

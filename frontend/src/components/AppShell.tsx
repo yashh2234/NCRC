@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature, FileMinus } from 'lucide-react'
+import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature, FileMinus, FileClock, FolderOpen } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -15,6 +15,7 @@ const iconMap: Record<string, LucideIcon> = {
   clients: Building2,
   registrations: ClipboardList,
   billing: ReceiptText,
+  performa: FileClock,
   credit_notes: FileMinus,
   reports: BarChart3,
   tenders: FileText,
@@ -65,10 +66,12 @@ interface AppShellProps {
   showInquiries: boolean
   showProposals: boolean
   showTenders: boolean
+  /** Documents button left of Mail (documents.namotech.in) */
+  showDocuments: boolean
   /** Shown as the Mail button in the top bar when the user has Mail access. */
   onOpenMail?: () => void
-  /** True while the Mail page is open; closing it refreshes the unread badge. */
-  mailOpen?: boolean
+  /** A finished tender analysis, clicked in the notifications */
+  onOpenAnalysis?: (id: number) => void
   activeModule: string
   onModuleChange: (key: string) => void
   children: React.ReactNode
@@ -85,6 +88,9 @@ interface NotificationItem {
   time_ago: string | null
 }
 
+/** The Namotech document drive (its own logins) */
+const DOCUMENTS_URL = 'https://documents.namotech.in'
+
 const COMPACT_BREAKPOINT = 1024
 
 function isCompactViewport() {
@@ -98,7 +104,7 @@ const STANDALONE_TITLES: Record<string, string> = {
   tenders: 'Tenders',
 }
 
-export function AppShell({ groups, showInquiries, showProposals, showTenders, onOpenMail, mailOpen = false, activeModule, onModuleChange, children }: AppShellProps) {
+export function AppShell({ groups, showInquiries, showProposals, showTenders, showDocuments, onOpenMail, onOpenAnalysis, activeModule, onModuleChange, children }: AppShellProps) {
   const { user, logout, error } = useAuth()
   useTracking()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -191,19 +197,36 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, on
   }, [loadNotifs])
 
   useEffect(() => {
-    if (!canMail || mailOpen) return
+    if (!canMail) return
+    let last = Date.now()
     void loadMailUnread(true)
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void loadMailUnread()
     }, 3 * 60 * 1000)
-    return () => window.clearInterval(timer)
-  }, [canMail, mailOpen, loadMailUnread])
+    // Back from the Mail tab: what was read there is no longer unread
+    const back = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 20000) return
+      last = Date.now()
+      void loadMailUnread(true)
+    }
+    document.addEventListener('visibilitychange', back)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', back)
+    }
+  }, [canMail, loadMailUnread])
 
   const handleMarkRead = async (id: number) => {
     try {
       await api.markNotificationRead(id)
       await loadNotifs()
     } catch { }
+  }
+
+  /** Opening Mail is seeing the new mail: its notifications no longer count */
+  const openMail = () => {
+    onOpenMail?.()
+    api.markAllNotificationsRead('new_mail').then(loadNotifs).catch(() => undefined)
   }
 
   const handleMarkAllRead = async () => {
@@ -219,7 +242,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, on
 
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar-brand">
-          <img className="sidebar-brand__img" src={`${import.meta.env.BASE_URL}ncrc-logo.png`} alt="NCRC" />
+          <img className="sidebar-brand__img" src={`${import.meta.env.BASE_URL}namotech-logo.png`} alt="Namotech Consultancy" />
           <button className="sidebar-drawer-toggle sidebar-collapse" onClick={toggleDrawer} type="button" title="Hide menu" aria-label="Hide menu">
             <PanelLeft size={18} />
           </button>
@@ -411,8 +434,13 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, on
             </div>
 
             */}
+            {showDocuments ? (
+              <a className="topbar-mail" href={DOCUMENTS_URL} target="_blank" rel="noopener noreferrer" title="Open Namotech Documents in a new tab" aria-label="Documents">
+                <FolderOpen size={17} /> <span>Documents</span>
+              </a>
+            ) : null}
             {onOpenMail ? (
-              <button className="topbar-mail" onClick={onOpenMail} type="button" title="Check mails" aria-label="Check mails">
+              <button className="topbar-mail" onClick={openMail} type="button" title="Check mails" aria-label="Check mails">
                 <Mail size={17} /> <span>Mail</span>
                 {mailUnread ? <span className="topbar-mail__badge" aria-label={`${mailUnread} unread`}>{mailUnread > 99 ? '99+' : mailUnread}</span> : null}
               </button>
@@ -421,7 +449,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, on
             <div ref={notifRef} className="notif-wrap">
               <button className="icon-button" onClick={() => { void loadNotifs(); setShowNotifs((s) => !s) }} type="button" title="Notifications" aria-label="Notifications">
                 <Bell size={18} />
-                {unread > 0 ? <span className="notif-badge">{unread > 9 ? '9+' : unread}</span> : null}
+                {unread > 0 ? <span className="notif-badge" aria-label={`${unread} unread`}>{unread > 99 ? '99+' : unread}</span> : null}
               </button>
               {showNotifs ? (
                 <div className="notif-panel">
@@ -436,7 +464,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, on
                       <div
                         key={n.id}
                         className={`notif-item${n.read ? '' : ' unread'}`}
-                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); onOpenMail() } }}
+                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } }}
                       >
                         <div className="notif-item__row">
                           <strong>{n.title}</strong>

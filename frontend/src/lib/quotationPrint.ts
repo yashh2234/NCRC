@@ -6,7 +6,7 @@
  */
 import { BILL_CSS, esc, fmtQty } from './billPrint'
 import { COMPANIES, SERVICES, dotDate, money2 } from './bills'
-import { calcQuotation, quotationItemAmount, quotationLines, validityText, type QuotationInput, type QuotationSection } from './quotations'
+import { calcQuotation, itemNumbers, itemUsed, quotationItemAmount, quotationLines, validityText, type QuotationInput, type QuotationSection } from './quotations'
 
 const CSS = `
 .page { display: block; padding: 0; }
@@ -44,8 +44,16 @@ table.items td, table.items thead th { height: auto; }
 table.items td { padding: 2.4mm 2.5mm; overflow-wrap: anywhere; }
 table.items td.num, table.items td.ctr { overflow-wrap: normal; }
 table.items .uom { width: 16mm; }
+table.items thead tr { background: var(--brand); }
+/* Keeps the space under the line also in the PDF for mail */
+.head-block { display: flow-root; }
 table.items .desc-main { white-space: pre-line; }
 table.items .desc-sub { font-size: 8.4pt; line-height: 1.38; }
+table.items .desc-sub + .desc-main, table.items .desc-main + .desc-main { margin-top: 1.4mm; }
+table.items tr.head td { background: var(--tint); color: var(--brand); font-weight: 700; font-size: 10pt; border-right: 0; break-inside: avoid; }
+table.items tr.subhead td { background: var(--tint-2); font-weight: 700; border-right: 0; }
+table.items tr.head td, table.items tr.subhead td { padding-top: 1.8mm; padding-bottom: 1.8mm; white-space: pre-line; }
+table.items tr.subhead td.ctr { font-size: 8.8pt; padding-left: 0; padding-right: 0; white-space: nowrap; }
 table.items .incl { color: #6A7889; font-style: italic; }
 
 .summary { margin-top: 5mm; }
@@ -87,7 +95,9 @@ body.compact .subject { margin-top: 3mm; padding: 1.8mm 4mm; }
 body.compact .intro, body.compact .items-wrap, body.compact .summary, body.compact .sec, body.compact .sec-pair, body.compact .terms-grid { margin-top: 3mm; }
 body.compact table.items thead th { padding: 1.8mm 2.5mm; }
 body.compact table.items td { padding: 1.5mm 2.5mm; }
+body.compact table.items tr.head td, body.compact table.items tr.subhead td { padding-top: 1.2mm; padding-bottom: 1.2mm; font-size: 9.2pt; }
 body.compact table.items { font-size: 9.2pt; }
+body.compact table.items .desc-sub + .desc-main, body.compact table.items .desc-main + .desc-main { margin-top: .8mm; }
 body.compact table.items .desc-sub { font-size: 8pt; line-height: 1.3; margin-top: .3mm; }
 body.compact .words { padding: 2.2mm 3.5mm; }
 body.compact .totals tr:not(.grand) td { padding: 1mm 2.5mm; }
@@ -141,7 +151,7 @@ function sourceHtml(q: QuotationInput): string {
   const docRows: [string, string][] = [['Quotation No.', q.quotation_no], ['Date', dotDate(q.date)]]
   if (q.valid_until) docRows.push(['Valid Till', dotDate(q.valid_until)])
   const header = `
-    <div>
+    <div class="head-block">
       <div class="header">
         <div class="company">
           <img class="logo" src="${origin}/letterhead/${co.logo}" alt="" onerror="this.remove()">
@@ -179,11 +189,16 @@ function sourceHtml(q: QuotationInput): string {
       ${details ? `<div><div class="k-label">Quotation Details</div><table class="details">${details}</table></div>` : ''}
     </div>`
 
-  const items = q.items.filter((it) => it.description.trim() || it.details.trim() || Number(it.rate))
-  const rows = items.map((it, i) => `
+  const items = q.items.filter(itemUsed)
+  const numbers = itemNumbers(items)
+  const rows = items.map((it, i) => it.kind !== 'item' ? `
+    <tr class="item ${it.kind === 'heading' ? 'head' : 'subhead'}">
+      <td class="ctr">${numbers[i]}</td>
+      <td colspan="5"><div class="desc-main">${esc(it.description.trim())}</div></td>
+    </tr>` : `
     <tr class="item">
-      <td class="ctr">${i + 1}</td>
-      <td><div class="desc-main">${esc(it.description.trim())}</div>${it.details.trim() ? `<div class="desc-sub">${esc(it.details.trim())}</div>` : ''}</td>
+      <td class="ctr">${numbers[i]}</td>
+      <td>${[{ title: it.description, details: it.details }, ...it.extra].map((p) => `${p.title.trim() ? `<div class="desc-main">${esc(p.title.trim())}</div>` : ''}${p.details.trim() ? `<div class="desc-sub">${esc(p.details.trim())}</div>` : ''}`).join('')}</td>
       <td class="ctr">${esc(it.unit)}</td>
       <td class="num">${esc(fmtQty(it.quantity))}</td>
       ${it.included ? '<td class="num incl" colspan="2">Included</td>' : `<td class="num">${money2(Number(it.rate) || 0)}</td><td class="num">${money2(quotationItemAmount(it))}</td>`}
@@ -313,24 +328,61 @@ function paginate(): void {
         row.remove()
         // Nothing but the heading on this page yet and other blocks above it: take the table to the next page
         const onlyTable = body.children.length === 1
-        if (cur.tbody.children.length || !onlyTable) {
+        const isHead = (r: Element) => r.classList.contains('head') || r.classList.contains('subhead')
+        if (!onlyTable || Array.from(cur.tbody.children).some((r) => !isHead(r))) {
+          // Headings go along with the item under them
+          const heads: Element[] = []
+          while (cur.tbody.lastElementChild && isHead(cur.tbody.lastElementChild)) {
+            heads.unshift(cur.tbody.lastElementChild)
+            cur.tbody.lastElementChild.remove()
+          }
           if (!cur.tbody.children.length) cur.w.remove()
           newPage()
           cur = start()
+          heads.forEach((r) => cur.tbody.appendChild(r))
           cur.tbody.appendChild(row)
           if (fits()) continue
           row.remove()
         }
         // Taller than a full page: split the long text over two rows
         cur.tbody.appendChild(row)
-        const text = (row.querySelector('.desc-sub') ?? row.querySelector('.desc-main')) as HTMLElement | null
+        const cell = row.children[1] as HTMLElement
         const rest = row.cloneNode(true) as HTMLElement
-        const leftover = text ? cutText(text) : ''
-        if (leftover) {
-          const restText = (rest.querySelector('.desc-sub') ?? rest.querySelector('.desc-main')) as HTMLElement
-          restText.textContent = leftover
-          Array.from(rest.children).forEach((td, i) => { if (i !== 1) td.textContent = '' })
-          if (restText.className === 'desc-sub') (rest.querySelector('.desc-main') as HTMLElement).textContent = ''
+        const moved: HTMLElement[] = []
+        while (cell.children.length > 1 && !fits()) {
+          const block = cell.lastElementChild as HTMLElement
+          block.remove()
+          moved.unshift(block)
+        }
+        // The first block that does not fit whole: as many of its words as there is room for
+        const first = moved[0]
+        if (first) {
+          const whole = first.textContent ?? ''
+          cell.appendChild(first)
+          const left = cutText(first)
+          if (!fits()) {
+            first.remove()
+            first.textContent = whole
+          } else {
+            moved.shift()
+            if (left) {
+              const tail = first.cloneNode(false) as HTMLElement
+              tail.textContent = left
+              moved.unshift(tail)
+            }
+          }
+        } else if (cell.lastElementChild) {
+          const only = cell.lastElementChild as HTMLElement
+          const left = cutText(only)
+          if (left) {
+            const tail = only.cloneNode(false) as HTMLElement
+            tail.textContent = left
+            moved.push(tail)
+          }
+        }
+        if (moved.length) {
+          Array.from(rest.children).forEach((td) => { td.textContent = '' })
+          moved.forEach((block) => rest.children[1].appendChild(block))
           queue.unshift(rest)
         }
       }
@@ -343,13 +395,17 @@ function paginate(): void {
       block.remove()
       const wrap = body.lastElementChild as HTMLElement
       const rows = wrap.querySelectorAll('tbody > tr')
-      const lastRow = rows.length > 1 ? (rows[rows.length - 1] as HTMLElement) : null
+      const isHead = (r: Element) => r.classList.contains('head') || r.classList.contains('subhead')
+      let from = rows.length - 1
+      while (from > 0 && isHead(rows[from])) from -= 1
+      while (from > 0 && isHead(rows[from - 1])) from -= 1
+      const lastRows = from > 0 ? Array.from(rows).slice(from) : []
       newPage()
-      if (lastRow) {
+      if (lastRows.length) {
         const w = wrap.cloneNode(true) as HTMLElement
         const tbody = w.querySelector('tbody') as HTMLElement
         tbody.innerHTML = ''
-        tbody.appendChild(lastRow)
+        lastRows.forEach((r) => tbody.appendChild(r))
         body.appendChild(w)
       }
       body.appendChild(block)
@@ -469,7 +525,10 @@ export function openPrintWindow(): Window | null {
   return w
 }
 
-export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) {
+export const FONT_URL = 'https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap'
+
+/** The whole print page; `then` is script that runs once it is laid out on its pages */
+export function quotationDocument(q: QuotationInput, withSign: boolean, then: string): string {
   const co = COMPANIES[q.company]
   const pageTemplate = `
     <div class="page">
@@ -481,10 +540,9 @@ export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) 
         <div class="meta"><span>${esc(q.quotation_no)}</span><span>This is a computer-generated quotation.</span><span class="page-no"></span></div>
       </div>
     </div>`
-  w.document.open()
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(quotationFileName(q))}</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(quotationFileName(q))}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link href="${FONT_URL}" rel="stylesheet">
     <style>${BILL_CSS}${CSS}</style></head>
     <body class="theme-${co.theme}${withSign ? '' : ' nosign'}">
       <div id="src">${sourceHtml(q)}</div>
@@ -493,10 +551,15 @@ export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) 
       <script>
         var paginate = ${paginate.toString()};
         window.addEventListener('load', function () {
-          var go = function () { paginate(); setTimeout(function () { window.print() }, 150) };
+          var go = function () { paginate(); ${then} };
           if (document.fonts && document.fonts.ready) document.fonts.ready.then(go); else go();
         });
       </script>
-    </body></html>`)
+    </body></html>`
+}
+
+export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) {
+  w.document.open()
+  w.document.write(quotationDocument(q, withSign, 'setTimeout(function () { window.print() }, 150)'))
   w.document.close()
 }

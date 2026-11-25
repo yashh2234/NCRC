@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Trash2, ExternalLink, Pencil, CalendarDays, Sparkles } from 'lucide-react'
+import { Plus, Search, Trash2, ExternalLink, Pencil, CalendarDays, CheckSquare, Sparkles } from 'lucide-react'
 import {
   type Tender, type TenderInput, DATE_FIELDS, URGENCY_STYLES,
-  fetchTenders, nextSrNo, daysLeft, tenderUrgency, formatDate, bidAmount, formatRupees,
+  fetchTenders, nextSrNo, daysLeft, tenderUrgency, formatDate, formatTime, formatClosing, isClosed, bidAmount, formatRupees,
 } from '../lib/tenders'
 import { api } from '../lib/api'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
-import { TenderSummaryModal } from '../components/TenderSummaryModal'
+import { TenderPdfPicker, TenderSummaryModal, TenderSummaryView } from '../components/TenderSummaryModal'
+import { tenderAnalysesApi, useTenderAnalyses, type TenderAnalysisResult } from '../lib/tenderAnalyses'
 
-type TenderField = Exclude<keyof Tender, 'id' | 'srNo' | 'hasSummary'>
-type ColumnKey = TenderField | 'daysLeft' | 'dates'
+type TenderField = keyof TenderInput
+type ColumnKey = TenderField | 'daysLeft' | 'dates' | 'contact'
 
 const emptyTender: TenderInput = {
-  tenderId: '', title: '', department: '', portal: '', location: '', value: '', bidValue: '', bidType: 'amount', emd: '-', emdDeposited: '', emdMode: '', fee: '-',
-  openDate: '', preBidDate: '', queryDate: '', closingDate: '', openingDate: '', eligibility: 'Pending',
+  tenderId: '', title: '', department: '', contactName: '', contactDesignation: '', contactPhone: '', portal: '', location: '', value: '', bidValue: '', bidType: 'amount', emd: '-', emdDeposited: '', emdMode: '', fee: '-',
+  openDate: '', preBidDate: '', queryDate: '', closingDate: '', closingTime: '', openingDate: '', eligibility: 'Pending',
   decision: 'Under Review', submissionStatus: 'Not Started', responsible: '', requirements: '',
   tenderLink: '', driveLink: '', remarks: '',
 }
@@ -22,7 +23,7 @@ const emptyTender: TenderInput = {
 // Table column order
 const tableColumns: Array<[ColumnKey, string]> = [
   ['tenderId', 'Tender ID / Bid No.'], ['title', 'Tender Title / Work Description'],
-  ['department', 'Department / Client'], ['location', 'Location'], ['daysLeft', 'Days Left'],
+  ['department', 'Department / Client'], ['contact', 'Contact Person'], ['location', 'Location'], ['daysLeft', 'Days Left'],
   ['value', 'Tender Value'], ['bidValue', 'Our Bid Value'], ['emd', 'EMD'], ['emdDeposited', 'EMD Deposited'], ['fee', 'Tender Fee'],
   ['eligibility', 'Eligibility Checked?'], ['decision', 'Decision'],
   ['tenderLink', 'Tender Link'], ['driveLink', 'Tender Document Drive Link'],
@@ -64,6 +65,7 @@ function withRs(value: string) {
 const formFields: Array<[TenderField, string]> = [
   ['tenderId', 'Tender ID / Bid No.'], ['title', 'Tender Title / Work Description'],
   ['department', 'Department / Client'], ['portal', 'Portal'], ['location', 'Location'],
+  ['contactName', 'Contact Person (tender side)'], ['contactDesignation', 'Contact Designation'], ['contactPhone', 'Contact Number'],
   ['value', 'Tender Value (₹)'], ['bidValue', 'Our Bid Value'], ['emd', 'EMD (₹)'], ['emdDeposited', 'EMD Deposited?'], ['fee', 'Tender Fee (₹)'],
   ...(DATE_FIELDS as Array<[TenderField, string]>),
   ['eligibility', 'Eligibility Checked?'], ['decision', 'Decision'], ['submissionStatus', 'Submission Status'],
@@ -83,6 +85,11 @@ export function TenderPage() {
   const [datesFor, setDatesFor] = useState<Tender | null>(null)
   const [titleFor, setTitleFor] = useState<Tender | null>(null)
   const [summaryFor, setSummaryFor] = useState<Tender | null>(null)
+  const { analyses, start, refresh: refreshAnalyses, openId, openHandled } = useTenderAnalyses()
+  const [showAnalyse, setShowAnalyse] = useState(false)
+  /** The analysed PDF the form is filled from */
+  const [review, setReview] = useState<TenderAnalysisResult | null>(null)
+  const [showReviewSummary, setShowReviewSummary] = useState(false)
 
   const reload = () => fetchTenders()
     .then((list) => { setTenders(list); setError('') })
@@ -90,6 +97,33 @@ export function TenderPage() {
     .finally(() => setLoading(false))
 
   useEffect(() => { void reload() }, [])
+
+  // A summary that was made in the background is on the tender now
+  const finished = analyses.filter((a) => a.status === 'done' && a.tenderId !== null).map((a) => a.id).join(',')
+  useEffect(() => { if (finished) void reload() }, [finished])
+
+  // "Check & save" / "Open summary" of the floating box or the notification
+  useEffect(() => {
+    if (openId === null || loading) return
+    openHandled()
+    tenderAnalysesApi.get(openId).then((result) => {
+      if (result.tenderId !== null) {
+        const tender = tenders.find((t) => t.id === result.tenderId)
+        if (tender) setSummaryFor(tender)
+        else window.alert('This tender is no longer in the list.')
+      } else if (result.status === 'done') {
+        const known = Object.fromEntries(Object.entries(result.fields).filter(([key, value]) => key in emptyTender && value)) as Partial<TenderInput>
+        setEditingId(null)
+        setForm({ ...emptyTender, ...known })
+        setReview(result)
+        setShowReviewSummary(false)
+        setShowForm(true)
+      } else if (result.status === 'failed') {
+        window.alert(result.error || 'The PDF could not be analysed.')
+      }
+    }).catch((e: Error) => window.alert(e.message || 'Could not open the analysis'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, loading])
 
   const [userNames, setUserNames] = useState<string[]>([])
   useEffect(() => {
@@ -106,7 +140,7 @@ export function TenderPage() {
     }
   }
   const searched = useMemo(() => tenders.filter((tender) => {
-    const text = `${tender.srNo} ${tender.tenderId} ${tender.title} ${tender.department} ${tender.portal}`.toLowerCase()
+    const text = `${tender.srNo} ${tender.tenderId} ${tender.title} ${tender.department} ${tender.portal} ${tender.contactName} ${tender.contactPhone}`.toLowerCase()
     return !search || text.includes(search.toLowerCase())
   }), [tenders, search])
   // Status filter: '' = everything, '__active' / '__past' = one whole table, otherwise one exact status
@@ -115,21 +149,22 @@ export function TenderPage() {
   const showPast = !status || status === '__past' || PAST_STATUSES.includes(status)
   const activeTenders = searched.filter((t) => !PAST_STATUSES.includes(t.submissionStatus) && matchesStatus(t))
   const pastTenders = searched.filter((t) => PAST_STATUSES.includes(t.submissionStatus) && matchesStatus(t))
-  const today = new Date().setHours(0, 0, 0, 0)
-  const upcoming = tenders.filter((tender) => tender.closingDate && new Date(`${tender.closingDate}T00:00:00`).getTime() >= today && tender.submissionStatus !== 'Submitted').length
+  const upcoming = tenders.filter((tender) => tender.closingDate && !isClosed(tender) && tender.submissionStatus !== 'Submitted').length
   const yellowCount = tenders.filter((t) => tenderUrgency(t) === 'yellow').length
   const redCount = tenders.filter((t) => tenderUrgency(t) === 'red').length
 
   const update = (key: TenderField, value: string) => setForm((previous) => ({ ...previous, [key]: value }))
   const openAddForm = () => {
     setEditingId(null)
+    setReview(null)
     setForm(emptyTender)
     setShowForm(true)
   }
 
   const openEditForm = (tender: Tender) => {
-    const { id, srNo: _srNo, ...values } = tender
+    const { id, srNo: _srNo, hasSummary: _hasSummary, docsTotal: _docsTotal, docsDone: _docsDone, ...values } = tender
     setEditingId(id)
+    setReview(null)
     setForm({ ...emptyTender, ...values })
     setShowForm(true)
   }
@@ -142,14 +177,37 @@ export function TenderPage() {
         const { data } = await api.updateTender(editingId, form)
         setTenders((list) => list.map((tender) => tender.id === data.id ? data : tender))
       } else {
-        const { data } = await api.createTender(form)
+        const { data } = await api.createTender(review ? { ...form, analysisId: review.id } : form)
         setTenders((list) => [...list, data])
+        if (review) void refreshAnalyses()
       }
       setForm(emptyTender)
       setEditingId(null)
+      setReview(null)
       setShowForm(false)
     } catch (e) {
       window.alert((e as Error).message || 'Could not save tender')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Adding a tender whose Tender ID is already in the list
+  const plainId = (id: string) => id.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const duplicate = showForm && editingId === null && plainId(form.tenderId) ? tenders.find((t) => plainId(t.tenderId) === plainId(form.tenderId)) : undefined
+  const attachToDuplicate = async () => {
+    if (!duplicate || !review) return
+    if (duplicate.hasSummary && !window.confirm(`Replace the present summary of ${duplicate.srNo}?`)) return
+    setSaving(true)
+    try {
+      const changed = await tenderAnalysesApi.attach(review.id, duplicate.id)
+      setTenders((list) => list.map((t) => t.id === changed.id ? changed : t))
+      void refreshAnalyses()
+      setReview(null)
+      setShowForm(false)
+      setSummaryFor(changed)
+    } catch (e) {
+      window.alert((e as Error).message || 'Could not save the summary')
     } finally {
       setSaving(false)
     }
@@ -170,13 +228,37 @@ export function TenderPage() {
       const days = daysLeft(tender.closingDate)
       const urgency = tenderUrgency(tender)
       if (days === null) return '-'
-      return <span style={{ fontWeight: 700, color: urgency ? URGENCY_STYLES[urgency].color : days < 0 ? '#dc2626' : '#475569' }}>{days < 0 ? `Closed (${Math.abs(days)}d ago)` : days}</span>
+      return <span style={{ fontWeight: 700, color: urgency ? URGENCY_STYLES[urgency].color : isClosed(tender) ? '#dc2626' : '#475569' }}>{days < 0 ? `Closed (${Math.abs(days)}d ago)` : days > 0 ? days : isClosed(tender) ? 'Closed today' : 'Today'}</span>
     }
     if (key === 'dates') {
       return (
         <button type="button" className="ghost-button" onClick={() => setDatesFor(tender)} title="View all dates" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', padding: '6px 10px', fontSize: '0.8rem' }}>
-          <CalendarDays size={14} style={{ flexShrink: 0 }} /> {tender.closingDate ? formatDate(tender.closingDate) : 'View dates'}
+          <CalendarDays size={14} style={{ flexShrink: 0 }} /> {tender.closingDate ? <span style={{ textAlign: 'left' }}>{formatDate(tender.closingDate)}{tender.closingTime ? <small style={{ display: 'block', color: '#64748b' }}>{formatTime(tender.closingTime)}</small> : null}</span> : 'View dates'}
         </button>
+      )
+    }
+    if (key === 'contact') {
+      if (!tender.contactName && !tender.contactDesignation && !tender.contactPhone) return '-'
+      return (
+        <div style={{ minWidth: 130 }}>
+          {tender.contactName ? <strong style={{ display: 'block' }}>{tender.contactName}</strong> : null}
+          {tender.contactDesignation ? <span style={{ display: 'block', fontSize: '0.78rem', color: '#475569' }}>{tender.contactDesignation}</span> : null}
+          {tender.contactPhone ? <a href={`tel:${tender.contactPhone.replace(/[^\d+]/g, '')}`} style={{ whiteSpace: 'nowrap' }}>{tender.contactPhone}</a> : null}
+        </div>
+      )
+    }
+    if (key === 'requirements') {
+      const total = tender.docsTotal ?? 0
+      const ready = tender.docsDone ?? 0
+      return (
+        <div>
+          {tender.requirements || (total ? null : '-')}
+          {total ? (
+            <button type="button" onClick={() => setSummaryFor(tender)} title="Open the documents checklist" style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: tender.requirements ? 4 : 0, padding: '2px 9px', border: 'none', borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '0.75rem', fontWeight: 700, background: ready === total ? '#dcfce7' : '#f1f5f9', color: ready === total ? '#15803d' : '#475569' }}>
+              <CheckSquare size={13} /> {ready} / {total} documents
+            </button>
+          ) : null}
+        </div>
       )
     }
     if (key === 'title') {
@@ -216,6 +298,14 @@ export function TenderPage() {
   }
 
   const renderInput = (key: TenderField) => {
+    if (key === 'closingDate') {
+      return (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input className="input" style={{ flex: 1, minWidth: 0 }} type="date" value={form.closingDate} onChange={(e) => update('closingDate', e.target.value)} />
+          <input className="input" style={{ width: 126, paddingLeft: 10, paddingRight: 8 }} type="time" value={form.closingTime} onChange={(e) => update('closingTime', e.target.value)} aria-label="Closing time" title="Closing time" />
+        </div>
+      )
+    }
     if (key.endsWith('Date')) return <input className="input" type="date" value={form[key]} onChange={(e) => update(key, e.target.value)} />
     if (key === 'eligibility') return <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Pending</option><option>Yes</option><option>No</option></select>
     if (key === 'decision') return <select className="input" value={form[key]} onChange={(e) => update(key, e.target.value)}><option>Bid</option><option>No Bid</option><option>Under Review</option></select>
@@ -356,7 +446,10 @@ export function TenderPage() {
       <section className="surface" style={showActive ? undefined : { display: 'none' }}>
         <div className="surface-heading">
           <div><p className="section-label">Tender Tracker</p><h2>Active tenders ({activeTenders.length})</h2></div>
-          <button type="button" className="btn btn-primary" onClick={openAddForm}><Plus size={16} /> Add tender</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-outline" onClick={() => setShowAnalyse(true)} title="Upload a tender PDF: the AI reads it and fills in the tender"><Sparkles size={16} /> Analyse tender</button>
+            <button type="button" className="btn btn-primary" onClick={openAddForm}><Plus size={16} /> Add tender</button>
+          </div>
         </div>
         {error ? <p style={{ color: '#b91c1c', margin: '0 0 12px' }}>{error} <button type="button" className="ghost-button" onClick={() => { setLoading(true); void reload() }}>Retry</button></p> : null}
         {renderTable(activeTenders, loading ? 'Loading tenders…' : tenders.length === 0 ? 'No tenders logged. Add the first tender to start the pipeline.' : 'No active tenders match your filters.', 'end')}
@@ -380,8 +473,8 @@ export function TenderPage() {
                 <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 4px', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#64748b' }}>{label}</span>
                   <span style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: isClosing ? 700 : 500, color: '#0f172a' }}>
-                    {formatDate(datesFor[key])}
-                    {days !== null ? <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>{days < 0 ? 'Closed' : `${days} days left`}</span> : null}
+                    {isClosing ? formatClosing(datesFor) : formatDate(datesFor[key])}
+                    {days !== null ? <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>{isClosed(datesFor) ? 'Closed' : days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} left`}</span> : null}
                   </span>
                 </div>
               )
@@ -389,13 +482,37 @@ export function TenderPage() {
           </div>
       </Modal> : null}
 
-      {summaryFor ? <TenderSummaryModal tender={summaryFor} onClose={() => setSummaryFor(null)} onSaved={() => setTenders((list) => list.map((t) => t.id === summaryFor.id ? { ...t, hasSummary: true } : t))} /> : null}
+      {summaryFor ? <TenderSummaryModal tender={summaryFor} onClose={() => setSummaryFor(null)} onChanged={(changed) => setTenders((list) => list.map((t) => t.id === changed.id ? changed : t))} /> : null}
+
+      {showAnalyse ? <Modal title="Analyse tender" subtitle="Tender Tracker" onClose={() => setShowAnalyse(false)} size="md">
+          <TenderPdfPicker
+            title="Add a tender from its PDF"
+            text="Upload the tender PDF (NIT, RFP or bid document), scanned or not. The AI reads it, makes the summary and fills in the tender details for you to check and save."
+            onStart={(file) => { start(file, null); setShowAnalyse(false) }}
+          />
+      </Modal> : null}
 
       {titleFor ? <Modal title="Tender title / work description" subtitle={`${titleFor.srNo} · ${titleFor.tenderId}`} onClose={() => setTitleFor(null)} size={600}>
           <p style={{ margin: 0, color: '#1e293b', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{titleFor.title}</p>
       </Modal> : null}
 
-      {showForm ? <Modal title={editingId !== null ? 'Edit tender' : 'Add tender'} subtitle={`Tender Tracker · ${editingId !== null ? tenders.find((t) => t.id === editingId)?.srNo ?? '' : nextSrNo(tenders)}`} onClose={() => setShowForm(false)} size="lg" onSubmit={saveTender} saving={saving} saveLabel={editingId !== null ? 'Update tender' : 'Save tender'}>
+      {showForm ? <Modal title={editingId !== null ? 'Edit tender' : review ? 'Check and save the analysed tender' : 'Add tender'} subtitle={`Tender Tracker · ${editingId !== null ? tenders.find((t) => t.id === editingId)?.srNo ?? '' : nextSrNo(tenders)}`} onClose={() => setShowForm(false)} size="lg" onSubmit={saveTender} saving={saving} saveLabel={editingId !== null ? 'Update tender' : 'Save tender'}>
+          {review ? (
+            <div className="ta-review">
+              <div className="ta-review__row">
+                <Sparkles size={16} />
+                <span>Filled in by AI from <strong>{review.file}</strong>. Check the dates and amounts against the document, then save. If you close this form, the analysis stays in the box at the bottom right.</span>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowReviewSummary((v) => !v)}>{showReviewSummary ? 'Hide summary' : 'View summary'}</button>
+              </div>
+              {showReviewSummary ? <div className="ta-review__summary"><div className="ts"><TenderSummaryView summary={review.summary} /></div></div> : null}
+            </div>
+          ) : null}
+          {duplicate ? (
+            <p className="ta-duplicate">
+              <span>This Tender ID is already in the list as <strong>{duplicate.srNo}</strong>. Saving adds it a second time.</span>
+              {review ? <button type="button" className="btn btn-outline btn-sm" disabled={saving} onClick={() => void attachToDuplicate()}>Put the summary on {duplicate.srNo} instead</button> : null}
+            </p>
+          ) : null}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{formFields.map(([key, label]) => <label key={key}><span>{label}{key === 'tenderId' || key === 'title' ? <Req /> : null}</span>{renderInput(key)}</label>)}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}><label>Tender Link<input className="input" type="url" value={form.tenderLink} onChange={(e) => update('tenderLink', e.target.value)} /></label><label>Tender Document Drive Link<input className="input" type="url" value={form.driveLink} onChange={(e) => update('driveLink', e.target.value)} /></label></div>
       </Modal> : null}

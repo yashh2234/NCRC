@@ -11,6 +11,9 @@ class Tender extends Model
         'tenderId' => 'tender_id',
         'title' => 'title',
         'department' => 'department',
+        'contactName' => 'contact_name',
+        'contactDesignation' => 'contact_designation',
+        'contactPhone' => 'contact_phone',
         'portal' => 'portal',
         'location' => 'location',
         'value' => 'value',
@@ -24,6 +27,7 @@ class Tender extends Model
         'preBidDate' => 'pre_bid_date',
         'queryDate' => 'query_date',
         'closingDate' => 'closing_date',
+        'closingTime' => 'closing_time',
         'openingDate' => 'opening_date',
         'eligibility' => 'eligibility',
         'decision' => 'decision',
@@ -38,16 +42,18 @@ class Tender extends Model
     public const SR_PREFIX = 'NCS/TENDER';
 
     protected $fillable = [
-        'sr_no', 'tender_id', 'title', 'department', 'portal', 'location', 'value', 'bid_value', 'bid_type', 'emd', 'emd_deposited', 'emd_mode', 'fee',
-        'open_date', 'pre_bid_date', 'query_date', 'closing_date', 'opening_date',
+        'sr_no', 'tender_id', 'title', 'department', 'contact_name', 'contact_designation', 'contact_phone', 'portal', 'location', 'value', 'bid_value', 'bid_type', 'emd', 'emd_deposited', 'emd_mode', 'fee',
+        'open_date', 'pre_bid_date', 'query_date', 'closing_date', 'closing_time', 'opening_date',
         'eligibility', 'decision', 'submission_status', 'responsible', 'requirements',
         'tender_link', 'drive_link', 'remarks', 'created_by', 'updated_by',
         'ai_summary', 'ai_summary_file', 'ai_summary_model', 'ai_summary_at', 'ai_summary_by',
+        'document_checks',
     ];
 
     protected $casts = [
         'ai_summary' => 'array',
         'ai_summary_at' => 'datetime',
+        'document_checks' => 'array',
     ];
 
     /** Next free Sr. No. for the given year, e.g. NCS/TENDER/2026/007. */
@@ -63,6 +69,22 @@ class Tender extends Model
         return $prefix . str_pad((string) ($max + 1), 3, '0', STR_PAD_LEFT);
     }
 
+    /** A document of the checklist is known by its text, so ticks survive a new analysis that words it the same. */
+    public static function checkKey(string $document): string
+    {
+        $text = preg_replace('/\s*\((?:pp?\.|pages?)\s*[^)]*\)/i', '', $document);
+
+        return md5(trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower((string) $text))));
+    }
+
+    /** @return array<int, array{by: ?string, at: ?string}|null> who ticked each of the summary's documents, null = not ticked */
+    public function documentChecks(): array
+    {
+        $checks = $this->document_checks ?? [];
+
+        return array_map(fn ($document) => $checks[self::checkKey((string) $document)] ?? null, array_values($this->ai_summary['documents_required'] ?? []));
+    }
+
     /** Shape used by the frontend Tender type. */
     public function toApi(): array
     {
@@ -71,6 +93,9 @@ class Tender extends Model
             $data[$key] = (string) ($this->{$column} ?? '');
         }
         $data['hasSummary'] = ! empty($this->ai_summary);
+        $checks = $this->documentChecks();
+        $data['docsTotal'] = count($checks);
+        $data['docsDone'] = count(array_filter($checks));
 
         return $data;
     }

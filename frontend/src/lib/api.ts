@@ -291,8 +291,9 @@ export const api = {
     return request(`/notifications/${id}/read`, { method: 'POST' })
   },
 
-  markAllNotificationsRead(): Promise<{ message: string }> {
-    return request('/notifications/read-all', { method: 'POST' })
+  /** Only those of one type, when given */
+  markAllNotificationsRead(type?: string): Promise<{ message: string }> {
+    return request('/notifications/read-all', { method: 'POST', body: JSON.stringify(type ? { type } : {}) })
   },
 
   trackPing(): Promise<{ ok: boolean }> {
@@ -404,7 +405,7 @@ export const api = {
     return request('/tenders')
   },
 
-  createTender(data: TenderInput): Promise<{ data: Tender }> {
+  createTender(data: TenderInput & { analysisId?: number }): Promise<{ data: Tender }> {
     return request('/tenders', { method: 'POST', body: JSON.stringify(data) })
   },
 

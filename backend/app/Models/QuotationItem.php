@@ -10,10 +10,14 @@ class QuotationItem extends Model
     protected $table = 'quotation_items';
 
     protected $fillable = [
-        'quotation_id', 'description', 'details', 'quantity', 'unit', 'rate', 'amount', 'included', 'sort_order',
+        'quotation_id', 'kind', 'description', 'details', 'extra', 'quantity', 'unit', 'rate', 'amount', 'included', 'sort_order',
     ];
 
+    /** heading / subheading: a row over the items, without quantity and rate */
+    public const KINDS = ['item', 'heading', 'subheading'];
+
     protected $casts = [
+        'extra' => 'array',
         'quantity' => 'float',
         'rate' => 'float',
         'amount' => 'float',

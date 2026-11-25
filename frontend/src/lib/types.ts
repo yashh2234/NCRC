@@ -412,7 +412,7 @@ export interface PurchaseOrderListItem {
   set_count: number
 }
 
-export type ModuleKey = 'dashboard' | 'tenders' | 'admin' | 'lab' | 'users' | 'roles' | 'permissions' | 'clients' | 'inquiries' | 'quotations' | 'proposals' | 'work_orders' | 'registrations' | 'billing' | 'credit_notes' | 'reports' | 'expenses' | 'purchase_orders' | 'invoices' | 'due_reports' | 'final_reports' | 'dispatches' | 'outsource' | 'ulr_add' | 'ulr_register' | 'ulr_links' | 'stores' | 'settings' | 'audit' | 'user_tracking' | 'analytics' | 'workflow_templates' | 'jobs' | 'documents' | 'job_types' | 'help_guide' | 'mail'
+export type ModuleKey = 'dashboard' | 'tenders' | 'admin' | 'lab' | 'users' | 'roles' | 'permissions' | 'clients' | 'inquiries' | 'quotations' | 'proposals' | 'work_orders' | 'registrations' | 'billing' | 'performa' | 'credit_notes' | 'reports' | 'expenses' | 'purchase_orders' | 'invoices' | 'due_reports' | 'final_reports' | 'dispatches' | 'outsource' | 'ulr_add' | 'ulr_register' | 'ulr_links' | 'stores' | 'settings' | 'audit' | 'user_tracking' | 'analytics' | 'workflow_templates' | 'jobs' | 'documents' | 'job_types' | 'help_guide' | 'mail'
 
 export interface WorkflowTemplate {
   id: number

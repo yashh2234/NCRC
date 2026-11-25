@@ -260,7 +260,7 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
                 style={{ textAlign: 'left', padding: '14px 16px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>{COMPANIES[c].short}</div>
                 <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: 2 }}>
-                  {COMPANIES[c].name} · {c === 'ncs' ? 'Tax invoice with GST' : 'Invoice without GST'}
+                  {COMPANIES[c].name}
                 </div>
               </button>
             ))}
@@ -448,7 +448,7 @@ function CancelInvoice({ bill, cnOnly, onClose, onDone }: { bill: Bill; cnOnly: 
 interface UidHit { uid_no: string; agency_name: string; name_of_work?: string }
 
 /** UID box that searches registrations by UID / client / mobile as you type; picking one fills the client */
-function UidSearch({ value, busy, onChange, onPick }: { value: string; busy: boolean; onChange: (v: string) => void; onPick: (uid: string) => void }) {
+export function UidSearch({ value, busy, onChange, onPick }: { value: string; busy: boolean; onChange: (v: string) => void; onPick: (uid: string) => void }) {
   const [hits, setHits] = useState<{ q: string; rows: UidHit[] }>({ q: '', rows: [] })
   const [open, setOpen] = useState(false)
   const q = value.trim()

@@ -61,7 +61,7 @@ class MailController extends Controller
     }
 
     /**
-     * Admin: switch Mail on/off for one user. A user still on job-role defaults gets
+     * Admin: switch Mail (or the Documents button) on/off for one user. A user still on job-role defaults gets
      * those defaults written out (sent by the page) so nothing else changes for them.
      */
     public function setAccess(Request $request, User $user): JsonResponse
@@ -69,14 +69,16 @@ class MailController extends Controller
         $this->requireUserAdmin();
         $values = $request->validate([
             'enabled' => 'required|boolean',
+            'module' => ['nullable', 'in:mail,documents_site'],
             'defaults' => 'nullable|array',
             'defaults.*' => 'string',
         ]);
 
         $modules = $user->allowed_modules ?? array_values(array_intersect(User::FEATURE_KEYS, $values['defaults'] ?? []));
-        $modules = array_values(array_diff($modules, ['mail']));
+        $module = $values['module'] ?? 'mail';
+        $modules = array_values(array_diff($modules, [$module]));
         if ($values['enabled']) {
-            $modules[] = 'mail';
+            $modules[] = $module;
         }
         $user->forceFill(['allowed_modules' => $modules])->save();
 
@@ -334,6 +336,7 @@ class MailController extends Controller
             'reply_uid' => 'nullable|integer',
             'reply_folder' => 'nullable|string|max:255',
             'draft_uid' => 'nullable|integer',
+            'quotation_id' => 'nullable|integer',
             'attachments' => 'nullable|array|max:20',
             'attachments.*' => 'file|max:20480',
             'keep' => 'nullable|array|max:50',
@@ -368,6 +371,7 @@ class MailController extends Controller
             'reply_uid' => $request->integer('reply_uid') ?: null,
             'reply_folder' => (string) $request->input('reply_folder', ''),
             'draft_uid' => $request->integer('draft_uid') ?: null,
+            'quotation_id' => $request->integer('quotation_id') ?: null,
             'keep' => array_map(fn ($k) => ['folder' => $k['folder'], 'uid' => (int) $k['uid'], 'part' => $k['part']], array_values($request->input('keep', []))),
             'files' => $files,
         ];

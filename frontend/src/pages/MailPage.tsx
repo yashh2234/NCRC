@@ -11,6 +11,7 @@ import {
   mailApi, defaultBcc, formatAddress, formatListDate, formatSize, setOpenMailAccount,
   type MailAccount, type MailFilter, type MailFolder, type MailMessage, type MailSummary, type OutboxMail,
 } from '../lib/mail'
+import { MAIL_COMPOSE } from '../lib/mailTab'
 import { draftHtml, forwardHtml, newMailHtml, replyHtml } from '../lib/mailCompose'
 
 type Layout = 'classic' | 'vertical'
@@ -41,10 +42,13 @@ interface MailboxProps {
   /** Grows when a mail has gone out, so the open folder is loaded again */
   sentCount: number
   onQueued: (mail: OutboxMail) => void
+  /** A mail made ready elsewhere (quotation), to be checked and sent */
+  prepared: MailDraft | null
+  onPreparedOpened: () => void
 }
 
 /** One account: folders, messages, reading and writing */
-function Mailbox({ account, appbar, blocked, sentCount, onQueued }: MailboxProps) {
+function Mailbox({ account, appbar, blocked, sentCount, onQueued, prepared, onPreparedOpened }: MailboxProps) {
   const [folders, setFolders] = useState<MailFolder[]>([])
   const [folder, setFolder] = useState('INBOX')
   const [page, setPage] = useState(1)
@@ -65,6 +69,13 @@ function Mailbox({ account, appbar, blocked, sentCount, onQueued }: MailboxProps
   const [layout, setLayout] = useState<Layout>(() => {
     try { return localStorage.getItem(LAYOUT_KEY) === 'vertical' ? 'vertical' : 'classic' } catch { return 'classic' }
   })
+
+  useEffect(() => {
+    if (!prepared) return
+    setDraft((open) => open ?? { ...prepared, bcc: defaultBcc(account, prepared.to) })
+    onPreparedOpened()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prepared])
 
   const changeLayout = (next: Layout) => {
     setLayout(next)
@@ -549,6 +560,27 @@ export function MailPage({ onBack }: { onBack: () => void }) {
     try { localStorage.setItem(storageKey, String(id)) } catch { /* ignore */ }
   }
 
+  // #mail?quotation=…: a mail with that quotation as PDF
+  const [prepared, setPrepared] = useState<MailDraft | null>(null)
+  const [preparing, setPreparing] = useState(Boolean(MAIL_COMPOSE))
+  const [prepareError, setPrepareError] = useState('')
+  useEffect(() => {
+    if (!MAIL_COMPOSE) return
+    const { quotationId, sign } = MAIL_COMPOSE
+    let wanted = true
+    import('../lib/quotationMail')
+      .then((m) => m.quotationDraft(quotationId, sign))
+      .then((ready) => { if (wanted) setPrepared(ready) })
+      .catch((e: Error) => { if (wanted) setPrepareError(e.message || 'The quotation could not be prepared.') })
+      .finally(() => { if (wanted) setPreparing(false) })
+    return () => { wanted = false }
+  }, [])
+  const preparedOpened = () => {
+    setPrepared(null)
+    // Reloading this tab must not write the same mail again
+    window.history.replaceState(null, '', '#mail')
+  }
+
   const updateSend = (mail: OutboxMail) => setSends((list) => list.map((m) => (m.id === mail.id ? mail : m)))
   const dropSend = (id: number) => setSends((list) => list.filter((m) => m.id !== id))
 
@@ -577,7 +609,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
         <ArrowLeft size={16} /> Back to NCRC
       </button>
       <div className="tb-brand">
-        <img className="tb-logo" src={`${import.meta.env.BASE_URL}ncrc-logo.png`} alt="NCRC" />
+        <img className="tb-logo" src={`${import.meta.env.BASE_URL}namotech-logo.png`} alt="Namotech Consultancy" />
         <span className="tb-appname"><Mail size={16} /> Mail</span>
       </div>
       <div className="tb-appbar__end">
@@ -591,7 +623,7 @@ export function MailPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       {current ? (
-        <Mailbox key={current.id} account={current} appbar={appbar} blocked={dialog !== null} sentCount={sentCount} onQueued={(mail) => void sendNow(mail)} />
+        <Mailbox key={current.id} account={current} appbar={appbar} blocked={dialog !== null} sentCount={sentCount} onQueued={(mail) => void sendNow(mail)} prepared={prepared} onPreparedOpened={preparedOpened} />
       ) : (
         <div className="tb-app">
           {appbar}
@@ -608,8 +640,15 @@ export function MailPage({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {sends.length ? (
+      {sends.length || preparing || prepareError ? (
         <div className="tb-sends" role="status">
+          {preparing ? <div className="tb-send"><Loader2 size={16} className="tb-spin" /><span><strong>Preparing the quotation PDF…</strong></span></div> : null}
+          {prepareError ? (
+            <div className="tb-send tb-send--failed">
+              <AlertTriangle size={16} /><span><strong>The quotation could not be attached.</strong><small>{prepareError}</small></span>
+              <button type="button" aria-label="Close" onClick={() => setPrepareError('')}><X size={14} /></button>
+            </div>
+          ) : null}
           {sends.map((m) => (
             <div key={m.id} className={`tb-send tb-send--${m.status}`}>
               {m.status === 'sent' ? <CheckCircle2 size={16} /> : m.status === 'failed' ? <AlertTriangle size={16} /> : <Loader2 size={16} className="tb-spin" />}

@@ -38,6 +38,9 @@
   z-index: 1;
 }
 
+/* Dark blue logo: on a white plate */
+.login-logo { align-self: flex-start; height: 112px; width: auto; padding: 14px 20px; border-radius: 16px; background: #fff; }
+
 .login-art__body { max-width: 520px; }
 
 .login-art h1 {
@@ -419,20 +422,23 @@
 
 .notif-badge {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  /* On the corner of the round button, so the bell stays visible */
+  top: -6px;
+  right: -6px;
   display: grid;
   place-items: center;
-  min-width: 16px;
-  height: 16px;
+  box-sizing: border-box;
+  min-width: 21px;
+  height: 21px;
   padding: 0 4px;
   border-radius: 999px;
   border: 2px solid #fff;
   background: var(--brand-red);
   color: #fff;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1;
+  pointer-events: none;
 }
 
 .notif-panel {

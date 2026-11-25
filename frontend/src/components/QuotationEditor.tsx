@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowLeft, ArrowUp, Plus, Printer, Save, Stamp, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, Mail, Plus, Printer, Save, Stamp, Trash2, X } from 'lucide-react'
+import { useAuth } from '../lib/auth'
 import { COMPANIES, money2 } from '../lib/bills'
+import { openMailWindow, quotationMailUrl } from '../lib/mailTab'
 import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
 import {
-  SECTION_TITLES, UNITS, calcQuotation, companyGst, emptyQuotationItem, emptySection, oneMonthAfter, quotationItemAmount, quotationLines, quotationToInput, quotationsApi,
-  type Quotation, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
+  SECTION_TITLES, UNITS, calcQuotation, companyGst, emptyHeading, emptyQuotationItem, emptySection, itemNumbers, itemUsed, oneMonthAfter, quotationItemAmount, quotationLines, quotationToInput, quotationsApi,
+  type ItemPart, type Quotation, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
 } from '../lib/quotations'
+import { canUserAccess } from '../lib/roleConfig'
 import { Req } from './ui'
 
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, marginBottom: 14 }
@@ -18,6 +21,10 @@ const SECTION_STYLES: { key: SectionStyle; label: string }[] = [
   { key: 'bullets', label: 'Bullet points' },
   { key: 'text', label: 'Paragraph' },
 ]
+
+const OTHER = '__other'
+/** A unit that is not in the list is typed */
+const otherUnit = (it: QuotationItem) => Boolean(it.unitOther) || !UNITS.includes(it.unit)
 
 /** Moves the entry at `i` one place up (-1) or down (+1) */
 function moved<T>(rows: T[], i: number, by: -1 | 1): T[] {
@@ -39,6 +46,7 @@ interface QuotationEditorProps {
 export function QuotationEditor({ id, initial, others, onClose }: QuotationEditorProps) {
   const [form, setForm] = useState<QuotationInput>(() => ({ ...initial, gst_mode: companyGst(initial.company) }))
   const [savedId, setSavedId] = useState<number | null>(id)
+  const idRef = useRef(id)
   const [saving, setSaving] = useState(false)
   const [changed, setChanged] = useState(false)
   const [dirty, setDirty] = useState(false)
@@ -47,6 +55,8 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
   /** Typed by hand: stop replacing with the suggestion */
   const manualNo = useRef(Boolean(id))
   const manualValid = useRef(Boolean(id))
+  const { user } = useAuth()
+  const canMail = canUserAccess(user, 'mail')
   const isNcs = form.company === 'ncs'
   /** Made before GST was fixed at 18%: opening it shows the new total, so say so before it is saved */
   const [gstChanged, setGstChanged] = useState(Boolean(id) && initial.gst_mode !== companyGst(initial.company))
@@ -57,6 +67,9 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
     setDirty(true)
   }
   const setItem = (i: number, changes: Partial<QuotationItem>) => patch({ items: form.items.map((it, idx) => (idx === i ? { ...it, ...changes } : it)) })
+  const setPart = (i: number, p: number, changes: Partial<ItemPart>) => setItem(i, { extra: form.items[i].extra.map((part, idx) => (idx === p ? { ...part, ...changes } : part)) })
+  const addRow = (row: QuotationItem) => patch({ items: [...form.items, row] })
+  const numbers = itemNumbers(form.items)
   const setSection = (i: number, changes: Partial<QuotationSection>) => patch({ sections: form.sections.map((s, idx) => (idx === i ? { ...s, ...changes } : s)) })
   const numVal = (v: string): number | '' => (v === '' ? '' : Number(v))
 
@@ -79,7 +92,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
   const check = (): string => {
     if (!form.client_name.trim()) return 'Enter the client name.'
     if (!form.date) return 'Enter the quotation date.'
-    const used = form.items.filter((it) => it.description.trim() || it.details.trim() || Number(it.rate))
+    const used = form.items.filter((it) => it.kind === 'item' && itemUsed(it))
     if (!used.length) return 'Add at least one item.'
     if (used.some((it) => !it.description.trim())) return 'Enter the description of work for every item.'
     if (t.discount > t.subtotal) return 'Discount cannot be more than the sub total.'
@@ -98,6 +111,7 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
       const { data } = savedId ? await quotationsApi.update(savedId, payload) : await quotationsApi.create(payload)
       const saved = quotationToInput(data)
       setSavedId(data.id)
+      idRef.current = data.id
       manualNo.current = true
       manualValid.current = true
       setForm(saved)
@@ -125,6 +139,17 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
     else w.close()
   }
 
+  /** The mail is written in a tab of its own: opened from the click, filled once the quotation is saved */
+  const saveAndMail = async (withSign: boolean) => {
+    const problem = check()
+    if (problem) { showError(problem); return }
+    const w = openMailWindow()
+    const saved = await save()
+    if (!w) return
+    if (saved && idRef.current) w.location.href = quotationMailUrl(idRef.current, withSign)
+    else w.close()
+  }
+
   const copySections = (fromId: string) => {
     const from = others.find((q) => String(q.id) === fromId)
     if (from) patch({ sections: [...form.sections, ...from.sections.map((s) => ({ ...s }))] })
@@ -137,6 +162,14 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
 
   const text = (label: React.ReactNode, key: TextKey, placeholder = '') => (
     <label style={lbl}><span>{label}</span><input className="input" type={key === 'email' ? 'email' : 'text'} value={form[key]} placeholder={placeholder} onChange={(e) => patch({ [key]: e.target.value })} /></label>
+  )
+
+  const rowButtons = (i: number, removeTitle: string) => (
+    <>
+      <button className="icon-button" type="button" title="Move up" disabled={i === 0} onClick={() => patch({ items: moved(form.items, i, -1) })}><ArrowUp size={14} /></button>
+      <button className="icon-button" type="button" title="Move down" disabled={i === form.items.length - 1} onClick={() => patch({ items: moved(form.items, i, 1) })}><ArrowDown size={14} /></button>
+      {form.items.length > 1 ? <button className="icon-button" type="button" title={removeTitle} onClick={() => patch({ items: form.items.filter((_, idx) => idx !== i) })}><Trash2 size={14} /></button> : null}
+    </>
   )
 
   // Amount summary in the same order as the print
@@ -214,34 +247,58 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
               </tr>
             </thead>
             <tbody>
-              {form.items.map((it, i) => (
+              {form.items.map((it, i) => it.kind !== 'item' ? (
+                <tr key={i} style={{ background: it.kind === 'heading' ? '#eef2ff' : '#f8fafc' }}>
+                  <td style={{ fontWeight: 700, color: '#1d4ed8' }}>{numbers[i]}</td>
+                  <td colSpan={6}>
+                    <input className="input" value={it.description} aria-label={it.kind === 'heading' ? 'Heading' : 'Sub-heading'} placeholder={it.kind === 'heading' ? 'Heading, e.g. FIELD WORK' : 'Sub-heading, e.g. Survey'}
+                      onChange={(e) => setItem(i, { description: e.target.value })} style={{ width: '100%', fontWeight: 700, fontSize: it.kind === 'heading' ? '0.95rem' : '0.875rem' }} />
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{rowButtons(i, it.kind === 'heading' ? 'Remove heading' : 'Remove sub-heading')}</td>
+                </tr>
+              ) : (
                 <tr key={i} style={{ verticalAlign: 'top' }}>
-                  <td>{i + 1}</td>
+                  <td>{numbers[i]}</td>
                   <td style={{ minWidth: 260 }}>
                     <input className="input" value={it.description} aria-label={`Item ${i + 1} title`} placeholder="Title (bold)" onChange={(e) => setItem(i, { description: e.target.value })} style={{ width: '100%', fontWeight: 600, marginBottom: 6 }} />
                     <textarea className="input" rows={2} value={it.details} aria-label={`Item ${i + 1} details`} placeholder="Details (small grey text, optional)" onChange={(e) => setItem(i, { details: e.target.value })} style={area} />
+                    {it.extra.map((part, p) => (
+                      <div key={p} style={{ marginTop: 8, paddingLeft: 10, borderLeft: '3px solid #c7d2fe' }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <input className="input" value={part.title} aria-label={`Item ${numbers[i]} heading ${p + 2}`} placeholder="Heading (bold)" onChange={(e) => setPart(i, p, { title: e.target.value })} style={{ flex: 1, minWidth: 0, fontWeight: 600 }} />
+                          <button className="icon-button" type="button" title="Remove this heading" onClick={() => setItem(i, { extra: it.extra.filter((_, idx) => idx !== p) })}><X size={14} /></button>
+                        </div>
+                        <textarea className="input" rows={2} value={part.details} aria-label={`Item ${numbers[i]} text ${p + 2}`} placeholder="Text under the heading (optional)" onChange={(e) => setPart(i, p, { details: e.target.value })} style={area} />
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setItem(i, { extra: [...it.extra, { title: '', details: '' }] })} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: 0, border: 0, background: 'none', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}><Plus size={13} /> Add heading in this item</button>
                   </td>
                   <td>
-                    <select className="input" value={it.unit} aria-label={`Item ${i + 1} unit`} onChange={(e) => setItem(i, { unit: e.target.value })}>
-                      {/* A unit typed on an older quotation stays selectable */}
-                      {(UNITS.includes(it.unit) ? UNITS : [it.unit, ...UNITS]).map((u) => <option key={u} value={u}>{u || '-'}</option>)}
+                    <select className="input" value={otherUnit(it) ? OTHER : it.unit} aria-label={`Item ${i + 1} unit`}
+                      onChange={(e) => setItem(i, e.target.value === OTHER ? { unit: '', unitOther: true } : { unit: e.target.value, unitOther: false })}>
+                      {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                      <option value={OTHER}>Other…</option>
                     </select>
+                    {otherUnit(it) ? <input className="input" value={it.unit} maxLength={50} autoFocus={it.unitOther && !it.unit} aria-label={`Item ${i + 1} other unit`} placeholder="Type unit" onChange={(e) => setItem(i, { unit: e.target.value, unitOther: true })} style={{ marginTop: 6 }} /> : null}
                   </td>
                   <td><input className="input" type="number" min={0} step="any" value={it.quantity} aria-label={`Item ${i + 1} quantity`} onChange={(e) => setItem(i, { quantity: numVal(e.target.value) })} /></td>
                   <td><input className="input" type="number" min={0} step="any" value={it.included ? '' : it.rate} disabled={it.included} aria-label={`Item ${i + 1} rate`} onChange={(e) => setItem(i, { rate: numVal(e.target.value) })} /></td>
                   <td style={{ textAlign: 'center' }}><input type="checkbox" checked={it.included} aria-label={`Item ${i + 1} included, no charge`} title="Prints “Included” instead of a rate" onChange={(e) => setItem(i, { included: e.target.checked })} /></td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.included ? <i style={{ color: '#64748b', fontWeight: 500 }}>Included</i> : money2(quotationItemAmount(it))}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    <button className="icon-button" type="button" title="Move up" disabled={i === 0} onClick={() => patch({ items: moved(form.items, i, -1) })}><ArrowUp size={14} /></button>
-                    <button className="icon-button" type="button" title="Move down" disabled={i === form.items.length - 1} onClick={() => patch({ items: moved(form.items, i, 1) })}><ArrowDown size={14} /></button>
-                    {form.items.length > 1 ? <button className="icon-button" type="button" title="Remove item" onClick={() => patch({ items: form.items.filter((_, idx) => idx !== i) })}><Trash2 size={14} /></button> : null}
+                    {rowButtons(i, 'Remove item')}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <button type="button" className="ghost-button" style={{ marginTop: 8 }} onClick={() => patch({ items: [...form.items, emptyQuotationItem()] })}><Plus size={14} /> Add item</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <button type="button" className="ghost-button" onClick={() => addRow(emptyQuotationItem())}><Plus size={14} /> Add item</button>
+          <button type="button" className="ghost-button" onClick={() => addRow(emptyHeading('heading'))}><Plus size={14} /> Add heading</button>
+          <button type="button" className="ghost-button" onClick={() => addRow(emptyHeading('subheading'))}><Plus size={14} /> Add sub-heading</button>
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: '0.78rem', color: '#64748b' }}>New rows come at the end; move them with the arrows.</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
@@ -331,6 +388,13 @@ export function QuotationEditor({ id, initial, others, onClose }: QuotationEdito
           {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
           <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> {COMPANIES[form.company].seal ? 'Without Sign' : 'Print'}</button>
         </div>
+        {canMail ? (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <strong style={{ flex: 1, minWidth: 200 }}>Save and mail the PDF</strong>
+            {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndMail(true)}><Stamp size={16} /> Mail With Sign</button> : null}
+            <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndMail(false)}><Mail size={16} /> {COMPANIES[form.company].seal ? 'Mail Without Sign' : 'Mail'}</button>
+          </div>
+        ) : null}
       </div>
     </div>
   )

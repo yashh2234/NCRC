@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tender;
+use App\Models\TenderAnalysis;
 use App\Models\User;
-use App\Services\TenderDocumentAnalyzer;
-use RuntimeException;
+use App\Services\TenderAnalysisRunner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,11 +24,28 @@ class TenderController extends Controller
     {
         $values = $this->validated($request);
 
-        $tender = DB::transaction(fn () => Tender::create($values + [
-            'sr_no' => Tender::nextSrNo(),
-            'created_by' => $request->user()?->id,
-            'updated_by' => $request->user()?->id,
-        ]));
+        $analysisId = $request->validate(['analysisId' => ['nullable', 'integer']])['analysisId'] ?? null;
+
+        $tender = DB::transaction(function () use ($request, $values, $analysisId): Tender {
+            $analysis = null;
+            if ($analysisId) {
+                $analysis = TenderAnalysis::query()->lockForUpdate()->where('user_id', $request->user()?->id)->findOrFail($analysisId);
+                abort_unless($analysis->status === 'done' && $analysis->tender_id === null, 422, 'This analysed tender is already saved.');
+            }
+
+            $tender = Tender::create($values + [
+                'sr_no' => Tender::nextSrNo(),
+                'created_by' => $request->user()?->id,
+                'updated_by' => $request->user()?->id,
+            ]);
+            // The summary of the PDF stays on the tender
+            if ($analysis) {
+                TenderAnalysisRunner::putOnTender($analysis, $tender);
+                $analysis->update(['tender_id' => $tender->id, 'closed_at' => now()]);
+            }
+
+            return $tender;
+        });
 
         return response()->json(['data' => $tender->toApi()], 201);
     }
@@ -46,35 +63,29 @@ class TenderController extends Controller
         return response()->json(['data' => $this->presentSummary($tender)]);
     }
 
-    /** Reads an uploaded tender PDF with Gemini and saves the summary on the tender. */
-    public function analyze(Request $request, Tender $tender, TenderDocumentAnalyzer $analyzer): JsonResponse
+    /** Ticks or unticks one document of the summary's checklist, for everyone. */
+    public function checkDocument(Request $request, Tender $tender): JsonResponse
     {
-        $request->validate([
-            'document' => ['required', 'file', 'mimes:pdf', 'max:51200'],
-        ], [
-            'document.mimes' => 'Upload the tender document as a PDF.',
-            'document.max' => 'The PDF is larger than 50 MB.',
-        ]);
+        $data = $request->validate(['document' => ['required', 'string', 'max:5000'], 'checked' => ['required', 'boolean']]);
 
-        // Big tenders can take a minute or two to read.
-        @set_time_limit(600);
+        $tender = DB::transaction(function () use ($request, $tender, $data): Tender {
+            $tender = Tender::query()->lockForUpdate()->findOrFail($tender->id);
+            $key = Tender::checkKey($data['document']);
+            $known = array_map(fn ($d) => Tender::checkKey((string) $d), $tender->ai_summary['documents_required'] ?? []);
+            abort_unless(in_array($key, $known, true), 422, 'The document list has changed. Please open the summary again.');
 
-        $file = $request->file('document');
-        try {
-            $summary = $analyzer->analyze($file->getRealPath());
-        } catch (RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
+            $checks = $tender->document_checks ?? [];
+            if ($data['checked']) {
+                $checks[$key] ??= ['by' => $request->user()?->name, 'at' => now()->toIso8601String()];
+            } else {
+                unset($checks[$key]);
+            }
+            $tender->forceFill(['document_checks' => $checks])->save();
 
-        $tender->forceFill([
-            'ai_summary' => $summary,
-            'ai_summary_file' => mb_substr($file->getClientOriginalName(), 0, 255),
-            'ai_summary_model' => $analyzer->model(),
-            'ai_summary_at' => now(),
-            'ai_summary_by' => $request->user()?->id,
-        ])->save();
+            return $tender;
+        });
 
-        return response()->json(['data' => $this->presentSummary($tender)]);
+        return response()->json(['data' => $this->presentSummary($tender), 'tender' => $tender->toApi()]);
     }
 
     private function presentSummary(Tender $tender): ?array
@@ -85,6 +96,7 @@ class TenderController extends Controller
 
         return [
             'summary' => $tender->ai_summary,
+            'checks' => $tender->documentChecks(),
             'file' => $tender->ai_summary_file,
             'model' => $tender->ai_summary_model,
             'analysed_at' => $tender->ai_summary_at?->toIso8601String(),
@@ -155,6 +167,10 @@ class TenderController extends Controller
         $rules['tenderId'] = ['required', 'string', 'max:255'];
         $rules['bidType'] = ['nullable', 'in:amount,percent'];
         $rules['emdDeposited'] = ['nullable', 'in:Yes,No'];
+        $rules['closingTime'] = ['nullable', 'date_format:H:i'];
+        $rules['contactName'] = ['nullable', 'string', 'max:255'];
+        $rules['contactDesignation'] = ['nullable', 'string', 'max:255'];
+        $rules['contactPhone'] = ['nullable', 'string', 'max:100'];
         $rules['emdMode'] = ['nullable', 'in:Online,Offline'];
 
         return $this->mapFields($request->validate($rules));
