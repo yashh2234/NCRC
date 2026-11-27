@@ -96,14 +96,18 @@ export function InquiriesPage() {
   }), [inquiries, statusFilter, categoryFilter, sourceFilter, handoverFilter, dueOnly, search, myId])
 
   const dueCount = inquiries.filter((i) => followUpState(i)).length
-  const metricCards: Array<{ label: string; value: number; onClick: () => void; tone?: 'overdue' }> = [
+  const wonCount = inquiries.filter((i) => i.status === 'won').length
+  const lostCount = inquiries.filter((i) => i.status === 'lost').length
+  // Converted out of all closed enquiries (converted + not interested)
+  const conversion = wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : null
+  const metricCards: Array<{ label: string; value: number; onClick: () => void; tone?: 'overdue'; note?: string }> = [
     { label: 'Total enquiries', value: inquiries.length, onClick: () => { setStatusFilter(''); setDueOnly(false) } },
     { label: 'New (not called)', value: inquiries.filter((i) => i.status === 'new').length, onClick: () => { setStatusFilter('new'); setDueOnly(false) } },
     { label: 'Follow-ups due', value: dueCount, tone: 'overdue', onClick: () => { setStatusFilter(''); setDueOnly(true) } },
     { label: 'Handed over to me', value: inquiries.filter((i) => i.assigned_to === myId && !CLOSED_STATUSES.includes(i.status)).length, onClick: () => { setHandoverFilter('me'); setStatusFilter('open'); setDueOnly(false) } },
     { label: 'Interested / Quoted', value: inquiries.filter((i) => ['interested', 'follow_up', 'quotation_sent'].includes(i.status)).length, onClick: () => { setStatusFilter('open'); setDueOnly(false) } },
-    { label: 'Won', value: inquiries.filter((i) => i.status === 'won').length, onClick: () => { setStatusFilter('won'); setDueOnly(false) } },
-    { label: 'Lost', value: inquiries.filter((i) => i.status === 'lost').length, onClick: () => { setStatusFilter('lost'); setDueOnly(false) } },
+    { label: 'Converted', value: wonCount, note: conversion !== null ? `${conversion}% rate` : undefined, onClick: () => { setStatusFilter('won'); setDueOnly(false) } },
+    { label: 'Not Interested', value: lostCount, onClick: () => { setStatusFilter('lost'); setDueOnly(false) } },
   ]
 
   const updateForm = <K extends keyof InquiryInput>(key: K, value: InquiryInput[K]) => setForm((prev) => ({ ...prev, [key]: value }))
@@ -182,12 +186,12 @@ export function InquiriesPage() {
   return (
     <div>
       <div className="inq-metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
-        {metricCards.map(({ label, value, tone, onClick }) => {
+        {metricCards.map(({ label, value, tone, onClick, note }) => {
           const toneStyle = tone && value > 0 ? FOLLOW_UP_STYLES[tone] : null
           return (
             <button type="button" key={label} onClick={onClick} className="metric-card" data-urgent={toneStyle ? tone : undefined} style={{ minHeight: 96, padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, textAlign: 'left', cursor: 'pointer', background: toneStyle ? toneStyle.background : '#fff', border: `1px solid ${toneStyle ? toneStyle.border : 'rgba(0, 0, 0, 0.08)'}`, borderRadius: 14, boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03)' }}>
               <span style={{ color: toneStyle ? toneStyle.color : '#737373', fontSize: '0.78rem', lineHeight: 1.3 }}>{label}</span>
-              <strong style={{ color: toneStyle ? toneStyle.color : '#171717', fontSize: '1.6rem', lineHeight: 1, fontWeight: 750 }}>{value}</strong>
+              <strong style={{ color: toneStyle ? toneStyle.color : '#171717', fontSize: '1.6rem', lineHeight: 1, fontWeight: 750 }}>{value}{note ? <small style={{ marginLeft: 6, fontSize: '0.72rem', fontWeight: 600, color: '#15803d' }} title="Converted out of all closed enquiries (converted + not interested)">{note}</small> : null}</strong>
             </button>
           )
         })}
