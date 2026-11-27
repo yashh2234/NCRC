@@ -3,6 +3,7 @@ import { isSteelFormat } from '../lib/steel'
 import { SteelResultsEditor } from './SteelResultsEditor'
 import { LabFormatGrid } from './LabFormatGrid'
 import { hasLabFormat } from '../lib/labFormats'
+import { useMobileLayout } from '../mobile/useMobile'
 
 interface TemplateField {
   key: string
@@ -161,6 +162,7 @@ export function getTemplate(type: string, material: string, selectedKey: string)
 export function ExcelLabReportEditor({ reportType, material, details, labData, updateDetail, updateLabData, templateKey }: ExcelLabReportEditorProps) {
   const template = useMemo(() => getTemplate(reportType, material, templateKey ?? ''), [reportType, material, templateKey])
   const rows = details.length > 0 ? details : [{}]
+  const [phone] = useMobileLayout()
 
   if (templateKey && isSteelFormat(templateKey)) {
     return <SteelResultsEditor templateKey={templateKey} labData={labData} updateLabData={updateLabData} />
@@ -169,6 +171,31 @@ export function ExcelLabReportEditor({ reportType, material, details, labData, u
   if (hasLabFormat(templateKey)) {
     const label = EXCEL_TEMPLATE_OPTIONS.find(([k]) => k === templateKey)?.[1] ?? templateKey
     return <LabFormatGrid formatKey={templateKey} label={label} labData={labData} details={details} updateLabData={updateLabData} />
+  }
+
+  if (phone) {
+    return (
+      <section className="m-lab" style={{ marginTop: 20 }}>
+        <div className="m-lab__title">{template.title} — {template.standard}</div>
+        {rows.map((row, index) => (
+          <div key={index} className="m-lab__row">
+            <div className="m-lab__rowhead"><strong>Sample {index + 1}</strong></div>
+            <div className="m-lab__fields">
+              {template.fields.map((field) => {
+                const isRowField = Object.prototype.hasOwnProperty.call(row, field.key)
+                return (
+                  <label key={field.key} className="m-lab__field">
+                    <span>{field.label}</span>
+                    <input className="input" type={field.type ?? 'text'} value={row[field.key] ?? labData[field.key] ?? ''}
+                      onChange={(event) => isRowField ? updateDetail(index, field.key, event.target.value) : updateLabData(field.key, event.target.value)} />
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </section>
+    )
   }
 
   return (

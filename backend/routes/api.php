@@ -4,6 +4,9 @@ use App\Http\Controllers\Api\AiProviderController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PushController;
+use App\Http\Controllers\Api\MobileController;
+use App\Http\Controllers\Api\TimelineController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\TrackingController;
 use App\Http\Controllers\Api\BillingController;
@@ -161,6 +164,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 
+    // Phone app: notifications on the device, and what waits for approval
+    Route::get('push/config', [PushController::class, 'config']);
+    Route::post('push/subscribe', [PushController::class, 'subscribe'])->middleware('throttle:20,1');
+    Route::post('push/unsubscribe', [PushController::class, 'unsubscribe']);
+    Route::put('push/prefs', [PushController::class, 'savePrefs']);
+    Route::post('push/test', [PushController::class, 'test'])->middleware('throttle:5,1');
+    Route::get('mobile/approvals', [MobileController::class, 'approvals']);
+    Route::get('mobile/prefs', [MobileController::class, 'prefs']);
+    Route::get('timeline/{type}/{id}', [TimelineController::class, 'show'])->where(['type' => '[A-Za-z]+', 'id' => '[0-9]+']);
+    Route::put('mobile/prefs', [MobileController::class, 'savePrefs']);
+
     Route::apiResource('invoices', InvoiceController::class);
     Route::get('/invoices/{id}/print', [InvoiceController::class, 'printDiv']);
 
@@ -170,6 +184,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Attendance, leave and holidays: everyone's own; what is for admins / approvers is checked in the controllers
     Route::get('attendance/status', [AttendanceController::class, 'status']);
     Route::post('attendance/punch', [AttendanceController::class, 'punch']);
+    Route::get('attendance/{attendance}/selfie/{side}', [AttendanceController::class, 'selfie'])->whereNumber('attendance');
     Route::get('attendance/month', [AttendanceController::class, 'month']);
     Route::post('attendance/corrections', [AttendanceController::class, 'requestCorrection']);
     Route::delete('attendance/corrections/{correction}', [AttendanceController::class, 'withdrawCorrection']);

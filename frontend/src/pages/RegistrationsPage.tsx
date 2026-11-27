@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Modal } from '../components/Modal'
-import { Search, Plus, UserCog, History, Download, X, Folder } from 'lucide-react'
+import { Search, Plus, Pencil, History, Download, X, Folder } from 'lucide-react'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { useAuth } from '../lib/auth'
 import { api, request } from '../lib/api'
@@ -319,8 +319,8 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
             { key: 'total_payment', label: 'Total Payment', align: 'center', width: 95 },
             { key: 'advance_payment', label: 'Advance Payment', align: 'center', width: 95 },
             { key: 'balance_dues', label: 'Payment Dues', align: 'center', width: 95 },
-            { key: 'bill', label: 'Invoice', sortable: false, align: 'center', width: 70 },
-            { key: 'actions', label: 'Action', sortable: false },
+            { key: 'bill', label: 'Invoice', sortable: false, align: 'center', width: 100 },
+            { key: 'actions', label: 'Action', sortable: false, width: 150 },
           ]}
           rows={filtered.map((registration) => {
             const isPaid = (registration.balance_dues ?? 0) <= 0
@@ -449,30 +449,19 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
               actions: (
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <button
-                    className="manage-btn"
+                    className="icon-btn"
                     onClick={() => beginEdit(registration)}
-                    title="Edit Registration"
+                    title="Edit registration"
+                    aria-label={`Edit registration ${registration.uid_no ?? ''}`}
                     type="button"
-                    style={{
-                      border: '1px solid #cbd5e1',
-                      background: '#fff',
-                      padding: '5px 10px',
-                      borderRadius: 6,
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      color: '#2563eb',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      cursor: 'pointer'
-                    }}
                   >
-                    <UserCog size={13} /> Edit
+                    <Pencil size={16} />
                   </button>
                   <button
                     className="icon-btn"
                     onClick={() => showHistory(registration)}
-                    title="Audit trail"
+                    title="History"
+                    aria-label={`History of ${registration.uid_no ?? ''}`}
                     type="button"
                   >
                     <History size={16} />
@@ -481,6 +470,7 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
                     className="icon-btn"
                     onClick={() => setDrawerUid(registration.uid_no)}
                     title="Documents"
+                    aria-label={`Documents of ${registration.uid_no ?? ''}`}
                     type="button"
                   >
                     <Folder size={16} />

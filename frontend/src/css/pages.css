@@ -1238,3 +1238,6 @@
   margin-top: 20px;
   border-top: 1px solid var(--color-border-light);
 }
+
+/* Tenders: the extra "Analyse tender" above the box is for phones only */
+.tender-analyse-top { display: none !important; }

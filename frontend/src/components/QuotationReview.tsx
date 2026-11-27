@@ -4,6 +4,7 @@ import { dotDate, money2 } from '../lib/bills'
 import { previewDocument } from '../lib/quotationPrint'
 import { quotationToInput, quotationsApi, type Quotation, type QuotationContent } from '../lib/quotations'
 import { Modal } from './Modal'
+import { ScaledPreview } from './ScaledPreview'
 
 const LABELS: Partial<Record<keyof QuotationContent, string>> = {
   quotation_no: 'Quotation No.', date: 'Date', valid_until: 'Valid Till', client_name: 'Client Name', client_address: 'Address', client_gstin: 'Client GSTIN',
@@ -130,7 +131,7 @@ export function QuotationReview({ quotation, onClose, onDone, onEdit }: { quotat
           </div>
         ) : <p style={{ margin: 0, padding: '8px 12px', borderRadius: 8, background: '#f8fafc', color: '#475569', fontSize: '0.85rem' }}>New quotation: it was never approved before.</p>}
 
-        <iframe title="Quotation preview" srcDoc={preview} style={{ width: '100%', height: 520, border: '1px solid #e2e8f0', borderRadius: 8, background: '#e5e7eb' }} />
+        <ScaledPreview title="Quotation preview" html={preview} />
       </div>
     </Modal>
   )

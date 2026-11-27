@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jobs as JobsModel;
 use App\Models\AuditLog;
+use App\Services\Timeline;
 use App\Models\Document;
 use App\Models\DocumentCategory;
 use App\Models\DocumentVersion;
@@ -235,6 +236,7 @@ class RegistrationController extends Controller
                 'payment_status' => $validated['payment_status'] ?? 'Not Invoiced',
                 'is_draft' => (bool) ($validated['is_draft'] ?? false),
             ]);
+            Timeline::log('Registration', $nextId, 'created', 'Registered · '.($validated['uid_no'] ?? ''));
 
             DB::table('stage_logs')->insert([
                 'registration_id' => $nextId,
@@ -391,6 +393,7 @@ class RegistrationController extends Controller
             'payment_status' => $validated['payment_status'] ?? ($existing->payment_status ?? 'Not Invoiced'),
             'is_draft' => (bool) ($validated['is_draft'] ?? false),
         ]);
+        Timeline::changed('Registration', $registrationId, (array) $existing, (array) DB::table('client_registration')->where('iClientId', $registrationId)->first());
 
         if ($newStage !== $oldStage || $newWith !== $oldWith || !empty($handoverNote)) {
             DB::table('stage_logs')->insert([
@@ -537,6 +540,7 @@ class RegistrationController extends Controller
             DB::table('stage_logs')->where('registration_id', $registrationId)->delete();
             DB::table('client_registration')->where('iClientId', $registrationId)->delete();
         });
+        Timeline::log('Registration', $registrationId, 'deleted', 'Deleted · '.($registration->uid_no ?? ''));
 
         UserActivity::query()->create([
             'user_id' => $request->user()->id,
@@ -787,6 +791,7 @@ class RegistrationController extends Controller
         DB::table('client_registration')
             ->where('iClientId', $regId)
             ->update([$field => $path]);
+        Timeline::log('Registration', $regId, 'attachment', 'Attachment added: '.$file->getClientOriginalName());
 
         $registration = Registration::where('iClientId', $regId)->first();
         $uidNo = $registration?->uid_no ?? "ID-$regId";
@@ -856,6 +861,7 @@ class RegistrationController extends Controller
         $path = (string) ($registration->{$field} ?? '');
         DB::table('client_registration')->where('iClientId', $registrationId)->update([$field => '']);
         RegistrationAttachments::removePath($path);
+        Timeline::log('Registration', $registrationId, 'attachment', 'Attachment removed: '.basename($path));
 
         return response()->json(['message' => 'Attachment removed']);
     }

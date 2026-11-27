@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 
 class Proposal extends Model
 {
+    use RecordsTimeline;
+
     protected $fillable = [
         'ref_no', 'proposal_date', 'title', 'project_name', 'submitted_to',
         'sections', 'fee_rows', 'fee_note', 'supporting_info',

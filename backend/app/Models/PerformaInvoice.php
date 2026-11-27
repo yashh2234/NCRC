@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use App\Services\BillApproval;
 use Illuminate\Database\Eloquent\Model;
 
 /** Performa invoice of NCS LLP (GST always 18%) */
 class PerformaInvoice extends Model
 {
+    use RecordsTimeline;
+
     private const DATES = ['invoice_date', 'uid_date', 'work_order_date', 'report_date'];
 
     protected $fillable = [

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 
 class Tender extends Model
 {
+    use RecordsTimeline;
+
     /** API (camelCase, as used by the frontend) => database column. */
     public const FIELD_MAP = [
         'tenderId' => 'tender_id',

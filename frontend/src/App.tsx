@@ -32,6 +32,8 @@ import { AppShell } from './components/AppShell'
 import { TenderAnalysesDock, TenderAnalysesProvider } from './components/TenderAnalyses'
 import { useTenderAnalyses } from './lib/tenderAnalyses'
 import { MailPage } from './pages/MailPage'
+import { MobileApp } from './mobile/MobileApp'
+import { useMobileLayout } from './mobile/useMobile'
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { IS_MAIL_TAB, leaveMailTab, openMailTab } from './lib/mailTab'
 import type { ModuleKey } from './lib/types'
@@ -72,6 +74,7 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
   const canUseMail = canUserAccess(user, 'mail')
 
   const trackerRole = user?.tracker_role ?? 'staff'
+  const [mobile, setDesktopLayout] = useMobileLayout()
 
   // All possible nav groups
   const allGroups: NavGroup[] = [
@@ -205,6 +208,68 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
   }
   const clearCreateBillUid = useCallback(() => setCreateBillUid(''), [])
 
+  /** The screen of a module; the same pages are used on the computer and in the phone app */
+  const renderPage = (key: string): React.ReactNode => {
+    if (key.startsWith('report')) return <ReportsPage defaultType={key.startsWith('report_') ? key.replace('report_', '') : undefined} />
+    switch (key) {
+      case 'tenders': return <TenderPage />
+      case 'admin': return <AdministrationPage />
+      case 'users': return <UsersPage />
+      case 'roles': return <RolesPage />
+      case 'clients': return <ClientsPage />
+      case 'quotations': return <QuotationsPage />
+      case 'proposals': return <ProposalsPage />
+      case 'work_orders': return <WorkOrdersPage />
+      case 'inquiries': return <InquiriesPage />
+      case 'my_attendance': return <MyAttendancePage />
+      case 'leave': return <LeavePage />
+      case 'holidays': return <HolidaysPage />
+      case 'team': return <TeamPage />
+      case 'registrations': return <RegistrationsPage onViewBill={canViewBilling ? openBillingForUid : undefined} onCreateBill={canViewBilling ? createBillForUid : undefined} />
+      case 'billing': return <BillingPage uidFilter={billingUid} onClearUidFilter={() => setBillingUid('')} createForUid={createBillUid} onCreateHandled={clearCreateBillUid} />
+      case 'performa': return <PerformaPage />
+      case 'credit_notes': return <BillingPage mode="credit_notes" />
+      case 'expenses': return <ExpensesPage />
+      case 'purchase_orders': return <PurchaseOrdersPage />
+      case 'due_reports': return <DueReportsPage />
+      case 'final_reports': return <FinalReportsPage />
+      case 'outsource': return <OutsourcePage />
+      case 'ulr_add': return <UlrLinkPage />
+      case 'ulr_register': return <UlrRegisterPage />
+      case 'analytics': return <AnalyticsPage />
+      case 'workflow_templates': return <WorkflowTemplatesPage />
+      case 'job_types': return <JobTypesPage />
+      default: return null
+    }
+  }
+
+  if (mobile) {
+    const extras = [
+      canUserAccess(user, 'inquiries') ? { key: 'inquiries', label: 'Enquiries' } : null,
+      canUserAccess(user, 'proposals') ? { key: 'proposals', label: 'Proposals' } : null,
+      canUserAccess(user, 'tenders') ? { key: 'tenders', label: 'Tenders' } : null,
+    ].filter((x): x is { key: string; label: string } => x !== null)
+    return (
+      <>
+        <MobileApp
+          groups={groups}
+          extras={extras}
+          canMail={canUseMail}
+          activeModule={activeModule}
+          setActiveModule={(key) => {
+            // The phone app's own screens and Mail are not features to check
+            if (key === 'dashboard' || key.startsWith('m_') || (key === 'mail' && canUseMail)) setActiveModule(key as ModuleKey)
+            else handleModuleChange(key)
+          }}
+          renderPage={renderPage}
+          onOpenAnalysis={canUserAccess(user, 'tenders') ? openAnalysis : undefined}
+          onUseDesktop={() => { setActiveModule('dashboard' as ModuleKey); setDesktopLayout(true) }}
+        />
+        <TenderAnalysesDock />
+      </>
+    )
+  }
+
   return (
     <>
     <AppShell
@@ -218,92 +283,8 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
       activeModule={activeModule}
       onModuleChange={handleModuleChange}
     >
-      <div className={`view ${activeModule === 'dashboard' ? 'visible' : ''}`}>
-        {activeModule === 'dashboard' ? <div aria-hidden="true" /> : null}
-      </div>
-      <div className={`view ${activeModule === 'tenders' ? 'visible' : ''}`}>
-        {activeModule === 'tenders' && <TenderPage />}
-      </div>
-      <div className={`view ${activeModule === 'admin' ? 'visible' : ''}`}>
-        {activeModule === 'admin' && <AdministrationPage />}
-      </div>
-      <div className={`view ${activeModule === 'users' ? 'visible' : ''}`}>
-        {activeModule === 'users' && <UsersPage />}
-      </div>
-      <div className={`view ${activeModule === 'roles' ? 'visible' : ''}`}>
-        {activeModule === 'roles' && <RolesPage />}
-      </div>
-      <div className={`view ${activeModule === 'clients' ? 'visible' : ''}`}>
-        {activeModule === 'clients' && <ClientsPage />}
-      </div>
-      <div className={`view ${activeModule === 'quotations' ? 'visible' : ''}`}>
-        {activeModule === 'quotations' && <QuotationsPage />}
-      </div>
-      <div className={`view ${activeModule === 'proposals' ? 'visible' : ''}`}>
-        {activeModule === 'proposals' && <ProposalsPage />}
-      </div>
-      <div className={`view ${activeModule === 'work_orders' ? 'visible' : ''}`}>
-        {activeModule === 'work_orders' && <WorkOrdersPage />}
-      </div>
-      <div className={`view ${activeModule === 'inquiries' ? 'visible' : ''}`}>
-        {activeModule === 'inquiries' && <InquiriesPage />}
-      </div>
-      <div className={`view ${activeModule === 'my_attendance' ? 'visible' : ''}`}>
-        {activeModule === 'my_attendance' && <MyAttendancePage />}
-      </div>
-      <div className={`view ${activeModule === 'leave' ? 'visible' : ''}`}>
-        {activeModule === 'leave' && <LeavePage />}
-      </div>
-      <div className={`view ${activeModule === 'holidays' ? 'visible' : ''}`}>
-        {activeModule === 'holidays' && <HolidaysPage />}
-      </div>
-      <div className={`view ${activeModule === 'team' ? 'visible' : ''}`}>
-        {activeModule === 'team' && <TeamPage />}
-      </div>
-      <div className={`view ${activeModule === 'registrations' ? 'visible' : ''}`}>
-        {activeModule === 'registrations' && <RegistrationsPage onViewBill={canViewBilling ? openBillingForUid : undefined} onCreateBill={canViewBilling ? createBillForUid : undefined} />}
-      </div>
-      <div className={`view ${activeModule === 'billing' ? 'visible' : ''}`}>
-        {activeModule === 'billing' && <BillingPage uidFilter={billingUid} onClearUidFilter={() => setBillingUid('')} createForUid={createBillUid} onCreateHandled={clearCreateBillUid} />}
-      </div>
-      <div className={`view ${activeModule === 'performa' ? 'visible' : ''}`}>
-        {activeModule === 'performa' && <PerformaPage />}
-      </div>
-      <div className={`view ${activeModule === 'credit_notes' ? 'visible' : ''}`}>
-        {activeModule === 'credit_notes' && <BillingPage mode="credit_notes" />}
-      </div>
-      <div className={`view ${activeModule.startsWith('report') ? 'visible' : ''}`}>
-        {activeModule.startsWith('report') && <ReportsPage defaultType={activeModule.startsWith('report_') ? activeModule.replace('report_', '') : undefined} />}
-      </div>
-      <div className={`view ${activeModule === 'expenses' ? 'visible' : ''}`}>
-        {activeModule === 'expenses' && <ExpensesPage />}
-      </div>
-      <div className={`view ${activeModule === 'purchase_orders' ? 'visible' : ''}`}>
-        {activeModule === 'purchase_orders' && <PurchaseOrdersPage />}
-      </div>
-      <div className={`view ${activeModule === 'due_reports' ? 'visible' : ''}`}>
-        {activeModule === 'due_reports' && <DueReportsPage />}
-      </div>
-      <div className={`view ${activeModule === 'final_reports' ? 'visible' : ''}`}>
-        {activeModule === 'final_reports' && <FinalReportsPage />}
-      </div>
-      <div className={`view ${activeModule === 'outsource' ? 'visible' : ''}`}>
-        {activeModule === 'outsource' && <OutsourcePage />}
-      </div>
-      <div className={`view ${activeModule === 'ulr_add' ? 'visible' : ''}`}>
-        {activeModule === 'ulr_add' && <UlrLinkPage />}
-      </div>
-      <div className={`view ${activeModule === 'ulr_register' ? 'visible' : ''}`}>
-        {activeModule === 'ulr_register' && <UlrRegisterPage />}
-      </div>
-      <div className={`view ${activeModule === 'analytics' ? 'visible' : ''}`}>
-        {activeModule === 'analytics' && <AnalyticsPage />}
-      </div>
-      <div className={`view ${activeModule === 'workflow_templates' ? 'visible' : ''}`}>
-        {activeModule === 'workflow_templates' && <WorkflowTemplatesPage />}
-      </div>
-      <div className={`view ${activeModule === 'job_types' ? 'visible' : ''}`}>
-        {activeModule === 'job_types' && <JobTypesPage />}
+      <div className="view visible">
+        {activeModule === 'dashboard' ? <div aria-hidden="true" /> : renderPage(activeModule)}
       </div>
     </AppShell>
     <TenderAnalysesDock />

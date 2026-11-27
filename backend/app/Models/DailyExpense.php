@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 
 class DailyExpense extends Model
 {
+    use RecordsTimeline;
+
     protected $table = 'daily_expenses';
     protected $primaryKey = 'iExpensesId';
     public $incrementing = false;

@@ -7,6 +7,7 @@ import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
 import { ComboInput } from '../components/ComboInput'
+import { HistoryButton } from '../components/History'
 
 interface ExpenseItem {
   id: number; date: string; date_iso?: string; opening_balance: number; total_income: number; total_expenses: number
@@ -124,6 +125,7 @@ export function ExpensesPage() {
               person: item.person_name,
               remark: <span className="text-muted">{item.remark}</span>,
               actions: <div className="row-actions-inline">
+                <HistoryButton className="icon-btn" type="DailyExpense" id={item.id} title={`Expense ${item.category ?? ''}`} />
                 <button className="icon-btn" onClick={() => beginEdit(item)} type="button" title="Edit"><Pencil size={15} /></button>
                 <button className="icon-btn" onClick={() => void handleDelete(item.id)} type="button" title="Delete"><Trash2 size={15} /></button>
               </div>,

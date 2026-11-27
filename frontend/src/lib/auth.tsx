@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react'
 import type { LoginSession, User } from './types'
 import { api, getToken, setToken } from './api'
+import { forgetPushDevice } from './pwa'
 import type { BillingItem, DashboardResponse, Registration, RoleSummary, UserRecord } from './types'
 
 interface AuthState {
@@ -112,6 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     if (token) {
+      // This phone should stop getting this user's notifications
+      await forgetPushDevice()
       await api.logout().catch(() => null)
     }
     setToken(null)

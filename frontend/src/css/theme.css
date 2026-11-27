@@ -479,10 +479,16 @@ td .icon-button:hover:not(:disabled), td .icon-btn:hover:not(:disabled), .row-ac
 td > .icon-button + .icon-button, td > .icon-btn + .icon-btn { margin-left: 6px; }
 td .icon-button:disabled, td .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
 :is(td, .row-actions, .row-actions-inline) :is(.icon-button, .icon-btn) {
-  &:has(.lucide-printer), &:has(.lucide-printer):hover { color: #0f766e; }
+  &:has(.lucide-printer), &:has(.lucide-printer):hover { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
   &:has(.lucide-mail), &:has(.lucide-mail):hover { color: #7c3aed; }
   &:has(:is(.lucide-pencil, .lucide-pen-line, .lucide-user-cog)), &:has(:is(.lucide-pencil, .lucide-pen-line, .lucide-user-cog)):hover { color: #2563eb; }
   &:has(:is(.lucide-trash-2, .lucide-trash2)), &:has(:is(.lucide-trash-2, .lucide-trash2)):hover { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
   &:has(:is(.lucide-ban, .lucide-rotate-ccw)), &:has(:is(.lucide-ban, .lucide-rotate-ccw)):hover { color: #a16207; background: #fefce8; border-color: #fde047; }
   &:has(:is(.lucide-clipboard-check, .lucide-circle-check, .lucide-check-circle-2)), &:has(:is(.lucide-clipboard-check, .lucide-circle-check, .lucide-check-circle-2)):hover { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+  /* History (timeline) */
+  &:has(.lucide-history), &:has(.lucide-history):hover { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+  /* AI summary / analyse */
+  &:has(:is(.lucide-sparkles, .lucide-wand-sparkles, .lucide-bot)), &:has(:is(.lucide-sparkles, .lucide-wand-sparkles, .lucide-bot)):hover { color: #a21caf; background: #fdf4ff; border-color: #f0abfc; }
+  /* Documents / files */
+  &:has(:is(.lucide-folder-open, .lucide-folder, .lucide-paperclip)), &:has(:is(.lucide-folder-open, .lucide-folder, .lucide-paperclip)):hover { color: #b45309; background: #fffbeb; border-color: #fde68a; }
 }

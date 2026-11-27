@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { MapPin } from 'lucide-react'
+import { Camera, MapPin } from 'lucide-react'
+import { BASE_URL, getToken } from '../lib/api'
 import { Modal } from './Modal'
 import { Req } from './ui'
 import { REQUEST_STATUS, clock, clock24, dmy, hrApi, mapUrl, placeText, type AttendanceDay, type LeaveRequest, type PunchPlace, type Spell } from '../lib/hr'
@@ -26,11 +27,40 @@ export function Place({ place }: { place: PunchPlace }) {
   )
 }
 
+/** The photo taken with a punch in the phone app (private: loaded with the login, not a public link) */
+export function SelfieButton({ spellId, side, at }: { spellId: number; side: 'in' | 'out'; at: string }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const open = async () => {
+    setError('')
+    try {
+      const res = await fetch(`${BASE_URL}/attendance/${spellId}/selfie/${side}`, { headers: { Authorization: `Bearer ${getToken() ?? ''}` } })
+      if (!res.ok) throw new Error('The photo could not be loaded.')
+      setUrl(URL.createObjectURL(await res.blob()))
+    } catch (e) { setError((e as Error).message) }
+  }
+  const close = () => { if (url) URL.revokeObjectURL(url); setUrl(null) }
+  return (
+    <>
+      <button type="button" className="ghost-button" onClick={() => void open()} title={`Photo at ${side === 'in' ? 'check in' : 'check out'}`} aria-label={`Photo at ${side === 'in' ? 'check in' : 'check out'}`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '0 4px', minHeight: 0, fontSize: '0.78rem', color: '#2563eb' }}>
+        <Camera size={13} /> photo
+      </button>
+      {error ? <span style={{ fontSize: '0.75rem', color: '#b91c1c' }}>{error}</span> : null}
+      {url ? (
+        <Modal title={side === 'in' ? 'Check in photo' : 'Check out photo'} subtitle={`${dmy(at)} ${clock(at)}`} size="sm" onClose={close}>
+          <img src={url} alt="Punch photo" style={{ display: 'block', width: '100%', maxWidth: 360, margin: '0 auto', borderRadius: 12 }} />
+        </Modal>
+      ) : null}
+    </>
+  )
+}
+
 export function SpellLine({ spell }: { spell: Spell }) {
   return (
     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', padding: '2px 0' }}>
-      <span><strong>{clock(spell.check_in_at)}</strong> <Place place={spell.in} /></span>
-      <span>{spell.check_out_at ? <strong>{clock(spell.check_out_at)}</strong> : <em>still in</em>} {spell.auto_closed ? <Pill color="#b45309" background="#fef3c7">no check out</Pill> : spell.out && !spell.corrected ? <Place place={spell.out} /> : null}</span>
+      <span><strong>{clock(spell.check_in_at)}</strong> <Place place={spell.in} />{spell.in.selfie ? <> <SelfieButton spellId={spell.id} side="in" at={spell.check_in_at} /></> : null}</span>
+      <span>{spell.check_out_at ? <strong>{clock(spell.check_out_at)}</strong> : <em>still in</em>} {spell.auto_closed ? <Pill color="#b45309" background="#fef3c7">no check out</Pill> : spell.out && !spell.corrected ? <Place place={spell.out} /> : null}{spell.out?.selfie && spell.check_out_at ? <> <SelfieButton spellId={spell.id} side="out" at={spell.check_out_at} /></> : null}</span>
       {spell.corrected ? <Pill color="#6d28d9" background="#ede9fe">corrected</Pill> : null}
     </div>
   )

@@ -10,6 +10,8 @@ use App\Services\WorkCalendar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /** A user's own attendance: check in / out, month, correction requests. */
 class AttendanceController extends Controller
@@ -43,7 +45,10 @@ class AttendanceController extends Controller
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'accuracy' => ['nullable', 'numeric', 'min:0', 'max:10000000'],
             'note' => ['nullable', 'string', 'max:250'],
+            // From the phone app: a photo taken with the front camera, as a data URL
+            'selfie' => ['nullable', 'string', 'max:3000000'],
         ]);
+        $selfie = isset($values['selfie']) ? $this->selfieImage($values['selfie']) : null;
         $located = isset($values['lat'], $values['lng']);
         abort_if($values['action'] === 'in' && ! $located && blank($values['note'] ?? null), 422, 'Allow the location, or write where you are working today.');
 
@@ -53,8 +58,35 @@ class AttendanceController extends Controller
             'accuracy' => $located && isset($values['accuracy']) ? (int) round((float) $values['accuracy']) : null,
             'note' => $values['note'] ?? null,
         ], $request->ip());
+        if ($selfie !== null) {
+            $side = $values['action'] === 'in' ? 'in' : 'out';
+            $path = 'attendance-selfies/'.$row->date->format('Y-m').'/'.$row->id.'-'.$side.'-'.Str::random(8).'.jpg';
+            Storage::disk('local')->put($path, $selfie);
+            $row->forceFill(["{$side}_selfie" => $path])->save();
+        }
 
         return response()->json(['data' => $this->book->present($row)]);
+    }
+
+    /** The punch photo: for the user and for administrators only */
+    public function selfie(Request $request, Attendance $attendance, string $side)
+    {
+        abort_unless(in_array($side, ['in', 'out'], true), 404);
+        $user = $request->user();
+        abort_unless((int) $attendance->user_id === (int) $user->id || $user->isFullAdmin(), 403);
+        $path = $attendance->{"{$side}_selfie"};
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
+
+        return response(Storage::disk('local')->get($path), 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, max-age=86400']);
+    }
+
+    private function selfieImage(string $dataUrl): string
+    {
+        abort_unless(preg_match('#^data:image/(jpeg|png|webp);base64,#', $dataUrl, $m), 422, 'The photo could not be read. Take it again.');
+        $bytes = base64_decode(substr($dataUrl, strlen($m[0])), true);
+        abort_unless($bytes !== false && strlen($bytes) <= 2 * 1024 * 1024 && @getimagesizefromstring($bytes) !== false, 422, 'The photo could not be read. Take it again.');
+
+        return $bytes;
     }
 
     public function month(Request $request): JsonResponse

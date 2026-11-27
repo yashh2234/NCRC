@@ -6,6 +6,7 @@ import { DataTable } from '../components/DataTable'
 import type { PurchaseOrder, PurchaseOrderListItem } from '../lib/types'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
+import { HistoryButton } from '../components/History'
 
 interface POForm {
   date: string
@@ -261,6 +262,7 @@ export function PurchaseOrdersPage() {
               total_amount: <span className="mono">{money(po.total_amount)}</span>,
               actions: <div className="row-actions-inline">
                 <button className="icon-btn" onClick={() => { setEditingId(null); void handlePrint(po.iPurchaseorderId) }} type="button" title="Print"><Printer size={15} /></button>
+                <HistoryButton className="icon-btn" type="PurchaseOrder" id={po.iPurchaseorderId} title={`Purchase order ${po.purchase_order ?? ''}`} />
                 <button className="icon-btn" onClick={() => { beginEdit(po) }} type="button" title="Edit"><Pencil size={15} /></button>
                 <button className="icon-btn" onClick={() => void handleDelete(po)} type="button" title="Delete"><Trash2 size={15} /></button>
               </div>,

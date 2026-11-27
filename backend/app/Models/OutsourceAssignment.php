@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OutsourceAssignment extends Model
 {
+    use RecordsTimeline;
+
     protected $table = 'outsource_assignments';
 
     protected $fillable = [

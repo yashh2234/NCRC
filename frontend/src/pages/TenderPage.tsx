@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, Trash2, ExternalLink, Pencil, CalendarDays, CheckSquare, Sparkles } from 'lucide-react'
 import {
   type Tender, type TenderInput, DATE_FIELDS, URGENCY_STYLES,
@@ -10,6 +10,7 @@ import { Modal } from '../components/Modal'
 import { TenderPdfPicker, TenderSummaryModal, TenderSummaryView } from '../components/TenderSummaryModal'
 import { tenderAnalysesApi, useTenderAnalyses, type TenderAnalysisResult } from '../lib/tenderAnalyses'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 type TenderField = keyof TenderInput
 type ColumnKey = TenderField | 'daysLeft' | 'dates' | 'contact'
@@ -88,6 +89,20 @@ export function TenderPage() {
   const [summaryFor, setSummaryFor] = useState<Tender | null>(null)
   const { analyses, start, refresh: refreshAnalyses, openId, openHandled } = useTenderAnalyses()
   const [showAnalyse, setShowAnalyse] = useState(false)
+  // Phone: once the Analyse button is scrolled away, a round one floats left of "Add tender"
+  const analyseRef = useRef<HTMLButtonElement>(null)
+  const [floatAnalyse, setFloatAnalyse] = useState<number | null>(null)
+  useEffect(() => {
+    const el = analyseRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(([entry]) => {
+      const gone = !entry.isIntersecting && entry.boundingClientRect.top < 0 && el.offsetParent !== null
+      const fab = document.querySelector<HTMLElement>('.m-fab')
+      setFloatAnalyse(gone ? 16 + (fab?.offsetWidth ?? 140) + 10 : null)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  })
   /** The analysed PDF the form is filled from */
   const [review, setReview] = useState<TenderAnalysisResult | null>(null)
   const [showReviewSummary, setShowReviewSummary] = useState(false)
@@ -221,6 +236,7 @@ export function TenderPage() {
     { label: 'Closing in ≤ 4 days', value: redCount, tone: 'red' },
     { label: 'Submitted', value: tenders.filter((t) => t.submissionStatus === 'Submitted').length },
     { label: 'Won', value: tenders.filter((t) => t.submissionStatus === 'Won').length },
+    { label: 'Lost', value: tenders.filter((t) => t.submissionStatus === 'Lost').length },
     { label: 'Under review', value: tenders.filter((t) => t.decision === 'Under Review').length },
   ]
 
@@ -375,7 +391,7 @@ export function TenderPage() {
               <td style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{tender.srNo}</td>
               {tableColumns.map(([key]) => <td key={key} style={cellStyle(key)}>{renderCell(tender, key)}</td>)}
               {statusAt === 'end' ? <td><StatusBadge status={tender.submissionStatus} /></td> : null}
-              <td style={{ whiteSpace: 'nowrap' }}><button className="icon-button" type="button" title={tender.hasSummary ? 'Tender summary (AI)' : 'Summarise tender PDF (AI)'} aria-label="Tender summary" onClick={() => setSummaryFor(tender)} style={tender.hasSummary ? { color: '#7c3aed', background: '#f5f3ff', borderColor: '#ddd6fe' } : undefined}><Sparkles size={16} /></button><button className="icon-button" type="button" title="Edit tender" onClick={() => openEditForm(tender)}><Pencil size={16} /></button><button className="icon-button" type="button" title="Delete tender" onClick={() => void deleteTender(tender)}><Trash2 size={16} /></button></td>
+              <td style={{ whiteSpace: 'nowrap' }}><button className="icon-button" type="button" title={tender.hasSummary ? 'Tender summary (AI)' : 'Summarise tender PDF (AI)'} aria-label="Tender summary" onClick={() => setSummaryFor(tender)} style={tender.hasSummary ? { color: '#7c3aed', background: '#f5f3ff', borderColor: '#ddd6fe' } : undefined}><Sparkles size={16} /></button><HistoryButton type="Tender" id={tender.id} title={`Tender ${tender.srNo ?? ''}`} /><button className="icon-button" type="button" title="Edit tender" onClick={() => openEditForm(tender)}><Pencil size={16} /></button><button className="icon-button" type="button" title="Delete tender" onClick={() => void deleteTender(tender)}><Trash2 size={16} /></button></td>
             </tr>
           )
         })}</tbody>
@@ -385,13 +401,14 @@ export function TenderPage() {
 
   return (
     <div>
-      <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+      <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
         {metricCards.map(({ label, value, tone }) => {
           const toneStyle = tone && value > 0 ? URGENCY_STYLES[tone] : null
           return (
             <div
               className="metric-card"
               key={label}
+              data-urgent={toneStyle ? tone : undefined}
               style={{
                 minHeight: 104,
                 padding: '18px 16px',
@@ -422,10 +439,10 @@ export function TenderPage() {
         .tender-row--yellow > td { background: ${URGENCY_STYLES.yellow.background} !important; }
       `}</style>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="tender-filter-row" style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: '1 1 280px' }}><Search size={16} style={{ position: 'absolute', left: 10, top: 11, color: '#82909a' }} /><input className="input" style={{ paddingLeft: 32 }} placeholder="Search Sr. No., tender ID, title, client..." value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <Select searchable={false} className="input" style={{ width: 250 }} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All submission statuses</option>
+          <option value="">All Statuses</option>
           <optgroup label="Active tenders">
             <option value="__active">All active</option>
             <option>Not Started</option>
@@ -439,16 +456,24 @@ export function TenderPage() {
             <option>Not Participated</option>
           </optgroup>
         </Select>
-        <span style={{ display: 'inline-flex', gap: 12, fontSize: '0.75rem', color: '#475569' }}>
+        <span className="filter-key" style={{ display: 'inline-flex', gap: 12, fontSize: '0.75rem', color: '#475569' }}>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: URGENCY_STYLES.yellow.background, border: `1px solid ${URGENCY_STYLES.yellow.border}`, marginRight: 4 }} />5–7 days left</span>
           <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: URGENCY_STYLES.red.background, border: `1px solid ${URGENCY_STYLES.red.border}`, marginRight: 4 }} />≤ 4 days left</span>
         </span>
+        {/* Phone: Analyse tender on the line of the colour key (on a computer it is in the box heading) */}
+        {showActive ? (
+          <button ref={analyseRef} type="button" className="btn btn-outline tender-analyse-top" onClick={() => setShowAnalyse(true)} title="Upload a tender PDF: the AI reads it and fills in the tender"><Sparkles size={16} /> Analyse tender</button>
+        ) : null}
+        {showActive ? (
+          <button type="button" className={`tender-analyse-fab${floatAnalyse !== null ? ' is-shown' : ''}`} style={floatAnalyse !== null ? { right: floatAnalyse } : undefined}
+            onClick={() => setShowAnalyse(true)} title="Analyse tender" aria-label="Analyse tender"><Sparkles size={22} /></button>
+        ) : null}
       </div>
       <section className="surface" style={showActive ? undefined : { display: 'none' }}>
         <div className="surface-heading">
           <div><p className="section-label">Tender Tracker</p><h2>Active tenders ({activeTenders.length})</h2></div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-outline" onClick={() => setShowAnalyse(true)} title="Upload a tender PDF: the AI reads it and fills in the tender"><Sparkles size={16} /> Analyse tender</button>
+            <button type="button" className="btn btn-outline tender-analyse-head" onClick={() => setShowAnalyse(true)} title="Upload a tender PDF: the AI reads it and fills in the tender"><Sparkles size={16} /> Analyse tender</button>
             <button type="button" className="btn btn-primary" onClick={openAddForm}><Plus size={16} /> Add tender</button>
           </div>
         </div>

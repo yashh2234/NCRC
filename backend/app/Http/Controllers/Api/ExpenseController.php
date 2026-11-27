@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\Timeline;
 use App\Http\Controllers\Controller;
 use App\Models\DailyExpense;
 use Illuminate\Http\JsonResponse;
@@ -76,6 +77,7 @@ class ExpenseController extends Controller
             'person_name' => $validated['person_name'] ?? '',
             'created_date' => now(),
         ]);
+        Timeline::log('DailyExpense', $nextId, 'created', 'Created · '.$validated['category']);
 
         return response()->json(['message' => 'Expense recorded'], 201);
     }

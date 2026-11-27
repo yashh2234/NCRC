@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseOrder extends Model
 {
+    use RecordsTimeline;
+
     protected $table = 'purchaseorder';
     protected $primaryKey = 'iPurchaseorderId';
     protected $keyType = 'int';

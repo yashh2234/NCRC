@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Pencil, Undo2 } from 'lucide-react'
 import { dotDate, money2, type BillContent, type DocApproval } from '../lib/bills'
 import { Modal } from './Modal'
+import { ScaledPreview } from './ScaledPreview'
 
 const LABELS: Record<string, string> = {
   credit_note_no: 'Credit Note No.', credit_note_date: 'Credit Note Dated', invoice_no: 'Invoice No.', invoice_date: 'Date', uid_no: 'UID No.', uid_date: 'UID Dated',
@@ -109,7 +110,7 @@ export function BillReview({ kind, subtitle, approval, preview, onClose, onDecid
           </div>
         ) : <p style={{ margin: 0, padding: '8px 12px', borderRadius: 8, background: '#f8fafc', color: '#475569', fontSize: '0.85rem' }}>New {kind}: it was never approved before.</p>}
 
-        <iframe title={`Preview of the ${kind}`} srcDoc={preview} style={{ width: '100%', height: 520, border: '1px solid #e2e8f0', borderRadius: 8, background: '#e5e7eb' }} />
+        <ScaledPreview title={`Preview of the ${kind}`} html={preview} />
       </div>
     </Modal>
   )

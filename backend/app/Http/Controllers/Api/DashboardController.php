@@ -290,7 +290,7 @@ class DashboardController extends Controller
         $queueItems = $jobs->map(function ($job) {
             $stageTracking = $job->activeStageTracking;
             $daysAtStage = $stageTracking && $stageTracking->entered_at
-                ? (int) now()->diffInDays($stageTracking->entered_at)
+                ? (int) \Illuminate\Support\Carbon::parse($stageTracking->entered_at)->diffInDays(now())
                 : 0;
 
             return [

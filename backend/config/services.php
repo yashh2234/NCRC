@@ -43,4 +43,11 @@ return [
         ],
     ],
 
+    // Phone / browser notifications (php artisan push:keys makes the key pair)
+    'webpush' => [
+        'subject' => env('WEBPUSH_SUBJECT', 'https://ncrc.namotech.in'),
+        'public_key' => env('WEBPUSH_PUBLIC_KEY', ''),
+        'private_key' => env('WEBPUSH_PRIVATE_KEY', ''),
+    ],
+
 ];

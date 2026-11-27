@@ -8,6 +8,7 @@
 
 Options -Indexes -MultiViews
 DirectoryIndex index.html
+AddType application/manifest+json .webmanifest
 
 # Every deploy overwrites this file, so the PHP 8.3 handler that MultiPHP Manager
 # writes here is kept in the template (value taken from the server).
@@ -57,6 +58,10 @@ DirectoryIndex index.html
     <Files "index.html">
         Header set Cache-Control "no-cache, must-revalidate"
     </Files>
+    # The app's service worker and manifest must be checked on every visit, or updates never arrive
+    <FilesMatch "^(sw\.js|manifest\.webmanifest)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>

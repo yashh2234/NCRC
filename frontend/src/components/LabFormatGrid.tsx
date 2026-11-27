@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { CircleMinus, Plus, RotateCcw } from 'lucide-react'
-import { LAB_FORMATS, effectiveValues, type Block, type Cell, type Line, type Values } from '../lib/labFormats'
+import { LAB_FORMATS, effectiveValues, type Block, type Cell, type Line, type Row, type Values } from '../lib/labFormats'
 import { addListRow, addTableRow, deletedCount, layoutBlocks, removeListRow, removeTableRow, restoreTable, type RowRef } from '../lib/labRows'
 import { ComboInput } from './ComboInput'
 import { chartSvg } from '../lib/labCharts'
+import { useMobileLayout } from '../mobile/useMobile'
 
 /**
  * TEST RESULTS entry laid out like the lab's Excel format: fixed test names/methods/limits as text,
@@ -19,6 +20,8 @@ export function LabFormatGrid({ formatKey, label, labData, details, updateLabDat
 }) {
   const format = LAB_FORMATS[formatKey]
   const { values, calc } = useMemo(() => effectiveValues(format, labData, details ?? []), [format, labData, details])
+  // Phone app: each row of the sheet is a card with labelled boxes
+  const [phone] = useMobileLayout()
   const set = (key: string) => (e: { target: { value: string } }) => updateLabData(key, e.target.value)
 
   const patch = (p: Values) => Object.entries(p).forEach(([key, value]) => updateLabData(key, value))
@@ -69,6 +72,76 @@ export function LabFormatGrid({ formatKey, label, labData, details, updateLabDat
             style={{ width: '100%', minWidth: cell.wide ? 240 : /_(cast|test|collect|date)$|^(test|collect)$/.test(cell.in) ? 112 : /^loc$|_(loc|name)$/.test(cell.in) ? 190 : 72, padding: '8px 10px', fontSize: '0.84rem', textAlign: cell.left || cell.wide ? 'left' : 'center' }} />}
         </div>
       </td>
+    )
+  }
+
+  if (phone) {
+    return (
+      <section className="lab-results m-lab">
+        <div className="m-lab__title">{format.name?.(values) ?? label} — Test Results</div>
+        {layoutBlocks(format, values).map((block, b) => {
+          const labels = columnLabels(block.head)
+          return (
+            <div key={b} className="m-lab__block">
+              {block.title ? <h3 className="m-lab__heading">{block.title}</h3> : null}
+              {renderLines(block.before)}
+              {block.heading ? <h3 className="m-lab__heading">{block.heading}</h3> : null}
+              {block.rows ? rowItems(block.rows).map((items, r) => {
+                const ref = block.refs?.[r]
+                const own = items.filter((x) => x.own && !('text' in x.cell))
+                const titles = [...new Set(items.filter((x) => 'text' in x.cell).map((x) => (x.cell as { text: string }).text.trim()).filter(Boolean))]
+                if (!own.length) {
+                  // Fixed lines (limits, "As per IS Code"): read only
+                  return titles.length ? <p key={r} className="m-lab__info">{titles.join(' · ')}</p> : null
+                }
+                return (
+                  <div key={r} className="m-lab__row">
+                    <div className="m-lab__rowhead">
+                      <strong>{titles.join(' · ') || `Row ${r + 1}`}</strong>
+                      {ref ? <button type="button" className="m-lab__del" onClick={() => deleteRow(ref, block.rows?.[r] ?? [])} aria-label={isSet(ref) ? 'Delete this set' : 'Delete this row'}><CircleMinus size={18} color="#dc2626" /></button> : null}
+                    </div>
+                    <div className="m-lab__fields">
+                      {own.map(({ cell, col }, k) => {
+                        const name = labels[col] || items.filter((x) => x.col < col && 'text' in x.cell).map((x) => (x.cell as { text: string }).text).at(-1) || ''
+                        if ('calc' in cell) {
+                          return <div key={k} className="m-lab__field m-lab__field--calc"><span>{name}</span><output>{calc[cell.calc] || '—'}</output></div>
+                        }
+                        if (!('in' in cell)) return null
+                        return (
+                          <label key={k} className={`m-lab__field${cell.wide ? ' m-lab__field--wide' : ''}`}>
+                            <span>{cell.prefix ? `${cell.prefix} ` : ''}{name}</span>
+                            {cell.options
+                              ? <ComboInput options={cell.options} value={values[cell.in] ?? ''} onChange={(x) => updateLabData(cell.in, x)} />
+                              : <input className="input" inputMode={/_(cast|test|collect|date|loc|name)$|^(test|collect|loc)$/.test(cell.in) || cell.wide ? 'text' : 'decimal'} value={showDate(values[cell.in])} onChange={set(cell.in)} />}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              }) : null}
+              {block.refs ? (
+                <div className="m-lab__add">
+                  {lastCubes(block).map((ref, k, all) => (
+                    <button key={k} type="button" style={addButton} onClick={() => addRow(ref)}><Plus size={15} /> Add cube{all.length > 1 ? ` (${String.fromCharCode(65 + k)})` : ''}</button>
+                  ))}
+                  <button type="button" style={addButton} onClick={() => addBelow(block)}><Plus size={15} /> {block.refs.some((r) => isSet(r)) ? 'Add set' : 'Add row'}</button>
+                  {block.table && deletedCount(labData, block.table) ? (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => patch(restoreTable(block.table as string))}><RotateCcw size={13} /> Restore deleted rows ({deletedCount(labData, block.table)})</button>
+                  ) : null}
+                </div>
+              ) : null}
+              {(() => {
+                const spec = block.chart?.(values, calc)
+                const svg = spec ? chartSvg(spec) : ''
+                return svg ? <div className="m-lab__chart" dangerouslySetInnerHTML={{ __html: svg }} /> : null
+              })()}
+              {renderLines(block.after)}
+              {block.footKey ? <input className="input" value={values[block.footKey] ?? ''} onChange={set(block.footKey)} style={{ width: '100%', marginTop: 10 }} /> : null}
+            </div>
+          )
+        })}
+      </section>
     )
   }
 
@@ -152,3 +225,41 @@ const gutterCell = { width: GUTTER, minWidth: GUTTER, padding: 0, border: 0, bac
 const addButton = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 16px', border: '1px dashed #86b79a', borderRadius: 6, background: '#f3faf5', color: '#15803d', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }
 const headerStyle = { background: '#000', color: '#fff', border: '1px solid #475569', padding: '12px 10px', fontSize: '0.74rem', lineHeight: 1.45, textTransform: 'uppercase' as const, textAlign: 'center' as const, whiteSpace: 'normal' as const, maxWidth: 260, verticalAlign: 'middle' as const }
 const cellStyle = { border: '1px solid #cbd5e1', padding: '9px 10px', verticalAlign: 'middle' as const, background: '#fff' }
+
+/** Heading of each column, from the head rows (spans resolved): "Weight / Mtr. – Observed" */
+function columnLabels(head: Row[] | undefined): string[] {
+  const grid: string[][] = []
+  head?.forEach((row, r) => {
+    grid[r] ??= []
+    let c = 0
+    for (const cell of row) {
+      while (grid[r][c] !== undefined) c++
+      const text = 'text' in cell ? cell.text.trim() : ''
+      for (let i = 0; i < (cell.rs ?? 1); i++) for (let j = 0; j < (cell.cs ?? 1); j++) (grid[r + i] ??= [])[c + j] = text
+      c += cell.cs ?? 1
+    }
+  })
+  const width = Math.max(0, ...grid.map((r) => r.length))
+  return Array.from({ length: width }, (_, c) => [...new Set(grid.map((r) => r[c]).filter(Boolean))].join(' – '))
+}
+
+/** The cells of each body row with their column; text spanning down from rows above is carried (own: false) */
+function rowItems(rows: Row[]): Array<Array<{ col: number; cell: Cell; own: boolean }>> {
+  const carry: Array<{ cell: Cell; left: number } | undefined> = []
+  return rows.map((row) => {
+    const items: Array<{ col: number; cell: Cell; own: boolean }> = []
+    carry.forEach((x, col) => { if (x && x.left > 0 && 'text' in x.cell) items.push({ col, cell: x.cell, own: false }) })
+    const taken = (col: number) => (carry[col]?.left ?? 0) > 0
+    let c = 0
+    const started: Array<[number, Cell]> = []
+    for (const cell of row) {
+      while (taken(c)) c++
+      items.push({ col: c, cell, own: true })
+      if ((cell.rs ?? 1) > 1) started.push([c, cell])
+      c += cell.cs ?? 1
+    }
+    carry.forEach((x) => { if (x) x.left -= 1 })
+    for (const [col, cell] of started) for (let j = 0; j < (cell.cs ?? 1); j++) carry[col + j] = { cell, left: (cell.rs ?? 1) - 1 }
+    return items.sort((a, b) => a.col - b.col)
+  })
+}

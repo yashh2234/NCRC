@@ -15,6 +15,7 @@ import {
 } from '../lib/quotations'
 import { useTracking } from '../lib/useTracking'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 type Editing = { id: number | null; form: QuotationInput; approval: QuotationApproval | null; remark?: string | null }
 
@@ -192,6 +193,7 @@ export default function QuotationsPage() {
                     {canApprove && r.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(r)}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={r.approval !== 'approved'} onClick={() => print(r)}><Printer size={16} /></button>
                     {canMail ? <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={r.approval !== 'approved'} onClick={() => mail(r)}><Mail size={16} /></button> : null}
+                    <HistoryButton type="Quotation" id={r.id} title={`Quotation ${r.quotation_no ?? ''} · ${r.client_name ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit" onClick={() => openEditor(r)}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(r)}><Trash2 size={16} /></button>
                   </td>

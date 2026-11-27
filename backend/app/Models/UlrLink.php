@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 
 class UlrLink extends Model
 {
+    use RecordsTimeline;
+
     protected $table = 'ulr_link';
     public $timestamps = false;
     protected $fillable = [

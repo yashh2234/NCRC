@@ -14,6 +14,7 @@ import {
 } from '../lib/bills'
 import { billPreview, openBillPrint, openPrintTab, type CreditNote } from '../lib/billPrint'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 interface BillingPageProps {
   /** Show only this UID's bills (from the Registrations "Bill" column) */
@@ -164,8 +165,8 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
   }
 
   const exportCsv = () => {
-    const head = ['Date', 'Invoice No', 'Company', 'UID', 'Client', 'Net Amount', 'Received', 'Due', 'Received Date', 'Mode', 'Status', 'Credit Note No', 'Credit Note Date', 'Remark']
-    const rows = filtered.map((b) => [dotDate(b.invoice_date), b.invoice_no, COMPANIES[b.company].short, b.uid_no, b.client_name, b.net_amount, b.amount_received, b.due_amount, dotDate(b.received_date), b.payment_mode, b.cancelled ? 'Cancelled' : 'Active', b.credit_note_no, dotDate(b.credit_note_date), b.remark])
+    const head = ['Date', 'Invoice No', 'Company', 'UID', 'Client', 'Total Amount', 'Advance', 'Received', 'Due', 'Received Date', 'Mode', 'Status', 'Credit Note No', 'Credit Note Date', 'Remark']
+    const rows = filtered.map((b) => [dotDate(b.invoice_date), b.invoice_no, COMPANIES[b.company].short, b.uid_no, b.client_name, b.total_amount, b.advance, b.amount_received, b.due_amount, dotDate(b.received_date), b.payment_mode, b.cancelled ? 'Cancelled' : 'Active', b.credit_note_no, dotDate(b.credit_note_date), b.remark])
     const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }))
@@ -232,12 +233,12 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
             <thead>
               <tr>
                 <th>Date</th><th>Invoice No</th><th>Company</th><th>UID</th><th>Client</th>
-                <th style={{ textAlign: 'right' }}>Net Amount</th><th style={{ textAlign: 'right' }}>Received</th><th style={{ textAlign: 'right' }}>Due</th><th>Actions</th>
+                <th style={{ textAlign: 'right' }}>Total Amount</th><th style={{ textAlign: 'right' }}>Advance</th><th style={{ textAlign: 'right' }}>Received</th><th style={{ textAlign: 'right' }}>Due</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="empty-state">{loading ? 'Loading invoices…' : list.length === 0 ? 'No invoices yet. Click “Create Invoice” to make the first one.' : 'No invoices match the filters.'}</td></tr>
+                <tr><td colSpan={10} className="empty-state">{loading ? 'Loading invoices…' : list.length === 0 ? 'No invoices yet. Click “Create Invoice” to make the first one.' : 'No invoices match the filters.'}</td></tr>
               ) : filtered.map((b) => (
                 <tr key={b.id} style={b.cancelled ? { background: '#fef2f2' } : undefined}>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(b.invoice_date) || '-'}</td>
@@ -249,13 +250,15 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
                   <td>{companyBadge(b.company)}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{b.uid_no || '-'}</td>
                   <td style={{ minWidth: 200, maxWidth: 320, whiteSpace: 'normal' }}>{b.client_name || '-'}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{inr(b.net_amount)}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{inr(b.total_amount)}</td>
+                  <td style={{ textAlign: 'right', color: '#475569', whiteSpace: 'nowrap' }}>{b.advance ? inr(b.advance) : '-'}</td>
                   <td style={{ textAlign: 'right', color: '#16a34a', whiteSpace: 'nowrap' }}>{b.amount_received ? inr(b.amount_received) : '-'}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600, color: b.cancelled ? '#94a3b8' : b.due_amount > 0 ? '#dc2626' : '#16a34a', whiteSpace: 'nowrap' }}>{b.cancelled ? '-' : b.due_amount > 0 ? inr(b.due_amount) : 'Paid'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {canApprove && b.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing({ bill: b, cn: false })}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={b.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={b.approval !== 'approved' && !(b.cancelled && b.credit_note_no)} onClick={() => (COMPANIES[b.company].seal ? setPrinting({ bill: b }) : openBillPrint(billToInput(b), false))}><Printer size={16} /></button>
                     {canMail ? <button className="icon-button" type="button" title={b.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={b.approval !== 'approved' && !(b.cancelled && b.credit_note_no)} onClick={() => mail(b)}><Mail size={16} /></button> : null}
+                    <HistoryButton type="Bill" id={b.id} title={`Invoice ${b.invoice_no ?? ''} · ${b.client_name ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit / record payment" onClick={() => void openEdit(b.id)}><Pencil size={16} /></button>
                     {b.cancelled ? (
                       <button className="icon-button" type="button" title="Undo cancel" onClick={() => void restore(b)}><RotateCcw size={16} /></button>
@@ -375,6 +378,7 @@ function CreditNoteTable({ rows, loading, empty, onPrint, onMail, onReview, onMa
                 {onReview && b.credit_note_no && b.cn_approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => onReview(b)}><ClipboardCheck size={16} /></button> : null}
                 <button className="icon-button" type="button" title={canPrintAny(b) ? 'Print / PDF' : 'Can be printed after approval'} disabled={!canPrintAny(b)} onClick={() => onPrint(b)}><Printer size={16} /></button>
                 {onMail ? <button className="icon-button" type="button" title={canPrintAny(b) ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={!canPrintAny(b)} onClick={() => onMail(b)}><Mail size={16} /></button> : null}
+                <HistoryButton type="Bill" id={b.id} title={`Credit note ${b.credit_note_no ?? ''} · ${b.client_name ?? ''}`} />
                 {b.credit_note_no
                   ? <button className="icon-button" type="button" title="Edit credit note" onClick={() => onEdit(b)}><Pencil size={16} /></button>
                   : <button className="icon-button" type="button" title="Make credit note" onClick={() => onMakeCn(b)}><FileMinus size={16} /></button>}
@@ -830,7 +834,7 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
         {!cn ? <div style={card}>
           <p className="section-label" style={{ marginTop: 0 }}>Payment received</p>
           <div style={grid}>
-            <label style={lbl}>Amount Received<input className="input" type="number" min={0} step="any" value={form.amount_received} onChange={(e) => set('amount_received', numVal(e.target.value))} /></label>
+            <label style={lbl}>Amount Received (total so far, incl. advance)<input className="input" type="number" min={0} step="any" value={form.amount_received} onChange={(e) => set('amount_received', numVal(e.target.value))} /></label>
             {dateField('Received Date', 'received_date')}
             {textField('Mode', 'payment_mode', 'NEFT / Cheque / Cash / UPI')}
           </div>
@@ -839,6 +843,10 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
           </label>
           <p style={{ margin: '12px 0 0', fontWeight: 700, color: t.due > 0 ? '#dc2626' : '#16a34a' }}>
             {t.due > 0 ? `Due: ${inr(t.due)}` : 'Fully paid'}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+            Total {inr(Math.round(t.total))} − received {inr(Number(form.amount_received) || 0)}
+            {t.advance > 0 ? ` · the advance of ${inr(t.advance)} counts only when it is included in Amount Received` : ''}
           </p>
         </div> : null}
       </div>

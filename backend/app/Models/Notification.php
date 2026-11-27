@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PushSender;
 use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
@@ -18,6 +19,12 @@ class Notification extends Model
         'read_at' => 'datetime',
         'created_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        // Also to the user's phones that allowed notifications
+        static::created(fn (Notification $n) => PushSender::queue($n));
+    }
 
     public function user()
     {

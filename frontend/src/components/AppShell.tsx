@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, Mail, FlaskConical, LogOut, LayoutDashboard, Users, ClipboardList, ReceiptText, BarChart3, ShieldCheck, IndianRupee, FileText, Settings, History, Check, Receipt, AlertTriangle, ClipboardCheck, Briefcase, Building2, ChevronDown, ChevronRight, Activity, PanelLeft, PhoneCall, FileSignature, FileMinus, FileClock, FolderOpen, CalendarCheck, CalendarDays, CalendarOff, UsersRound } from 'lucide-react'
+import { Bell, Mail, LogOut, LayoutDashboard, FileText, Check, ChevronDown, ChevronRight, PanelLeft, PhoneCall, FileSignature, FolderOpen, Smartphone } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -7,53 +7,9 @@ import { useUsageClock } from '../lib/useTracking'
 import { PunchButton } from './PunchButton'
 import { getRoleConfig } from '../lib/roleConfig'
 import { mailApi } from '../lib/mail'
+import { iconMap } from './navIcons'
+import { desktopForcedOnPhone } from '../mobile/useMobile'
 
-const iconMap: Record<string, LucideIcon> = {
-  dashboard: LayoutDashboard,
-  lab: FlaskConical,
-  users: Users,
-  roles: ShieldCheck,
-  clients: Building2,
-  registrations: ClipboardList,
-  billing: ReceiptText,
-  performa: FileClock,
-  credit_notes: FileMinus,
-  reports: BarChart3,
-  tenders: FileText,
-  admin: Users,
-  expenses: IndianRupee,
-  purchase_orders: FileText,
-  invoices: Receipt,
-  due_reports: AlertTriangle,
-  final_reports: ClipboardCheck,
-  ulr_add: FileText,
-  ulr_register: FileText,
-  ulr_links: FileText,
-  workflow_templates: Settings,
-  jobs: Briefcase,
-  permissions: ShieldCheck,
-  documents: FileText,
-  audit: History,
-  user_tracking: Activity,
-  my_attendance: CalendarCheck,
-  leave: CalendarOff,
-  holidays: CalendarDays,
-  team: UsersRound,
-  settings: Settings,
-  inquiries: PhoneCall,
-  quotations: ReceiptText,
-  proposals: FileSignature,
-  work_orders: FileText,
-  dispatches: FileText,
-  outsource: FlaskConical,
-  departments: Building2,
-  vendors: Building2,
-  tests: FlaskConical,
-  test_categories: FileText,
-  test_standards: FileText,
-  test_methods: FlaskConical,
-  designations: Users,
-}
 
 interface NavItem {
   key: string
@@ -439,6 +395,12 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
             </div>
 
             */}
+            {desktopForcedOnPhone() ? (
+              <button className="topbar-mail topbar-phone-layout" type="button" title="Use the phone layout" aria-label="Use the phone layout"
+                onClick={() => { localStorage.removeItem('force_desktop_layout'); window.location.reload() }}>
+                <Smartphone size={17} /> <span>App view</span>
+              </button>
+            ) : null}
             {user?.is_super_admin ? null : <PunchButton />}
             {showDocuments ? (
               <a className="topbar-mail" href={DOCUMENTS_URL} target="_blank" rel="noopener noreferrer" title="Open Namotech Documents in a new tab" aria-label="Documents">

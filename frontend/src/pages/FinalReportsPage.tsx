@@ -8,6 +8,7 @@ import { documentMailUrl, openMailWindow } from '../lib/mailTab'
 import { canUserAccess } from '../lib/roleConfig'
 import { DataTable } from '../components/DataTable'
 import { ReportEditPage } from './ReportEditPage'
+import { HistoryButton } from '../components/History'
 
 interface FinalReport {
   iReportId: number
@@ -235,6 +236,7 @@ export function FinalReportsPage() {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button className="icon-button" type="button" title="Print / PDF" disabled={printingId === r.iReportId} onClick={() => void handlePrint(r)}><Printer size={16} /></button>
           {canMail ? <button className="icon-button" type="button" title="Mail the PDF" onClick={() => openMailWindow(documentMailUrl('report', r.iReportId, false, r.report_type))}><Mail size={16} /></button> : null}
+          <HistoryButton type="Report" id={r.iReportId} title={`Report ${r.uid_no ?? ''}`} />
           <button className="icon-button" type="button" title="Edit report" onClick={() => setEditingReport({ type: r.report_type, id: r.iReportId })}><Pencil size={16} /></button>
           <button className="icon-button" type="button" title="Delete report" onClick={() => void handleDelete(r.iReportId)}><Trash2 size={16} /></button>
         </div>

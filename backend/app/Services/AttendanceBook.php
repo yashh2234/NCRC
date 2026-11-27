@@ -169,6 +169,7 @@ class AttendanceBook
 
         return [
             'lat' => $lat, 'lng' => $lng, 'accuracy' => $a->{"{$side}_accuracy"}, 'note' => $a->{"{$side}_note"}, 'ip' => $a->{"{$side}_ip"},
+            'selfie' => (bool) $a->{"{$side}_selfie"},
             'meters' => $meters,
             // The phone's own error counts in the user's favour, up to the office radius once more
             'at_office' => $meters === null ? null : $meters <= (int) $s['office_radius'] + min((int) $a->{"{$side}_accuracy"}, (int) $s['office_radius']),

@@ -1,0 +1,959 @@
+/* ===== Phone app layout (src/mobile) ===== */
+
+.m-app {
+  --m-bg: #f3f5f9;
+  --m-card: #ffffff;
+  --m-text: #0f172a;
+  --m-muted: #64748b;
+  --m-line: #e5e9f0;
+  --m-primary: #2563eb;
+  --m-primary-tint: #eaf1ff;
+  --m-navy: #0c2a63;
+  --m-green: #16a34a;
+  --m-red: #dc2626;
+  --m-amber: #d97706;
+  --m-radius: 16px;
+  --m-top: calc(56px + env(safe-area-inset-top));
+  --m-bottom: calc(64px + env(safe-area-inset-bottom));
+
+  min-height: 100dvh;
+  background: var(--m-bg);
+  color: var(--m-text);
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Top bar */
+.m-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 900; /* over sticky parts of computer pages, under popups (1000) */
+  height: var(--m-top);
+  padding: env(safe-area-inset-top) 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--m-card);
+  border-bottom: 1px solid var(--m-line);
+}
+.m-topbar h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-topbar--brand { padding-left: 14px; justify-content: space-between; }
+.m-topbar__logo { height: 38px; width: auto; }
+
+.m-icon-btn {
+  position: relative;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 12px;
+  background: transparent;
+  color: var(--m-text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.m-icon-btn:active { background: #eef1f6; }
+
+.m-badge {
+  position: absolute;
+  top: 4px; right: 2px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--m-red);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid var(--m-card);
+  box-sizing: content-box;
+}
+
+.m-offline {
+  position: fixed;
+  top: var(--m-top); left: 0; right: 0;
+  z-index: 49;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: #fff7e6;
+  color: #92400e;
+  font-size: 0.82rem;
+  border-bottom: 1px solid #fde68a;
+}
+
+/* Content area between the bars */
+.m-content {
+  padding: calc(var(--m-top) + 12px) 14px calc(var(--m-bottom) + 18px);
+  min-height: 100dvh;
+  box-sizing: border-box;
+}
+.m-topbar ~ .m-content--module,
+.m-content--module { padding: calc(var(--m-top) + 8px) 8px calc(24px + env(safe-area-inset-bottom)); }
+/* Pages made for the computer: no big outer spacing on a phone */
+.m-content--module .view,
+.m-content--module > div { max-width: 100%; }
+
+/* Bottom tabs */
+.m-tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 900;
+  height: var(--m-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--m-card);
+  border-top: 1px solid var(--m-line);
+  box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.05);
+}
+.m-tabbar button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  border: 0; background: transparent;
+  color: var(--m-muted);
+  font-size: 0.7rem; font-weight: 600;
+  cursor: pointer;
+}
+.m-tabbar button.active { color: var(--m-primary); }
+.m-tabbar__icon { position: relative; display: grid; place-items: center; width: 56px; height: 30px; border-radius: 999px; }
+.m-tabbar button.active .m-tabbar__icon { background: var(--m-primary-tint); }
+.m-tabbar__icon .m-badge { top: -4px; right: 4px; }
+.m-bell .m-badge { top: 5px; right: auto; left: 23px; }
+
+/* Pages */
+.m-page { display: flex; flex-direction: column; gap: 12px; }
+.m-page__head { display: flex; align-items: center; justify-content: space-between; }
+.m-page__head h1 { margin: 0; font-size: 1.4rem; font-weight: 800; }
+.m-heading { margin: 10px 2px 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--m-muted); }
+.m-toolbar { display: flex; justify-content: space-between; gap: 8px; }
+.m-hello { display: flex; flex-direction: column; padding: 4px 2px; }
+.m-hello h1 { margin: 0; font-size: 1.55rem; font-weight: 800; }
+
+.m-muted { color: var(--m-muted); }
+.m-small { font-size: 0.8rem; }
+.m-center { text-align: center; }
+
+.m-card {
+  background: var(--m-card);
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+button.m-card { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+button.m-card:active { background: #f7f9fc; }
+
+.m-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* Buttons */
+.m-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font: inherit; font-weight: 650; font-size: 0.92rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.m-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.m-btn--sm { min-height: 36px; padding: 0 12px; font-size: 0.84rem; }
+.m-btn--block { width: 100%; }
+.m-btn--primary { background: var(--m-primary); color: #fff; }
+.m-btn--success { background: var(--m-green); color: #fff; }
+.m-btn--danger { background: var(--m-red); color: #fff; }
+.m-btn--ghost { background: var(--m-card); border-color: var(--m-line); color: var(--m-text); }
+.m-btn--danger-text { color: var(--m-red); }
+.m-btn:not(:disabled):active { transform: scale(0.98); }
+.m-link { border: 0; background: none; color: var(--m-primary); font: inherit; font-weight: 600; padding: 4px 0; cursor: pointer; }
+
+/* Messages */
+.m-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: #f1f5f9; font-size: 0.86rem; line-height: 1.4; }
+.m-note svg { flex-shrink: 0; margin-top: 1px; }
+.m-note--ok { background: #ecfdf3; color: #166534; }
+.m-note--warn { background: #fff7e6; color: #92400e; }
+.m-error { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fef2f2; color: #b91c1c; font-size: 0.88rem; }
+.m-ok { margin: 0; padding: 10px 12px; border-radius: 12px; background: #ecfdf3; color: #166534; font-size: 0.88rem; }
+
+.m-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 20px; text-align: center; color: var(--m-muted); }
+.m-empty strong { color: var(--m-text); font-size: 1.05rem; }
+
+.m-skeleton-list { display: flex; flex-direction: column; gap: 10px; }
+.m-skeleton-list span { height: 84px; border-radius: var(--m-radius); background: linear-gradient(90deg, #e9edf3 0%, #f4f6fa 50%, #e9edf3 100%); background-size: 200% 100%; animation: mShimmer 1.2s infinite linear; }
+@keyframes mShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Home */
+.m-punch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; }
+.m-punch > div { display: flex; flex-direction: column; }
+.m-punch__time { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.01em; }
+.m-punch--in { background: linear-gradient(135deg, #ecfdf3, #ffffff); border-color: #bbf7d0; }
+
+.m-banner { display: flex; align-items: center; gap: 12px; padding: 14px; }
+.m-banner > svg { color: var(--m-primary); flex-shrink: 0; }
+.m-banner > div { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.m-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; }
+.m-stat svg { color: var(--m-primary); margin-bottom: 4px; }
+.m-stat strong { font-size: 1.6rem; font-weight: 800; }
+.m-stat span { font-size: 0.82rem; color: var(--m-muted); }
+
+.m-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 6px; }
+.m-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 4px 2px;
+  border: 0; background: transparent;
+  font: inherit; font-size: 0.74rem; font-weight: 600; color: var(--m-text);
+  text-align: center; line-height: 1.2;
+  cursor: pointer;
+}
+.m-tile > span { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 16px; background: var(--m-card); border: 1px solid var(--m-line); color: var(--m-primary); }
+.m-tile:active > span { background: var(--m-primary-tint); }
+
+/* Chips (filters) */
+.m-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.m-chips::-webkit-scrollbar { display: none; }
+.m-chips button { flex-shrink: 0; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--m-line); background: var(--m-card); font: inherit; font-size: 0.82rem; font-weight: 600; color: var(--m-text); cursor: pointer; }
+.m-chips button.active { background: var(--m-navy); border-color: var(--m-navy); color: #fff; }
+
+/* Approvals */
+.m-approval { overflow: hidden; }
+.m-approval__main {
+  position: relative;
+  width: 100%;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 14px 40px 10px 14px;
+  border: 0; background: transparent; text-align: left; font: inherit; color: inherit;
+  cursor: pointer;
+}
+.m-approval__main:disabled { cursor: default; opacity: 1; }
+.m-approval__main strong { font-size: 1rem; }
+.m-approval__detail { font-size: 0.88rem; color: #334155; line-height: 1.4; }
+.m-approval__chev { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--m-muted); }
+.m-approval__actions { display: flex; gap: 8px; padding: 0 14px 14px; }
+.m-approval__actions .m-btn { flex: 1; }
+
+.m-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; background: #eef2f7; color: #334155; }
+.m-tag--leave { background: #f3e8ff; color: #7e22ce; }
+.m-tag--attendance { background: #e0f2fe; color: #0369a1; }
+.m-tag--quotation { background: #fef3c7; color: #92400e; }
+.m-tag--bill, .m-tag--credit_note, .m-tag--performa { background: #dcfce7; color: #166534; }
+.m-tag--report { background: #e0e7ff; color: #3730a3; }
+
+/* Rows & menus */
+.m-rowcard { display: flex; align-items: center; gap: 10px; padding: 14px; }
+.m-rowcard__main { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.m-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.m-pill { padding: 2px 9px; border-radius: 999px; background: #eef2f7; color: #334155; font-size: 0.74rem; font-weight: 600; }
+.m-pill--blue { background: #dbeafe; color: #1d4ed8; }
+.m-pill--amber { background: #fef3c7; color: #92400e; }
+.m-pill--green { background: #dcfce7; color: #166534; }
+.m-pill--red { background: #fee2e2; color: #b91c1c; }
+
+.m-job { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; }
+.m-job__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.m-menu { display: flex; flex-direction: column; overflow: hidden; }
+.m-menu button {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 0; border-bottom: 1px solid var(--m-line);
+  background: transparent;
+  font: inherit; font-weight: 550; color: var(--m-text); text-align: left;
+  cursor: pointer;
+}
+.m-menu button:last-child { border-bottom: 0; }
+.m-menu button:active { background: #f7f9fc; }
+.m-menu button > svg:first-child { color: var(--m-primary); flex-shrink: 0; }
+.m-menu button > span { flex: 1; }
+.m-menu button > svg:last-child:not(:first-child) { color: #a0aec0; }
+.m-menu .m-menu__danger, .m-menu .m-menu__danger > svg:first-child { color: var(--m-red); }
+
+.m-profile { display: flex; align-items: center; gap: 14px; padding: 16px; }
+.m-profile > div { display: flex; flex-direction: column; }
+.m-avatar { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--m-navy); color: #fff; font-weight: 800; font-size: 1.2rem; }
+
+/* Notifications */
+.m-notif { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; }
+.m-notif.unread { border-left: 4px solid var(--m-primary); background: #f8fbff; }
+.m-notif__row { display: flex; justify-content: space-between; gap: 10px; }
+.m-notif__row strong { font-size: 0.93rem; }
+.m-notif__row span { flex-shrink: 0; }
+.m-notif__msg { font-size: 0.86rem; color: #334155; line-height: 1.4; }
+
+/* Settings */
+.m-section { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.m-section h2 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 1rem; font-weight: 700; }
+.m-section p { margin: 0; }
+.m-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.m-switch-row > div { display: flex; flex-direction: column; gap: 2px; }
+.m-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--m-line); cursor: pointer; }
+.m-toggle > span { display: flex; flex-direction: column; gap: 2px; }
+.m-toggle input {
+  appearance: none; -webkit-appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 48px; height: 28px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.m-toggle input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); transition: transform 0.15s; }
+.m-toggle input:checked { background: var(--m-green); }
+.m-toggle input:checked::after { transform: translateX(20px); }
+.m-toggle input:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 2px; }
+
+.m-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Form fields */
+.m-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.84rem; font-weight: 600; color: #334155; }
+.m-field input, .m-field textarea, .m-field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #cfd6e1;
+  border-radius: 12px;
+  background: #fff;
+  font: inherit; font-size: 16px; /* 16px stops iPhone zooming in */
+  font-weight: 400;
+  color: var(--m-text);
+  box-sizing: border-box;
+}
+.m-field input:focus, .m-field textarea:focus { outline: none; border-color: var(--m-primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+
+/* Bottom sheet */
+.m-sheet-backdrop {
+  position: fixed; inset: 0;
+  z-index: 1100;
+  display: flex; align-items: flex-end;
+  background: rgba(15, 23, 42, 0.5);
+  animation: mFade 0.15s ease-out;
+}
+.m-sheet {
+  width: 100%;
+  max-height: 94dvh;
+  display: flex; flex-direction: column;
+  background: var(--m-card, #fff);
+  border-radius: 20px 20px 0 0;
+  animation: mSlideUp 0.2s ease-out;
+}
+.m-sheet__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px 12px 8px 18px; }
+.m-sheet__head h2 { margin: 0; font-size: 1.2rem; font-weight: 800; }
+.m-sheet__head p { margin: 2px 0 0; color: var(--m-muted, #64748b); font-size: 0.86rem; }
+.m-sheet__body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 18px 12px; }
+.m-sheet__foot { padding: 10px 18px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--m-line, #e5e9f0); }
+@keyframes mFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mSlideUp { from { transform: translateY(40px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+
+/* Selfie camera */
+.m-camera {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 3 / 4;
+  max-height: 42dvh;
+  margin: 0 auto;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0f172a;
+}
+.m-camera video, .m-camera img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.m-camera video { transform: scaleX(-1); }
+.m-camera__msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: #e2e8f0; font-size: 0.88rem; }
+.m-row-buttons { display: flex; justify-content: center; gap: 8px; }
+
+/* "Use the phone layout" link in the computer layout, on a phone */
+.topbar-phone-layout { display: none; }
+@media (max-width: 768px) { .topbar-phone-layout { display: inline-flex; } }
+
+/* ===== Computer pages inside the phone app (.m-module) ===== */
+
+.m-module { min-width: 0; }
+/* Page frames made for wide screens */
+.m-module .page,
+.m-module .page-content,
+.m-module section,
+.m-module .table-card,
+.m-module .card { max-width: 100%; box-sizing: border-box; }
+.m-module .page-header,
+.m-module .dash-section-header,
+.m-module .user-toolbar,
+.m-module .dt-toolbar,
+.m-module .tb-toolbar,
+.m-module .page-actions,
+.m-module .form-actions,
+.m-module .modal-actions {
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+.m-module .page-header h1, .m-module .page-header h2 { font-size: 1.15rem; }
+.m-module .dt-toolbar__start, .m-module .dt-toolbar__meta { flex: 1 1 100%; flex-wrap: wrap; }
+.m-module .search-field, .m-module .dt-search { width: 100% !important; max-width: none !important; }
+
+/* Every button and field is easy to tap */
+.m-module button, .m-module .btn { min-height: 40px; }
+.m-module input:not([type="checkbox"]):not([type="radio"]), .m-module select, .m-module textarea { font-size: 16px !important; min-height: 42px; }
+
+/* Forms: one column */
+.m-module .form-grid, .m-module .field-row, .m-module .inq-form-grid, .m-module .hr-form, .m-module .user-form,
+.m-module .tb-settings-grid, .m-module .setting-row,
+.m-module .grid:has(input, select, textarea),
+.m-module [style*="grid-template-columns"]:has(input, select, textarea) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.m-module [class*="col-span"]:has(input, select, textarea) { grid-column: auto !important; }
+/* Number tiles: two per row */
+.m-module .metric-grid, .m-module .inq-metric-grid, .m-module .financial-grid, .m-module .pipeline-grid,
+.m-module .role-queue-grid, .m-module .my-tasks-grid,
+.m-module .grid:not(:has(input, select, textarea)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+/* Tabs scroll sideways instead of wrapping into several lines */
+.m-module [role="tablist"], .m-module .tabs, .m-module .hr-tabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.m-module [role="tablist"] > *, .m-module .tabs > *, .m-module .hr-tabs > * { flex-shrink: 0; }
+
+/* Tables people type into: keep the columns, scroll sideways */
+.m-module .table-wrap, .m-module :has(> table.m-scrolltable) { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+
+/* List tables: each row is a card */
+.m-module table.m-cardtable, .m-module table.m-cardtable tbody { display: block; width: 100% !important; min-width: 0 !important; border: 0; background: transparent; }
+.m-module table.m-cardtable thead { display: none; }
+.m-module table.m-cardtable tr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--m-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.m-module table.m-cardtable td {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex: 1 1 100%;
+  width: auto !important; min-width: 0 !important; max-width: none !important;
+  padding: 3px 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  text-align: right !important;
+  font-size: 0.9rem;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+.m-module table.m-cardtable td::before {
+  content: attr(data-label);
+  flex-shrink: 0;
+  max-width: 45%;
+  text-align: left;
+  color: var(--m-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.m-module table.m-cardtable td[data-label=""]::before { content: none; }
+.m-module table.m-cardtable td.m-titlecell {
+  order: -1;
+  justify-content: flex-start;
+  text-align: left !important;
+  font-size: 1rem;
+  font-weight: 700;
+  padding-bottom: 6px !important;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--m-line) !important;
+}
+.m-module table.m-cardtable td.m-titlecell::before { content: none; }
+.m-module table.m-cardtable td.m-fullcell { justify-content: center; text-align: center !important; }
+.m-module table.m-cardtable td.m-fullcell::before { content: none; }
+.m-module table.m-cardtable td.m-emptycell { display: none; }
+/* Cells with buttons: the buttons get the room */
+.m-module table.m-cardtable td:has(button, .btn, a.btn) { justify-content: flex-end; flex-wrap: wrap; }
+.m-module table.m-cardtable td:has(button, .btn, a.btn)::before { margin-right: auto; }
+.m-module table.m-cardtable tr.dt-row-clickable:active { background: #f7f9fc; }
+.m-module table.m-cardtable tfoot { display: block; }
+.m-module table.m-cardtable tfoot tr { background: #f8fafc; }
+
+/* ===== Popups on a phone: the whole screen ===== */
+@media (max-width: 768px) {
+  .ui-modal-overlay { padding: 0 !important; align-items: stretch !important; }
+  .ui-modal {
+    max-width: none !important;
+    width: 100% !important;
+    height: 100dvh;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+  }
+  .ui-modal__header { padding-top: calc(14px + env(safe-area-inset-top)); }
+  .ui-modal__body { padding: 14px 14px 18px; }
+  .ui-modal__footer { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .ui-modal__footer .btn { flex: 1 1 auto; min-height: 44px; }
+  .ui-modal input:not([type="checkbox"]):not([type="radio"]), .ui-modal select, .ui-modal textarea { font-size: 16px !important; }
+  .ui-modal .form-grid, .ui-modal .field-row, .ui-modal .inq-form-grid, .ui-modal .hr-form,
+  .ui-modal .grid:has(input, select, textarea),
+  .ui-modal [style*="grid-template-columns"]:has(input, select, textarea) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Number tiles of pages (inline 7-column grids): two per row, compact */
+.m-app .m-module .metric-grid[style], .m-app .m-module .inq-metric-grid[style], .m-app .m-module .metric-strip[style] {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+.m-app .m-module .metric-grid > *, .m-app .m-module .inq-metric-grid > * { padding: 10px 12px !important; min-height: 0 !important; }
+.m-app .m-module .metric-grid > * strong, .m-app .m-module .inq-metric-grid > * strong { font-size: 1.3rem !important; }
+
+/* From / To dates: one line each, the box takes the width */
+.m-module .date-range { display: grid !important; grid-template-columns: auto minmax(0, 1fr); width: 100%; gap: 8px 10px; }
+.m-module .date-range .date-input, .m-module .date-range input { width: 100% !important; min-width: 0 !important; flex: none !important; }
+.m-module .date-range__apply, .m-module .date-range__clear, .m-module .date-range__error { grid-column: 1 / -1; justify-self: start; }
+
+/* Phone numbers: a call button */
+.m-module a[href^="tel:"], .m-app .ui-modal a[href^="tel:"] {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #166534 !important;
+  font-weight: 600;
+  text-decoration: none;
+}
+.m-module a[href^="tel:"]::before, .m-app .ui-modal a[href^="tel:"]::before { content: '📞'; font-size: 0.8em; }
+
+/* ===== Lab results on a phone (LabFormatGrid / ExcelLabReportEditor phone view) ===== */
+.m-lab { display: flex; flex-direction: column; gap: 12px; }
+.m-lab__title { padding: 12px; border-radius: 12px; background: #0f172a; color: #fff; font-weight: 700; text-align: center; text-transform: uppercase; font-size: 0.86rem; line-height: 1.4; }
+.m-lab__block { display: flex; flex-direction: column; gap: 10px; }
+.m-lab__block > div[style*="margin-left"] { margin-left: 0 !important; padding: 4px 2px !important; }
+.m-lab__heading { margin: 8px 2px 0; font-size: 0.95rem; font-weight: 700; }
+.m-lab__info { margin: 0; padding: 8px 12px; border-radius: 10px; background: #f1f5f9; color: #334155; font-size: 0.84rem; }
+.m-lab__row { padding: 12px; border: 1px solid #dbe2ea; border-radius: 14px; background: #fff; }
+.m-lab__rowhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.m-lab__rowhead strong { font-size: 0.92rem; line-height: 1.35; }
+.m-lab__del { flex-shrink: 0; width: 36px; height: 36px; min-height: 0 !important; display: grid; place-items: center; border: 0; border-radius: 10px; background: #fef2f2; cursor: pointer; }
+.m-lab__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.m-lab__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 0.74rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.02em; }
+.m-lab__field--wide { grid-column: 1 / -1; }
+.m-lab__field .input, .m-lab__field input { width: 100%; min-width: 0 !important; font-size: 16px !important; text-transform: none; letter-spacing: 0; }
+.m-lab__field--calc output { display: block; padding: 10px 12px; border-radius: 10px; background: #f1f5f9; color: #0f172a; font-size: 0.95rem; font-weight: 700; text-transform: none; }
+.m-lab__add { display: flex; flex-wrap: wrap; gap: 10px; }
+.m-lab__chart { overflow-x: auto; }
+.m-lab__chart svg { max-width: 100%; height: auto; }
+
+/* Lab report edit page: the heading and the documents button wrap; less padding */
+.m-module .report-edit-surface { padding: 14px !important; }
+.m-module .report-edit-head { flex-wrap: wrap; gap: 10px; }
+.m-module .report-edit-head h2 { font-size: 1rem !important; padding: 8px 12px !important; overflow-wrap: anywhere; }
+.m-module .report-edit-head .btn { width: 100%; white-space: normal; }
+
+/* Older popups (.modal-overlay, e.g. the registration wizard): the whole screen in the app */
+.m-app .modal-overlay { padding: 0 !important; align-items: stretch !important; }
+.m-app .modal-overlay > .modal-content, .m-app .modal-overlay > .surface, .m-app .modal-overlay > * {
+  height: 100dvh; max-height: 100dvh !important; border-radius: 0 !important;
+  padding-top: calc(16px + env(safe-area-inset-top)) !important;
+}
+
+/* Card title that is a button (a name): stays left as the heading */
+.m-module table.m-cardtable td.m-titlecell:has(button, a) { justify-content: flex-start; }
+.m-module table.m-cardtable td.m-titlecell:has(button, a)::before { content: none; margin: 0; }
+
+/* Bottom bar settings */
+.m-barpreview { display: flex; gap: 4px; padding: 8px; border-radius: 14px; background: #f1f5f9; }
+.m-barpreview span { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; font-size: 0.66rem; font-weight: 600; color: var(--m-muted); text-align: center; overflow: hidden; text-overflow: ellipsis; }
+.m-barpreview span.on { background: #fff; color: var(--m-primary); }
+.m-menu button.m-menu__on { background: #f5f9ff; }
+.m-menu button:disabled { opacity: 0.45; }
+.m-order { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--m-primary); color: #fff; font-size: 0.75rem; font-weight: 700; flex: 0 0 auto !important; }
+.m-order--empty { background: transparent; border: 2px solid #cbd5e1; }
+.m-sticky-save { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+/* A computer page as a bottom-bar tab: room for the bar */
+.m-content--tabmodule { padding: calc(var(--m-top) + 8px) 8px calc(var(--m-bottom) + 18px); }
+.m-topbar--tab { padding-left: 16px; }
+.m-tabbar button > span:last-child { max-width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Proposal editor head on a phone: title on its own line, buttons below */
+@media (max-width: 768px) {
+  .proposal-editor-head { grid-template-columns: auto 1fr !important; }
+  .proposal-editor-head > div { grid-column: 1 / -1; justify-self: stretch !important; }
+  .proposal-editor-head > div .btn { flex: 1; }
+}
+/* In the phone app the bar is fixed at the top */
+.m-app .proposal-editor-head { top: var(--m-top) !important; }
+
+/* ===== One size for every button on the app's pages ===== */
+.m-module :is(.btn, .ghost-button, .icon-button, .icon-btn, .manage-btn, .btn-outline) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px !important;
+  height: auto;
+  padding: 0 14px;
+  border-radius: 10px !important;
+  font-size: 0.86rem !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.m-module :is(.btn-sm, .btn-xs) { min-height: 36px !important; padding: 0 12px; font-size: 0.82rem !important; }
+.m-module :is(.icon-button, .icon-btn) { width: 40px; min-width: 40px; padding: 0 !important; }
+.m-module svg { flex-shrink: 0; }
+
+/* Icon-only buttons (Export, Print, Mail, Edit, Delete…): square, the words are the label */
+.m-module .m-iconbtn {
+  width: 40px; min-width: 40px; max-width: 40px;
+  padding: 0 !important;
+  gap: 0 !important;
+  font-size: 0 !important;
+  overflow: hidden;
+}
+.m-module .m-iconbtn > :not(svg) { display: none !important; }
+.m-module .m-iconbtn svg { width: 18px !important; height: 18px !important; }
+/* In list cards: a little smaller, side by side */
+.m-module table.m-cardtable :is(.m-iconbtn, .icon-button, .icon-btn) { width: 38px; min-width: 38px; max-width: 38px; min-height: 38px !important; }
+.m-module table.m-cardtable td:has(button) { gap: 6px; }
+
+/* Main action (Create / New / Save): keeps its words, never squeezed */
+.m-module .btn-primary { flex: 0 0 auto; padding: 0 16px; font-weight: 600; }
+
+/* ===== Filters: search on its own line, then two per row ===== */
+.m-module :is(.search-field, .dt-search, input[type="search"]) { flex: 1 1 100% !important; width: 100% !important; }
+.m-module :not(label):not(.field-row):not(.form-grid) > :is(select, .dd-wrap):not(.ui-modal *) {
+  flex: 1 1 calc(50% - 8px);
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.m-module :not(label) > .dd-wrap > .dd-box { width: 100% !important; min-width: 0 !important; }
+.m-module .date-range { flex: 1 1 100%; }
+/* A row of filters and buttons keeps a steady gap */
+.m-module :is(div, section):has(> .search-field, > select, > .dd-wrap, > .date-range):not(label):not(.ui-modal *) {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Filter rows: wrap, two dropdowns per row */
+.m-module :is(div, section):has(> .search-field, > select, > .dd-wrap, > .date-range):not(label):not(.ui-modal *):not(.m-lab *) {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.m-module :is(div, section):has(> .search-field, > select, > .dd-wrap, > .date-range) > :is(select, .dd-wrap) { flex: 1 1 calc(50% - 4px) !important; }
+
+/* From / To on one line */
+.m-module .date-range { display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; }
+.m-module .date-range__label { font-size: 0.78rem; }
+.m-module .date-range .date-input input, .m-module .date-range input { font-size: 15px !important; padding-left: 8px !important; padding-right: 26px !important; }
+
+/* The main create button floats at the bottom right */
+.m-module .m-fab {
+  position: fixed !important;
+  right: 16px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 800;
+  min-height: 52px !important;
+  padding: 0 20px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  font-size: 0.95rem !important;
+}
+.m-content--tabmodule .m-module .m-fab { bottom: calc(var(--m-bottom) + 14px); }
+/* Room so the last card is not under the floating button */
+.m-module:has(.m-fab) { padding-bottom: 76px; }
+
+/* ===== Filters: closed = search + Filters button; open = bottom sheet ===== */
+.m-module [data-m-filters] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center;
+  gap: 8px !important;
+}
+.m-module [data-m-filters] > * { order: 2; }
+.m-module [data-m-filters] > :is(.search-field, .dt-search, :has(> input[placeholder^="Search" i]), :has(> .search-field)),
+.m-module [data-m-filters] > input[placeholder^="Search" i] { order: 0; flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+.m-module [data-m-filters] > .m-filter-toggle { order: 1; }
+
+/* Closed: the filters themselves wait in the sheet */
+.m-module [data-m-filters="closed"] > :is(select, .dd-wrap, .date-range, label),
+.m-module [data-m-filters="closed"] > :not(.m-filter-toggle):not(:has(input[placeholder^="Search" i])):has(select, .dd-wrap, .date-range),
+.m-module [data-m-filters="closed"] > :is(button, a):has(.lucide-download, .lucide-file-down, .lucide-sheet, .lucide-file-spreadsheet) {
+  display: none !important;
+}
+
+.m-filter-toggle {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 44px; min-height: 44px !important;
+  padding: 0 14px;
+  border: 1px solid #cfd6e1; border-radius: 12px;
+  background: #fff; color: #0f172a;
+  font: inherit; font-size: 0.88rem; font-weight: 600;
+  cursor: pointer;
+}
+.m-filter-toggle.is-set { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+.m-filter-toggle b { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #2563eb; color: #fff; font-size: 0.72rem; line-height: 20px; }
+/* Next to the search box: just the icon (and the count) */
+.m-module [data-m-filters="closed"]:has(input[placeholder^="Search" i]) > .m-filter-toggle > span { display: none; }
+.m-module [data-m-filters="closed"]:has(input[placeholder^="Search" i]) > .m-filter-toggle { width: 44px; padding: 0; }
+.m-module [data-m-filters="closed"]:has(input[placeholder^="Search" i]) > .m-filter-toggle.is-set { width: auto; padding: 0 10px; }
+/* No search box: the button takes the row */
+.m-module [data-m-filters="closed"]:not(:has(input[placeholder^="Search" i])) > .m-filter-toggle { flex: 1 1 100%; justify-content: flex-start; }
+
+/* Open: the row becomes a sheet from the bottom */
+.m-filter-backdrop { position: fixed; inset: 0; z-index: 950; background: rgba(15, 23, 42, 0.45); animation: mFade 0.15s ease-out; }
+.m-module [data-m-filters="open"] {
+  position: fixed !important;
+  left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important;
+  z-index: 960;
+  width: auto !important; max-width: none !important;
+  max-height: 82dvh; overflow-y: auto;
+  margin: 0 !important;
+  padding: 44px 16px calc(16px + env(safe-area-inset-bottom)) !important;
+  flex-direction: column; align-items: stretch !important; flex-wrap: nowrap !important;
+  gap: 12px !important;
+  background: #fff !important;
+  border: 0 !important;
+  border-radius: 20px 20px 0 0 !important;
+  box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.25);
+  animation: mSlideUp 0.2s ease-out;
+}
+.m-module [data-m-filters="open"]::before {
+  content: 'Filters';
+  position: absolute; top: 14px; left: 16px;
+  font-size: 1.05rem; font-weight: 800; color: #0f172a;
+}
+.m-module [data-m-filters="open"]::after {
+  content: '';
+  position: absolute; top: 6px; left: 50%; width: 40px; height: 4px; margin-left: -20px;
+  border-radius: 4px; background: #cbd5e1;
+}
+.m-module [data-m-filters="open"] > * { order: 0 !important; flex: none !important; width: 100% !important; max-width: none !important; }
+.m-module [data-m-filters="open"] :is(select, .dd-box, input) { width: 100% !important; min-height: 46px; }
+.m-module [data-m-filters="open"] .date-range { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); }
+.m-module [data-m-filters="open"] > .m-filter-toggle {
+  order: 99 !important;
+  height: 48px;
+  margin-top: 4px;
+  border: 0; background: #2563eb; color: #fff;
+}
+
+/* ===== Registration wizard on a phone: one bottom action bar ===== */
+.m-app .wizard-footer-actions {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 8px;
+  margin: 20px -16px -20px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: #fff; border-top: 1px solid #e5e9f0;
+  box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.06);
+}
+/* The two groups become one row */
+.m-app .wizard-footer-actions > div { display: contents !important; }
+.m-app .wizard-footer-actions .btn { min-height: 46px !important; border-radius: 12px !important; font-size: 0.9rem !important; justify-content: center; }
+/* Cancel: the × at the top does it */
+.m-app .wizard-footer-actions .btn:not(:has(svg)) { display: none !important; }
+/* Back and Delete: icon only */
+.m-app .wizard-footer-actions .btn:has(.lucide-arrow-left, .lucide-trash-2) {
+  flex: 0 0 46px; width: 46px; padding: 0 !important; font-size: 0 !important; gap: 0;
+}
+.m-app .wizard-footer-actions .btn:has(.lucide-arrow-left, .lucide-trash-2) svg { width: 18px; height: 18px; }
+/* Save and Next share the rest */
+.m-app .wizard-footer-actions .btn:not(:has(.lucide-arrow-left, .lucide-trash-2)) { flex: 1 1 0; min-width: 0; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Save next to Next: the quieter button */
+.m-app .wizard-footer-actions .btn-primary[type="submit"]:has(~ .btn-primary) { background: #fff !important; color: #1d4ed8 !important; border: 1px solid #93c5fd !important; box-shadow: none !important; }
+
+/* Filters, refined */
+/* The block holding the search (at any depth) comes first and takes the row */
+.m-module [data-m-filters] > :has(input[placeholder^="Search" i]) { order: 0; flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+.m-module [data-m-filters] > :has(input[placeholder^="Search" i]) :is(.search-field, input[placeholder^="Search" i]) { width: 100% !important; max-width: none !important; flex: 1 1 auto !important; }
+.m-module [data-m-filters] > :has(input[placeholder^="Search" i]):not(.search-field) { display: flex !important; gap: 8px; align-items: center; }
+/* While the sheet is open the floating button waits */
+.m-module:has([data-m-filters="open"]) .m-fab { display: none !important; }
+/* In the sheet: every control full width; search first; export with its words */
+.m-module [data-m-filters="open"] > :has(input[placeholder^="Search" i]) { order: -1 !important; }
+.m-module [data-m-filters="open"] :is(select, .dd-wrap, .dd-box, .search-field, .date-input) { width: 100% !important; max-width: none !important; flex: 1 1 100% !important; }
+.m-module [data-m-filters="open"] > div:has(select, .dd-wrap, .date-range) { display: flex !important; flex-direction: column; align-items: stretch !important; gap: 12px !important; }
+.m-module [data-m-filters="open"] .m-iconbtn {
+  width: 100% !important; max-width: none !important; min-height: 46px !important;
+  padding: 0 14px !important; gap: 8px !important; font-size: 0.9rem !important;
+}
+.m-module [data-m-filters="open"] .m-iconbtn > :not(svg) { display: inline !important; }
+
+/* Any sheet or popup open: the floating create button steps aside */
+body:has(:is(.ui-modal-overlay, .modal-overlay, .history-overlay, .m-sheet-backdrop, .m-filter-backdrop, [data-m-filters="open"], [role="dialog"])) .m-module .m-fab {
+  display: none !important;
+}
+
+/* Filters: the app's own dropdowns (button.dd-box) count as filters too */
+.m-module [data-m-filters="closed"] > button.dd-box { display: none !important; }
+.m-module [data-m-filters="closed"] > :not(.m-filter-toggle):not(:has(input[placeholder^="Search" i])):has(button.dd-box) { display: none !important; }
+.m-module [data-m-filters="open"] > button.dd-box { width: 100% !important; }
+.m-module [data-m-filters="open"] > :has(button.dd-box) { display: flex !important; flex-direction: column; gap: 12px; }
+/* Headings stay above the search and the Filters button */
+.m-module [data-m-filters] > :is(h1, h2, h3, h4, strong, :has(> h2), :has(> h3)) { order: -2; flex: 1 1 100%; }
+.m-module [data-m-filters="open"] > :is(h1, h2, h3, h4, strong, :has(> h2), :has(> h3)) { display: none !important; }
+/* A filter wrapper that was a grid becomes a column in the sheet */
+.m-module [data-m-filters="open"] > * { height: auto !important; min-height: 0; }
+
+/* ===== Top bar: back · centred title · bell ===== */
+.m-topbar {
+  display: grid !important;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 0;
+  padding-left: max(6px, env(safe-area-inset-left)) !important;
+  padding-right: max(6px, env(safe-area-inset-right)) !important;
+}
+.m-topbar h1 { text-align: center; font-size: 1.02rem; }
+.m-topbar > .m-icon-btn, .m-topbar__side { justify-self: center; }
+.m-topbar__side { width: 44px; height: 44px; }
+/* Home and own tabs: no white bar, the logo in the middle */
+.m-topbar--brand {
+  background: var(--m-bg) !important;
+  border-bottom: 0 !important;
+}
+.m-topbar--brand .m-topbar__logo { justify-self: center; height: 40px; }
+.m-topbar--tab { padding-left: max(6px, env(safe-area-inset-left)) !important; }
+
+/* Bell badge: inside the button, never cut at the screen edge */
+.m-bell .m-badge {
+  top: 6px !important; left: auto !important; right: 4px !important;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  font-size: 0.62rem; line-height: 16px;
+  border-width: 2px;
+}
+
+/* Bell badge: the top-right corner of the bell, the bell stays visible */
+.m-bell .m-badge { top: 5px !important; right: 1px !important; min-width: 15px; height: 15px; line-height: 15px; font-size: 0.6rem; padding: 0 4px; }
+
+/* Filter sheet: room under the title; the search box keeps its own layout */
+.m-module [data-m-filters="open"] { padding-top: 54px !important; }
+.m-module [data-m-filters="open"]::before { top: 18px; }
+.m-module [data-m-filters="open"] > :has(input[placeholder^="Search" i]):not(.search-field) { display: block !important; }
+.m-module [data-m-filters="open"] :is(.search-field, :has(> input[placeholder^="Search" i])) { position: relative; }
+/* (correction) wrapper with the search and other filters: a column; the loose search icon is not needed in the sheet */
+.m-module [data-m-filters="open"] > :has(input[placeholder^="Search" i]):not(.search-field) { display: flex !important; flex-direction: column; align-items: stretch; gap: 12px; }
+.m-module [data-m-filters="open"] svg.lucide-search { display: none !important; }
+.m-module [data-m-filters="open"] input[placeholder^="Search" i] { padding-left: 12px !important; }
+/* (correction) in the sheet's column the search block keeps its own height */
+.m-module [data-m-filters="open"] > :has(input[placeholder^="Search" i]),
+.m-module [data-m-filters="open"] > input[placeholder^="Search" i] { flex: none !important; height: auto !important; }
+
+/* Home: a bigger logo with room above it */
+.m-topbar--brand { height: calc(72px + env(safe-area-inset-top)) !important; padding-top: calc(10px + env(safe-area-inset-top)) !important; }
+.m-topbar--brand .m-topbar__logo { height: 52px !important; }
+.m-app:has(.m-topbar--brand) .m-content:not(.m-content--module) { padding-top: calc(72px + env(safe-area-inset-top) + 12px); }
+/* Bell: badge sits on the corner, the bell itself stays fully visible */
+.m-bell { overflow: visible; }
+.m-bell .m-badge { top: 3px !important; right: -1px !important; transform: none; min-width: 14px; height: 14px; line-height: 14px; font-size: 0.58rem; padding: 0 3px; border-width: 1.5px; }
+.m-bell svg { transform: translate(-3px, 2px); }
+
+/* ===== Number tiles on the phone: one row you swipe sideways ===== */
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] {
+  display: flex !important;
+  grid-template-columns: none !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  margin: 0 -8px 12px !important;
+  padding: 2px 8px 6px !important;
+  /* The edge fades: there is more to swipe */
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style]::-webkit-scrollbar { display: none; }
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 118px; max-width: 168px;
+  min-height: 0 !important;
+  padding: 10px 12px !important;
+  gap: 6px !important;
+  border-radius: 14px !important;
+  scroll-snap-align: start;
+}
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * > span { font-size: 0.74rem !important; white-space: normal; line-height: 1.25; }
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * > strong { font-size: 1.3rem !important; }
+/* Urgent ones first: red (≤ 4 days / overdue), then yellow */
+.m-app .m-module [data-urgent="red"] { order: -2; }
+.m-app .m-module [data-urgent="yellow"] { order: -1; }
+/* (correction) no snapping: it kept the old first tile in view when an urgent tile moved to the front */
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] { scroll-snap-type: none !important; overflow-anchor: none; }
+
+/* ===== Tenders on the phone ===== */
+/* Search and status on one row; the colour key on a small line below */
+.m-module .tender-filter-row { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; margin-bottom: 12px !important; }
+.m-module .tender-filter-row > div:first-child { flex: 1 1 0 !important; min-width: 0 !important; }
+.m-module .tender-filter-row > :is(.dd-wrap, button.dd-box, select) { flex: 0 0 132px !important; width: 132px !important; min-width: 0 !important; }
+.m-module .tender-filter-row > .filter-key { flex: 1 1 100%; padding-left: 2px; }
+/* Analyse tender: above the box, full width */
+.m-module .tender-analyse-top { display: flex !important; width: 100%; margin: 0 0 12px; min-height: 44px !important; color: #a21caf !important; border-color: #f0abfc !important; background: #fdf4ff !important; font-weight: 600; }
+.m-module .tender-analyse-head { display: none !important; }
+
+/* Number tiles: label and number close together, even spacing around the row */
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] { margin: 0 -8px 10px !important; padding: 0 8px 4px !important; }
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * { justify-content: flex-start !important; gap: 4px !important; padding: 10px 12px 12px !important; }
+.m-module .tender-filter-row > :is(.dd-wrap, button.dd-box, select) { flex: 0 0 148px !important; width: 148px !important; font-size: 0.95rem; padding-left: 12px !important; }
+/* Colour key and Analyse tender share one line */
+.m-module .tender-filter-row > .filter-key { flex: 1 1 auto !important; min-width: 0; align-self: center; }
+.m-module .tender-filter-row > .tender-analyse-top { flex: 0 0 auto !important; width: auto !important; margin: 0 !important; min-height: 38px !important; height: 38px; padding: 0 14px !important; font-size: 0.86rem !important; }
+/* (correction) Tenders: line 1 = search + status, line 2 = colour key + Analyse */
+.m-module .tender-filter-row > div:first-child { flex: 1 1 0 !important; min-width: calc(100% - 156px) !important; }
+.m-module .tender-filter-row > .filter-key { flex: 1 1 0 !important; min-width: 0 !important; order: 3; }
+.m-module .tender-filter-row > .tender-analyse-top { order: 4; }
+
+/* Number tiles: the label on one line (the tile grows), the number below it */
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  height: auto !important;
+  min-width: 0 !important; max-width: none !important;
+  overflow: visible !important;
+}
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * > span { white-space: nowrap !important; }
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * > strong { display: block; line-height: 1.15 !important; }
+
+/* Tenders: no colour key line on the phone (the tiles and rows show the colours) */
+.m-module .tender-filter-row > .filter-key { display: none !important; }
+.m-module .tender-filter-row > .tender-analyse-top { flex: 1 1 100% !important; width: 100% !important; justify-content: center; }
+
+/* Scrolled past it: a round Analyse button floats left of "Add tender" */
+.tender-analyse-fab { display: none; }
+.m-module .tender-analyse-fab.is-shown {
+  display: grid; place-items: center;
+  position: fixed; z-index: 800;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  width: 52px; height: 52px;
+  border: 1px solid #f0abfc; border-radius: 16px;
+  background: #fdf4ff; color: #a21caf;
+  box-shadow: 0 8px 24px rgba(162, 28, 175, 0.25);
+  cursor: pointer;
+}
+.m-content--tabmodule .m-module .tender-analyse-fab.is-shown { bottom: calc(var(--m-bottom) + 14px); }
+body:has(:is(.ui-modal-overlay, .modal-overlay, .history-overlay, .m-sheet-backdrop, .m-filter-backdrop, [role="dialog"])) .m-module .tender-analyse-fab { display: none !important; }
+/* Number tiles: a little taller */
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * { padding: 13px 14px 14px !important; gap: 6px !important; }
+/* Number tiles: no fade at the edge; one standard width (long labels still grow) */
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] { -webkit-mask-image: none !important; mask-image: none !important; }
+.m-app .m-module :is(.metric-grid, .inq-metric-grid, .metric-strip)[style] > * { min-width: 132px !important; }

@@ -165,11 +165,11 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 24 }}>
-      <div className="surface" style={{ padding: '28px 36px' }}>
+      <div className="surface report-edit-surface" style={{ padding: '28px 36px' }}>
       {error && <div className="error-banner">{error}</div>}
       {message && <div className="success-banner">{message}</div>}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="report-edit-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <h2 style={{ background: '#ff6600', padding: '8px 24px', color: '#fff', fontSize: '1.25rem', opacity: 0.8, borderRadius: 4, margin: 0 }}>
             UID No.- {report?.uid_no}

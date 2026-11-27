@@ -1,0 +1,63 @@
+/* ===== History panel (components/History.tsx) ===== */
+.history-overlay {
+  position: fixed; inset: 0; z-index: 1050;
+  display: flex; justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.35);
+  animation: historyFade 0.15s ease-out;
+}
+.history-panel {
+  width: min(460px, 100%);
+  height: 100%;
+  display: flex; flex-direction: column;
+  background: #fff;
+  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.2);
+  animation: historySlide 0.2s ease-out;
+}
+.history-panel__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px 14px 20px;
+  border-bottom: 1px solid #eef0f3;
+}
+.history-panel__kicker { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #64748b; }
+.history-panel__head h2 { margin: 2px 0 0; font-size: 1.05rem; font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
+.history-panel__close { width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: #64748b; cursor: pointer; }
+.history-panel__close:hover { background: #f1f5f9; color: #0f172a; }
+.history-panel__body { flex: 1; overflow-y: auto; padding: 8px 20px calc(24px + env(safe-area-inset-bottom)); }
+.history-panel__empty { margin: 24px 0; color: #64748b; text-align: center; font-size: 0.9rem; }
+.history-panel__error { margin: 16px 0; padding: 10px 12px; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 0.88rem; }
+
+.history-list { list-style: none; margin: 0; padding: 0; }
+.history-day { margin: 16px 0 8px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #94a3b8; }
+.history-item { position: relative; display: flex; gap: 12px; padding: 0 0 16px; }
+/* The line joining the steps */
+.history-item::before { content: ''; position: absolute; left: 14px; top: 30px; bottom: 0; width: 2px; background: #e2e8f0; }
+.history-list > li:last-child .history-item::before { display: none; }
+.history-item__dot { position: relative; z-index: 1; flex-shrink: 0; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; }
+.history-item__main { flex: 1; min-width: 0; padding-top: 4px; }
+.history-item__row { display: flex; justify-content: space-between; gap: 10px; }
+.history-item__row strong { font-size: 0.9rem; color: #0f172a; overflow-wrap: anywhere; }
+.history-item__row span { flex-shrink: 0; font-size: 0.78rem; color: #94a3b8; }
+.history-item__by { display: block; margin-top: 1px; font-size: 0.78rem; color: #64748b; }
+.history-changes { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #eef0f3; display: flex; flex-direction: column; gap: 6px; }
+.history-changes > div { display: grid; grid-template-columns: minmax(80px, 34%) 1fr; gap: 8px; font-size: 0.8rem; }
+.history-changes dt { color: #64748b; font-weight: 600; }
+.history-changes dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: #334155; overflow-wrap: anywhere; }
+.history-changes .from { color: #94a3b8; text-decoration: line-through; }
+.history-changes .to { color: #0f172a; font-weight: 600; }
+.history-changes svg { color: #94a3b8; flex-shrink: 0; }
+
+@keyframes historyFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes historySlide { from { transform: translateX(40px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+
+/* Phone: the whole screen */
+@media (max-width: 768px) {
+  .history-panel { width: 100%; box-shadow: none; animation-name: historyUp; }
+  .history-changes > div { grid-template-columns: 1fr; gap: 2px; }
+}
+@keyframes historyUp { from { transform: translateY(30px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+
+/* Opened from inside a list card (phone): not the card's right alignment */
+.history-overlay { text-align: left; white-space: normal; }
+.history-overlay * { text-align: left; }
+.history-item__row strong { flex: 1; min-width: 0; }
+.history-changes dt, .history-changes dd { justify-content: flex-start; }

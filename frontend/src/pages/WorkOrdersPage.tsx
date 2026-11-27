@@ -5,6 +5,7 @@ import { softTone } from '../lib/utils'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 type Registration = {
   iClientId?: number;
@@ -229,6 +230,7 @@ export default function WorkOrdersPage() {
                 </td>
                 <td>{wo.due_date || '-'}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
+                  <HistoryButton type="WorkOrder" id={wo.id} title={`Work order ${wo.work_order_no ?? ''}`} />
                   <button className="icon-button" type="button" title="Edit" aria-label="Edit" onClick={() => openEdit(wo)}><Pencil size={16} /></button>
                   <button className="icon-button" type="button" title="Delete" aria-label="Delete" onClick={() => handleDelete(wo.id)}><Trash2 size={16} /></button>
                   {wo.status === 'draft' && (

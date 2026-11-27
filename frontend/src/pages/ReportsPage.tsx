@@ -14,6 +14,7 @@ import { Pagination } from '../components/Pagination'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { formatDisplayDate } from '../lib/utils'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 interface ReportTypeInfo {
   key: string
@@ -296,6 +297,7 @@ export function ReportsPage({ defaultType }: { defaultType?: string }) {
                             {canApprove && report.status !== 'Complete' && report.status !== 'Cancel' ? <button className="icon-button" onClick={() => setApproving(report)} type="button" title="Approve report" aria-label={`Approve report ${report.uid_no}`}><CheckCircle2 size={16} /></button> : null}
                             <button className="icon-button" onClick={() => void handlePrint(report)} type="button" title={report.status === 'Complete' ? 'Print report' : 'Print draft (not approved yet)'} aria-label={`Print report ${report.uid_no}`}><Printer size={16} /></button>
                             {canMail && report.status === 'Complete' ? <button className="icon-button" onClick={() => openMailWindow(documentMailUrl('report', report.iReportId, false, rowType(report)))} type="button" title="Mail the PDF" aria-label={`Mail report ${report.uid_no}`}><Mail size={16} /></button> : null}
+                            <HistoryButton type="Report" id={report.iReportId} title={`Lab report ${report.uid_no ?? ''}`} />
                             <button className="icon-button" onClick={() => openReport(report)} type="button" title="Edit report" aria-label={`Edit report ${report.uid_no}`}><Pencil size={16} /></button>
                             <button className="icon-button" onClick={() => setRemoving(report)} type="button" title="Remove report" aria-label={`Remove report ${report.uid_no}`}><Trash2 size={16} /></button>
                           </div>

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use App\Services\BillApproval;
 use Illuminate\Database\Eloquent\Model;
 
 class Bill extends Model
 {
+    use RecordsTimeline;
+
     public const COMPANIES = ['ncrc', 'ncs'];
 
     protected $fillable = [
@@ -58,7 +61,11 @@ class Bill extends Model
         $data['cancelled'] = $this->cancelled_at !== null;
         // Credit value: the credit note's own total, else the full invoice value (before advance)
         $data['credit_amount'] = $this->credit_amount ?: round($this->subtotal + $this->cgst + $this->sgst + $this->igst + $this->transport);
-        $data['due_amount'] = $data['cancelled'] ? 0 : round(max(0, $this->net_amount - $this->amount_received), 2);
+        // Amount received is all money received so far, the advance included: due = full value − received
+        // (the print still shows the advance and Net Due = full value − advance)
+        $full = round($this->subtotal + $this->cgst + $this->sgst + $this->igst + $this->transport);
+        $data['total_amount'] = $full;
+        $data['due_amount'] = $data['cancelled'] ? 0 : round(max(0, $full - $this->amount_received), 2);
 
         // toArray() has the plain columns; what the screens need of the approval comes from here
         return array_merge($data, BillApproval::api($this), BillApproval::api($this, 'cn_'));

@@ -11,6 +11,7 @@ import {
   INQUIRY_STATUSES, CLOSED_STATUSES, WORK_CATEGORIES, ENQUIRY_SOURCES, SOURCE_DETAIL,
   statusInfo, followUpState, formatDate, formatDateTime,
 } from '../lib/inquiries'
+import { HistoryButton } from '../components/History'
 
 interface UserOption { id: number; name: string }
 
@@ -184,7 +185,7 @@ export function InquiriesPage() {
         {metricCards.map(({ label, value, tone, onClick }) => {
           const toneStyle = tone && value > 0 ? FOLLOW_UP_STYLES[tone] : null
           return (
-            <button type="button" key={label} onClick={onClick} className="metric-card" style={{ minHeight: 96, padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, textAlign: 'left', cursor: 'pointer', background: toneStyle ? toneStyle.background : '#fff', border: `1px solid ${toneStyle ? toneStyle.border : 'rgba(0, 0, 0, 0.08)'}`, borderRadius: 14, boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03)' }}>
+            <button type="button" key={label} onClick={onClick} className="metric-card" data-urgent={toneStyle ? tone : undefined} style={{ minHeight: 96, padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, textAlign: 'left', cursor: 'pointer', background: toneStyle ? toneStyle.background : '#fff', border: `1px solid ${toneStyle ? toneStyle.border : 'rgba(0, 0, 0, 0.08)'}`, borderRadius: 14, boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03)' }}>
               <span style={{ color: toneStyle ? toneStyle.color : '#737373', fontSize: '0.78rem', lineHeight: 1.3 }}>{label}</span>
               <strong style={{ color: toneStyle ? toneStyle.color : '#171717', fontSize: '1.6rem', lineHeight: 1, fontWeight: 750 }}>{value}</strong>
             </button>
@@ -258,6 +259,7 @@ export function InquiriesPage() {
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="icon-button" type="button" title="Log call / view history" onClick={() => openCall(inq)}><PhoneCall size={16} /></button>
+                      <HistoryButton type="Inquiry" id={inq.id} title={`Enquiry ${inq.inquiry_no ?? ''} · ${inq.client_name ?? ''}`} />
                       <button className="icon-button" type="button" title="Edit enquiry" onClick={() => openEdit(inq)}><Pencil size={16} /></button>
                       <button className="icon-button" type="button" title="Delete enquiry" onClick={() => void deleteInquiry(inq)}><Trash2 size={16} /></button>
                     </td>

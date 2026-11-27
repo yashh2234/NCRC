@@ -12,6 +12,8 @@
 @import "./css/hr.css";
 @import "./css/dropdown.css";
 @import "./css/responsive.css";
+@import "./css/mobile.css";
+@import "./css/history.css";
 
 /* Semantic color tokens used by Tailwind utilities in pages (bg-content1, text-default-900, …) */
 @theme {

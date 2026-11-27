@@ -7,6 +7,7 @@ import {
   knowledgeApi, type AiQuestion, type ProposalDraft, type ProposalInput, type ProposalSection, type ProposalSummary,
 } from '../lib/proposals'
 import { openProposalPrint } from '../lib/proposalPrint'
+import { HistoryButton } from '../components/History'
 
 const BRIEF_PLACEHOLDER = `Example:
 Client: The Secretary, Anukampa Platina, Jaipur (residential society).
@@ -132,6 +133,7 @@ export function ProposalsPage() {
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: '#15803d' }}>{p.total ? formatFee(p.total) : '-'}</td>
                   <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem', color: '#64748b' }}>{fmtUpdated(p.updated_at)}{p.updated_by ? <span style={{ display: 'block' }}>{p.updated_by}</span> : null}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
+                    <HistoryButton type="Proposal" id={p.id} title={`Proposal ${p.ref_no ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit" disabled={opening} onClick={() => void openEditor(p.id)}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Preview / print" onClick={() => void print(p.id)}><Printer size={16} /></button>
                     <button className="icon-button" type="button" title="Make a copy as a new proposal" disabled={opening} onClick={() => void openEditor(p.id, true)}><Copy size={16} /></button>
@@ -303,11 +305,16 @@ function ProposalEditor({ id, initial, onClose, onSaved }: { id: number | null; 
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', padding: '10px 0', marginBottom: 6, background: 'var(--bg, #f8fafc)' }}>
-        <button type="button" className="ghost-button" onClick={close} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><ArrowLeft size={16} /> Proposals</button>
-        <h2 style={{ margin: 0, fontSize: '1.1rem', flex: 1, minWidth: 200 }}>{id ? `Edit proposal ${form.ref_no}` : 'New proposal'}{dirty ? <span style={{ marginLeft: 8, fontSize: '0.75rem', color: '#b45309', fontWeight: 600 }}>● Unsaved</span> : null}</h2>
-        <button type="button" className="ghost-button" onClick={() => openProposalPrint(form)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} title="Open the letterhead layout in a new tab"><Eye size={16} /> Preview / Print</button>
-        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}><Save size={16} /> {saving ? 'Saving…' : 'Save'}</button>
+      <div className="proposal-editor-head" style={{ position: 'sticky', top: 'var(--topbar-height, 72px)', zIndex: 5, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 10, padding: '10px 0 14px', background: 'var(--color-bg, #f4f5f7)' }}>
+        <button type="button" onClick={close} style={{ justifySelf: 'start', display: 'inline-flex', alignItems: 'center', gap: 6, border: 0, background: 'none', padding: 0, color: '#475569', fontWeight: 600, cursor: 'pointer' }}><ArrowLeft size={16} /> Back</button>
+        <h2 style={{ margin: 0, fontSize: '1.1rem', textAlign: 'center', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {id ? `Edit proposal ${form.ref_no}` : 'New proposal'}
+          {dirty ? <span style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 600 }}>● Unsaved</span> : null}
+        </h2>
+        <div style={{ justifySelf: 'end', display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-outline" onClick={() => openProposalPrint(form)} title="Open the letterhead layout in a new tab"><Eye size={16} /> Preview / Print</button>
+          <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()}><Save size={16} /> {saving ? 'Saving…' : 'Save'}</button>
+        </div>
       </div>
       {notice ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#f0fdf4', color: '#166534', fontSize: '0.85rem' }}>{notice}</p> : null}
 

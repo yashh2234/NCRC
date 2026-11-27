@@ -23,7 +23,7 @@ export interface AttendanceDay {
   idle: number
 }
 
-export interface PunchPlace { lat: number | null; lng: number | null; accuracy: number | null; note: string | null; ip: string | null; meters: number | null; at_office: boolean | null }
+export interface PunchPlace { lat: number | null; lng: number | null; accuracy: number | null; note: string | null; ip: string | null; meters: number | null; at_office: boolean | null; /** A photo was taken with the punch (phone app) */ selfie?: boolean }
 
 export interface Spell {
   id: number
@@ -153,7 +153,7 @@ const data = <T>(promise: Promise<{ data: T }>) => promise.then((r) => r.data)
 
 export const hrApi = {
   status: () => data(request<{ data: AttendanceStatus }>('/attendance/status')),
-  punch: (body: { action: 'in' | 'out'; lat?: number; lng?: number; accuracy?: number; note?: string }) => data(request<{ data: Spell }>('/attendance/punch', json('POST', body))),
+  punch: (body: { action: 'in' | 'out'; lat?: number; lng?: number; accuracy?: number; note?: string; /** data URL from the phone camera */ selfie?: string }) => data(request<{ data: Spell }>('/attendance/punch', json('POST', body))),
   month: (month: string) => data(request<{ data: { days: AttendanceDay[]; spells: Spell[]; corrections: Correction[] } }>(`/attendance/month?month=${month}`)),
   requestCorrection: (body: { date: string; check_in: string; check_out: string; reason: string }) => data(request<{ data: Correction }>('/attendance/corrections', json('POST', body))),
   withdrawCorrection: (id: number) => request<{ message: string }>(`/attendance/corrections/${id}`, json('DELETE')),

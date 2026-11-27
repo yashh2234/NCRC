@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RecordsTimeline;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Quotation extends Model
 {
+    use RecordsTimeline;
+
     protected $table = 'quotations';
 
     public const STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'];

@@ -75,6 +75,8 @@ class User extends Authenticatable
             'is_admin' => 'boolean',
             'is_active' => 'boolean',
             'allowed_modules' => 'array',
+            'push_prefs' => 'array',
+            'app_prefs' => 'array',
             'date_of_birth' => 'date:Y-m-d',
         ];
     }

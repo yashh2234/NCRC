@@ -13,6 +13,7 @@ import { emptyPerforma, performaApi, performaToInput, type Performa } from '../l
 import { useTracking } from '../lib/useTracking'
 import { UidSearch } from './BillingPage'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 type Editing = { id: number | null; form: BillInput }
 
@@ -141,6 +142,7 @@ export function PerformaPage() {
                     {canApprove && p.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(p)}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: false })}><Printer size={16} /></button>
                     {canMail ? <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: true })}><Mail size={16} /></button> : null}
+                    <HistoryButton type="PerformaInvoice" id={p.id} title={`Performa ${p.invoice_no ?? ''} · ${p.client_name ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit" onClick={() => setEditing({ id: p.id, form: performaToInput(p) })}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(p)}><Trash2 size={16} /></button>
                   </td>

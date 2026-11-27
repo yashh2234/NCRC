@@ -77,6 +77,8 @@ export interface Bill extends DocApproval, CnApproval, Omit<BillInput, 'items' |
   advance: number
   net_amount: number
   amount_received: number
+  /** Full value before the advance (items + GST + transport) */
+  total_amount: number
   due_amount: number
   cancelled: boolean
   cancelled_at: string | null
@@ -196,7 +198,8 @@ export function calcBill(b: Pick<BillInput, 'company' | 'items' | 'gst_type' | '
   const total = r2(taxable + cgst + sgst + igst + transport)
   const advance = r2(num(b.advance))
   const net = Math.round(total - advance)
-  const due = Math.max(0, r2(net - num(b.amount_received)))
+  // Amount received = all money received so far, advance included (the print still shows Net Due = total − advance)
+  const due = Math.max(0, r2(Math.round(total) - num(b.amount_received)))
   return { subtotal, transport, cgst, sgst, igst, total, advance, net, due }
 }
 

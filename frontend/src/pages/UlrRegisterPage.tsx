@@ -6,6 +6,7 @@ import { useTracking } from '../lib/useTracking'
 import { Modal } from '../components/Modal'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 /**
  * Manage ULR Register. Same features as the old software's ulrlink/ulr_register:
@@ -223,7 +224,8 @@ export function UlrRegisterPage() {
                   <td>{r.name_of_agency}</td>
                   <td>{r.name_of_project}</td>
                   <td>{r.sample_details}</td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <HistoryButton type="UlrLink" id={r.id} title={`ULR ${r.ulr_no ?? ''}`} />
                     <button
                       type="button"
                       className="icon-button"

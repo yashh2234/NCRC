@@ -5,6 +5,7 @@ import { softTone } from '../lib/utils'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
+import { HistoryButton } from '../components/History'
 
 type WorkOrderOption = {
   id: number;
@@ -242,6 +243,7 @@ export default function OutsourcePage() {
                       {canApprove && v.approval_status === 'pending' && (
                         <button className="btn btn-sm" type="button" style={softTone('#dc2626')} onClick={() => setApproval(v, 'rejected')}>Reject</button>
                       )}
+                      <HistoryButton type="Vendor" id={v.id} title={`Vendor ${v.vendor_name ?? ''}`} />
                       <button className="icon-button" type="button" title="Edit" aria-label="Edit vendor" onClick={() => setVendorForm({ id: v.id, vendor_name: v.vendor_name, mobile: v.mobile || '' })}><Pencil size={16} /></button>
                       <button className="icon-button" type="button" title="Delete" aria-label="Delete vendor" onClick={() => deleteVendor(v)}><Trash2 size={16} /></button>
                     </td>
@@ -321,6 +323,7 @@ export default function OutsourcePage() {
                 </td>
                 <td>{a.delivery_date || '-'}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
+                  <HistoryButton type="OutsourceAssignment" id={a.id} title={`Outsource · ${a.party_name ?? ''}`} />
                   <button className="icon-button" type="button" title="Edit" aria-label="Edit assignment" onClick={() => openEdit(a)}><Pencil size={16} /></button>
                   <button className="icon-button" type="button" title="Delete" aria-label="Delete assignment" onClick={() => handleDelete(a.id)}><Trash2 size={16} /></button>
                   {a.status === 'assigned' && (
