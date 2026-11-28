@@ -3,6 +3,9 @@
 .env
 .env.backup
 .env.production
+# Editor rescue copies of .env (nano writes .env.save when an edit is cut off): they hold the secrets
+.env.save
+*.save
 .phpactor.json
 .phpunit.result.cache
 /.codex
