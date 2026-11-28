@@ -6,7 +6,8 @@
  */
 import { BILL_CSS, esc, fmtQty } from './billPrint'
 import { COMPANIES, SERVICES, dotDate, money2 } from './bills'
-import { calcQuotation, itemNumbers, itemUsed, quotationItemAmount, quotationLines, validityText, type QuotationInput, type QuotationSection } from './quotations'
+import { calcQuotation, itemNumbers, itemUsed, quotationItemAmount, quotationLines, type QuotationInput, type QuotationSection } from './quotations'
+import { addPrintBackBar } from './printBack'
 
 const CSS = `
 .page { display: block; padding: 0; }
@@ -149,7 +150,6 @@ function sourceHtml(q: QuotationInput): string {
   const origin = window.location.origin
 
   const docRows: [string, string][] = [['Quotation No.', q.quotation_no], ['Date', dotDate(q.date)]]
-  if (q.valid_until) docRows.push(['Valid Till', dotDate(q.valid_until)])
   const header = `
     <div class="head-block">
       <div class="header">
@@ -221,7 +221,7 @@ function sourceHtml(q: QuotationInput): string {
 
   const bank = co.bank
   const commercial: [string, string][] = [
-    ['GSTIN', co.gstin], ['PAN', co.pan], ['Payment Terms', q.payment_terms.trim()], ['Validity', validityText(q.date, q.valid_until)],
+    ['GSTIN', co.gstin], ['PAN', co.pan], ['Payment Terms', q.payment_terms.trim()],
   ]
   const commercialRows = commercial.filter(([, v]) => v).map(([k, v]) => `<tr><td class="k">${k}</td><td class="v text">${esc(v)}</td></tr>`).join('')
   const terms = `
@@ -572,4 +572,5 @@ export function printQuotation(w: Window, q: QuotationInput, withSign: boolean) 
   w.document.open()
   w.document.write(quotationDocument(q, withSign, 'setTimeout(function () { window.print() }, 150)'))
   w.document.close()
+  addPrintBackBar(w)
 }

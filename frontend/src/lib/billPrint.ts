@@ -10,6 +10,7 @@
  * With / without sign is chosen before opening; the print dialog opens by itself ("Save as PDF" gives the PDF).
  */
 import { COMPANIES, DEFAULT_HSN, DEFAULT_SAC, SERVICES, amountWords, calcBill, dotDate, itemAmount, money2, type BillInput } from './bills'
+import { addPrintBackBar } from './printBack'
 
 /** Credit note against a cancelled invoice */
 export interface CreditNote { no: string; date: string }
@@ -330,6 +331,7 @@ function printInto(w: Window | null, html: string) {
   // No toolbar: sign was chosen in the app; the print dialog opens by itself
   w.document.write(html)
   w.document.close()
+  addPrintBackBar(w)
 }
 
 const PRINT = 'setTimeout(function () { window.print() }, 150)'

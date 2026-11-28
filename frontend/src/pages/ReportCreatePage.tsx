@@ -9,6 +9,7 @@ import { CUBE_MATERIALS, LAB_FORMATS, cubeMaterialPatch, cubeSetsFromGrid, effec
 import { shownCounts } from '../lib/labRows'
 import { Select } from '../components/Select'
 import { ComboInput } from '../components/ComboInput'
+import { showSaved } from '../lib/toast'
 
 /**
  * Create Report.
@@ -187,6 +188,7 @@ export function ReportCreatePage({ types, defaultType, onBack, onCreated }: {
       }
       if (isCube) await api.createCubeReport(payload)
       else await api.createLabReport(reportType, payload)
+      showSaved('Report created')
       onCreated()
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error && err.message ? err.message : 'Unable to create lab report' })

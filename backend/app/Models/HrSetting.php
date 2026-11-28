@@ -16,7 +16,9 @@ class HrSetting extends Model
         'office_lat' => null,
         'office_lng' => null,
         'office_radius' => 200,
-        'daily_summary' => true,
+        'daily_summary' => false,
+        // Checking in after this (first check in of a working day) tells the admins "late"
+        'office_start' => '09:30',
     ];
 
     protected $table = 'hr_settings';

@@ -84,6 +84,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
     Route::get('/sessions', [AuthController::class, 'sessions']);
     Route::delete('/sessions/{session}', [AuthController::class, 'revokeSession']);
+    // Home dashboard: the user's own cards
+    Route::get('/home-dashboard', [\App\Http\Controllers\Api\HomeDashboardController::class, 'show']);
+    Route::put('/home-dashboard/layout', [\App\Http\Controllers\Api\HomeDashboardController::class, 'saveLayout']);
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('/dashboard/trends', [DashboardController::class, 'trends']);
     Route::get('/dashboard/my-queue', [DashboardController::class, 'myQueue']);

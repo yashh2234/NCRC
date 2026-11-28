@@ -6,6 +6,8 @@ import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 type Registration = {
   iClientId?: number;
@@ -137,6 +139,7 @@ export default function WorkOrdersPage() {
       await request(url, { method, body: JSON.stringify(form) });
       setShowModal(false);
       fetchWorkOrders();
+      showSaved('Saved work order');
     } catch (e: any) { alert(e.message || 'Save failed'); }
   };
 
@@ -211,7 +214,7 @@ export default function WorkOrdersPage() {
               <tr><td colSpan={9}>No work orders found</td></tr>
             ) : workOrders.map((wo) => (
               <tr key={wo.id}>
-                <td><strong>{wo.work_order_no}</strong></td>
+                <td><NoLink title="Open work order" onClick={() => openEdit(wo)}>{wo.work_order_no}</NoLink></td>
                 <td>
                   <span className="badge" style={softTone('#8b5cf6')}>
                     {getUidForRegistration(wo.registration_id)}

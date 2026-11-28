@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\AttendanceCorrection;
+use App\Models\HrSetting;
+use App\Models\User;
+use App\Services\AdminAlert;
 use App\Services\AttendanceBook;
 use App\Services\WorkCalendar;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +37,12 @@ class AttendanceController extends Controller
             // The last day ended without a check out: the user can ask for a correction
             'forgot_on' => $last?->auto_closed ? $last->date->toDateString() : null,
             'kept' => $this->book->people()->contains('id', $user->id),
+            // The app shows the check in popup and does not let it be closed
+            'must_check_in' => $this->book->mustCheckIn($user),
+            // No check out on an earlier day: its time is typed before checking in
+            'missed_out' => ($missed = $this->book->missedCheckOut($user->id)) ? [
+                'id' => $missed->id, 'date' => $missed->date->toDateString(), 'check_in_at' => $missed->check_in_at->toIso8601String(),
+            ] : null,
         ]]);
     }
 
@@ -47,7 +56,11 @@ class AttendanceController extends Controller
             'note' => ['nullable', 'string', 'max:250'],
             // From the phone app: a photo taken with the front camera, as a data URL
             'selfie' => ['nullable', 'string', 'max:3000000'],
+            // The time the user left on a day they forgot to check out, typed before checking in
+            'missed_out' => ['nullable', 'date_format:H:i'],
         ]);
+        $user = $request->user();
+        $typed = $values['action'] === 'in' ? $this->typeMissedOut($user, $values['missed_out'] ?? null) : null;
         $selfie = isset($values['selfie']) ? $this->selfieImage($values['selfie']) : null;
         $located = isset($values['lat'], $values['lng']);
         abort_if($values['action'] === 'in' && ! $located && blank($values['note'] ?? null), 422, 'Allow the location, or write where you are working today.');
@@ -65,7 +78,37 @@ class AttendanceController extends Controller
             $row->forceFill(["{$side}_selfie" => $path])->save();
         }
 
+        $side = $values['action'] === 'in' ? 'in' : 'out';
+        $time = ($side === 'in' ? $row->check_in_at : $row->check_out_at)->setTimezone(WorkCalendar::ZONE)->format('H:i');
+        AdminAlert::send('team_'.$side, "{$user->name} checked {$side} {$time}", $this->book->placeText($row, $side), ['user_id' => $user->id], $user->id);
+        if ($side === 'in' && ($late = $this->book->lateBy($row))) {
+            $start = HrSetting::values()['office_start'];
+            AdminAlert::send('team_late', "{$user->name} is late: in at {$time}",
+                ($late >= 60 ? intdiv($late, 60).' h '.($late % 60).' min' : "{$late} min").' after '.$start, ['user_id' => $user->id], $user->id);
+        }
+        if ($typed) {
+            AdminAlert::send('team_missed', "{$user->name} typed a missed check out",
+                "{$typed->date->format('d-m-Y')}: left at {$typed->check_out_at->setTimezone(WorkCalendar::ZONE)->format('H:i')} (entered later)", ['user_id' => $user->id], $user->id);
+        }
+
         return response()->json(['data' => $this->book->present($row)]);
+    }
+
+    /** Before checking in: the check out time of the last day that had none, typed by the user */
+    private function typeMissedOut(User $user, ?string $time): ?Attendance
+    {
+        $this->book->closeForgotten($user->id);
+        $missed = $this->book->missedCheckOut($user->id);
+        if (! $missed) {
+            return null;
+        }
+        abort_if(blank($time), 422, 'You did not check out on '.$missed->date->format('d-m-Y').'. Enter the time you left that day.');
+        $out = Carbon::parse($missed->date->toDateString().' '.$time, WorkCalendar::ZONE);
+        $in = $missed->check_in_at->copy()->setTimezone(WorkCalendar::ZONE);
+        abort_unless($out->gt($in), 422, 'The time you left must be after you checked in that day ('.$in->format('H:i').').');
+        $missed->update(['check_out_at' => $out, 'out_entered' => true]);
+
+        return $missed;
     }
 
     /** The punch photo: for the user and for administrators only */

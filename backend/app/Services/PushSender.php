@@ -27,6 +27,47 @@ class PushSender
         'other' => 'Everything else',
     ];
 
+    /**
+     * Kinds with a switch of their own (the notification type => what it is, its group, admins only).
+     * A kind switched off is not sent to the phone; it still shows in the bell list.
+     */
+    public const KINDS = [
+        'team_in' => ['Check ins', 'Attendance', true],
+        'team_out' => ['Check outs', 'Attendance', true],
+        'team_missed' => ['Missed check outs typed later', 'Attendance', true],
+        'team_late' => ['Late check ins', 'Attendance', true],
+        'team_not_in' => ['Not checked in by 11:00', 'Attendance', true],
+        'activity_inquiries' => ['New enquiries', 'New work', true],
+        'activity_quotations' => ['Quotation sent / accepted / rejected', 'New work', true],
+        'activity_work_orders' => ['New work orders', 'New work', true],
+        'activity_tenders' => ['New tenders', 'New work', true],
+        'activity_proposals' => ['New proposals', 'New work', true],
+        'activity_registrations' => ['New registrations (UID)', 'New work', true],
+        'activity_expenses' => ['New expenses', 'New work', true],
+        'activity_purchase_orders' => ['New purchase orders', 'New work', true],
+        'activity_clients' => ['New clients', 'New work', true],
+        'activity_billing' => ['Invoices cancelled', 'New work', true],
+        'remind_followup' => ['Enquiry follow-ups due', 'Reminders', false],
+        'remind_tender' => ['Tenders closing soon', 'Reminders', false],
+        'remind_invoice' => ['Invoices unpaid 30 / 60 / 90 days', 'Reminders', true],
+        'remind_report' => ['Reports pending more than 2 days', 'Reminders', false],
+        'remind_approval' => ['Approvals waiting more than a day', 'Reminders', false],
+    ];
+
+    /** The kinds the user can switch: all of them for full admins, the others for everyone */
+    public static function kindsFor(?User $user): array
+    {
+        $admin = (bool) $user?->isFullAdmin();
+        $list = [];
+        foreach (self::KINDS as $key => [$label, $group, $adminOnly]) {
+            if ($admin || ! $adminOnly) {
+                $list[] = ['key' => $key, 'label' => $label, 'group' => $group];
+            }
+        }
+
+        return $list;
+    }
+
     /** @var array<int, Notification> */
     private static array $queue = [];
 
@@ -55,8 +96,14 @@ class PushSender
             $categories[$key] = (bool) ($saved['categories'][$key] ?? true);
         }
 
+        $kinds = [];
+        foreach (array_keys(self::KINDS) as $key) {
+            $kinds[$key] = (bool) ($saved['kinds'][$key] ?? true);
+        }
+
         return [
             'categories' => $categories,
+            'kinds' => $kinds,
             'quiet_from' => $saved['quiet_from'] ?? null,
             'quiet_to' => $saved['quiet_to'] ?? null,
         ];
@@ -181,7 +228,8 @@ class PushSender
     private function wanted(User $user, string $type): bool
     {
         $prefs = self::prefs($user);
-        if (! ($prefs['categories'][self::category($type)] ?? true)) {
+        // A kind with its own switch goes by that switch only
+        if (isset(self::KINDS[$type]) ? ! $prefs['kinds'][$type] : ! ($prefs['categories'][self::category($type)] ?? true)) {
             return false;
         }
 

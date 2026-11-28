@@ -92,8 +92,9 @@ export function useOnline(): boolean {
 
 // ─── Phone notifications ─────────────────────────────────────────────
 
-export interface PushPrefs { categories: Record<string, boolean>; quiet_from: string | null; quiet_to: string | null }
-export interface PushConfig { public_key: string | null; prefs: PushPrefs; categories: Array<{ key: string; label: string }>; devices: number }
+export interface PushPrefs { categories: Record<string, boolean>; /** One switch per kind: check ins, new enquiries, reminders… */ kinds: Record<string, boolean>; quiet_from: string | null; quiet_to: string | null }
+export interface PushKind { key: string; label: string; /** Attendance, New work, Reminders */ group: string }
+export interface PushConfig { public_key: string | null; prefs: PushPrefs; categories: Array<{ key: string; label: string }>; kinds: PushKind[]; devices: number }
 
 export const pushApi = {
   config: () => request<PushConfig>('/push/config'),
@@ -180,6 +181,12 @@ export function moduleForNotification(type: string, isAdmin: boolean): string | 
     auto_transition: 'registrations', due_date_overdue: 'registrations', report: 'reports',
   }
   if (type.startsWith('sla_')) return 'registrations'
+  // Admins: check ins / outs of the team, and new work in the office (activity_<page>)
+  if (type.startsWith('team_')) return 'team'
+  if (type.startsWith('activity_')) return type.slice('activity_'.length)
+  // Morning reminders
+  const reminder: Record<string, string> = { remind_followup: 'inquiries', remind_tender: 'tenders', remind_invoice: 'billing', remind_report: 'reports' }
+  if (reminder[type]) return reminder[type]
   if (type.startsWith('vendor_')) return 'outsource'
   return map[type] ?? null
 }

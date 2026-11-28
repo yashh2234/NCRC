@@ -5,6 +5,8 @@ import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
 import { useUsageClock } from '../lib/useTracking'
 import { PunchButton } from './PunchButton'
+import type { ModuleKey } from '../lib/types'
+import { moduleForNotification } from '../lib/pwa'
 import { getRoleConfig } from '../lib/roleConfig'
 import { mailApi } from '../lib/mail'
 import { iconMap } from './navIcons'
@@ -204,9 +206,6 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar-brand">
           <img className="sidebar-brand__img" src={`${import.meta.env.BASE_URL}namotech-logo.png`} alt="Namotech Consultancy" />
-          <button className="sidebar-drawer-toggle sidebar-collapse" onClick={toggleDrawer} type="button" title="Hide menu" aria-label="Hide menu">
-            <PanelLeft size={18} />
-          </button>
         </div>
 
         <nav>
@@ -305,18 +304,17 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
       <section className="workspace">
         <header className="topbar">
           <div className="topbar__title">
-            {!drawerOpen ? (
-              <button
-                className="sidebar-drawer-toggle"
-                onClick={toggleDrawer}
-                type="button"
-                title="Show menu"
-                aria-label="Show menu"
-                aria-expanded={false}
-              >
-                <PanelLeft size={18} />
-              </button>
-            ) : null}
+            {/* The menu button sits left of the page heading, whether the menu is open or hidden */}
+            <button
+              className="sidebar-drawer-toggle"
+              onClick={toggleDrawer}
+              type="button"
+              title={drawerOpen ? 'Hide menu' : 'Show menu'}
+              aria-label={drawerOpen ? 'Hide menu' : 'Show menu'}
+              aria-expanded={drawerOpen}
+            >
+              <PanelLeft size={18} />
+            </button>
             <h1>{pageTitle}</h1>
           </div>
           <div className="topbar-actions">
@@ -432,7 +430,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
                       <div
                         key={n.id}
                         className={`notif-item${n.read ? '' : ' unread'}`}
-                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } const target = ({ quotation_approval: 'quotations', bill_approval: 'billing', credit_note_approval: 'credit_notes', performa_approval: 'performa', approval_needed: 'reports', leave: 'leave', attendance: user?.is_admin ? 'team' : 'my_attendance', company_knowledge: 'admin', inquiry_handover: 'inquiries' } as const)[n.type as 'quotation_approval']; if (target) { setShowNotifs(false); navigate(target) } }}
+                        onClick={() => { if (!n.read) void handleMarkRead(n.id); if (n.type === 'new_mail' && onOpenMail) { setShowNotifs(false); openMail() } if (n.type === 'tender_analysis' && onOpenAnalysis && Number(n.data?.analysis_id)) { setShowNotifs(false); onOpenAnalysis(Number(n.data?.analysis_id)) } const target = ({ quotation_approval: 'quotations', bill_approval: 'billing', credit_note_approval: 'credit_notes', performa_approval: 'performa', approval_needed: 'reports', leave: 'leave', attendance: user?.is_admin ? 'team' : 'my_attendance', company_knowledge: 'admin', inquiry_handover: 'inquiries' } as const)[n.type as 'quotation_approval'] ?? (/^(team_|activity_|remind_)/.test(n.type) ? moduleForNotification(n.type, Boolean(user?.is_admin)) as ModuleKey | null ?? undefined : undefined); if (target) { setShowNotifs(false); navigate(target) } }}
                       >
                         <div className="notif-item__row">
                           <strong>{n.title}</strong>

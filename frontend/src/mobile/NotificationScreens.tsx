@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bell, BellOff, BellRing, Check, Moon, Share, SquarePlus } from 'lucide-react'
-import { disablePush, enablePush, isIos, isStandalone, pushApi, usePushState, type PushConfig, type PushPrefs } from '../lib/pwa'
+import { disablePush, enablePush, isIos, isStandalone, pushApi, usePushState, type PushConfig, type PushKind, type PushPrefs } from '../lib/pwa'
 
 export interface NotificationItem {
   id: number
@@ -41,6 +41,36 @@ export function NotificationsScreen({ items, unread, onTap, onMarkAll, onSetting
         </ul>
       )}
     </div>
+  )
+}
+
+/** One switch per kind (admins get them all: check ins, new work in the office, reminders), with "all on / all off" per group */
+function KindSwitches({ kinds, prefs, onSave }: { kinds: PushKind[]; prefs: PushPrefs; onSave: (next: PushPrefs) => void }) {
+  const groups = [...new Set(kinds.map((k) => k.group))]
+  const on = (key: string) => prefs.kinds?.[key] ?? true
+  const setMany = (keys: string[], value: boolean) => onSave({ ...prefs, kinds: { ...prefs.kinds, ...Object.fromEntries(keys.map((k) => [k, value])) } })
+  return (
+    <>
+      {groups.map((group) => {
+        const list = kinds.filter((k) => k.group === group)
+        const allOn = list.every((k) => on(k.key))
+        return (
+          <section key={group} className="m-card m-section">
+            <div className="m-switch-row" style={{ marginBottom: 4 }}>
+              <h2 style={{ margin: 0 }}>{group}</h2>
+              <button type="button" className="m-link" onClick={() => setMany(list.map((k) => k.key), !allOn)}>{allOn ? 'Turn all off' : 'Turn all on'}</button>
+            </div>
+            <p className="m-muted m-small">Off = no phone alert. It still shows in the bell list.</p>
+            {list.map((k) => (
+              <label key={k.key} className="m-toggle">
+                <span><strong>{k.label}</strong></span>
+                <input type="checkbox" role="switch" checked={on(k.key)} onChange={(e) => setMany([k.key], e.target.checked)} />
+              </label>
+            ))}
+          </section>
+        )
+      })}
+    </>
   )
 }
 
@@ -125,6 +155,8 @@ export function PushSettingsScreen() {
               </label>
             ))}
           </section>
+
+          {config.kinds.length ? <KindSwitches kinds={config.kinds} prefs={prefs} onSave={(next) => void save(next)} /> : null}
 
           <section className="m-card m-section">
             <h2><Moon size={16} /> Quiet hours</h2>

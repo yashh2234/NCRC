@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Save, Lock } from 'lucide-react'
 import { api, request } from '../lib/api'
+import { showSaved } from '../lib/toast'
 
 interface CompanyData {
   id: number
@@ -50,7 +51,8 @@ export function SettingsPage() {
         method: 'PUT',
         body: JSON.stringify(company),
       })
-      setMessage('Settings saved')
+      setMessage('')
+      showSaved('Settings saved')
     } catch {
       setMessage('Save failed')
     } finally {

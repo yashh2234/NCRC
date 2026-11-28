@@ -12,6 +12,8 @@ import {
   statusInfo, followUpState, formatDate, formatDateTime,
 } from '../lib/inquiries'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 interface UserOption { id: number; name: string }
 
@@ -141,6 +143,7 @@ export function InquiriesPage() {
         setInquiries((list) => [data, ...list])
       }
       setShowForm(false)
+      showSaved('Saved enquiry')
     } catch (e) {
       window.alert((e as Error).message || 'Could not save enquiry')
     } finally {
@@ -245,7 +248,7 @@ export function InquiriesPage() {
                 return (
                   <tr key={inq.id} className={due ? `inq-row--${due}` : undefined}>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <strong style={{ color: '#2563eb' }}>{inq.inquiry_no}</strong>
+                      <NoLink title="Open enquiry" onClick={() => openEdit(inq)}>{inq.inquiry_no}</NoLink>
                       <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{formatDate(inq.received_date)}</div>
                     </td>
                     <td style={{ fontWeight: 600, minWidth: 140 }}>{inq.client_name}</td>

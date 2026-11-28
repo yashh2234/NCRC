@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, X, Save, FlaskConical } from 'lucide-react'
 import { request } from '../lib/api'
 import { Select } from './Select'
+import { showSaved } from '../lib/toast'
 
 interface ObservationRow {
   parameter: string
@@ -39,6 +40,7 @@ export function ReportObservations({ reportId, existing, onSaved }: ReportObserv
         method: 'POST',
         body: JSON.stringify({ observations: rows.filter(r => r.parameter) }),
       })
+      showSaved('Saved observations')
       onSaved()
     } catch (e) { alert(e instanceof Error ? e.message : 'Failed') }
     finally { setSaving(false) }

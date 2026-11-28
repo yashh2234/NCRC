@@ -26,6 +26,10 @@ Schedule::command('mail:check')->everyFiveMinutes()->withoutOverlapping();
 // Attendance: check outs that were forgotten; the admins' summary at 11:00 (Indian time)
 Schedule::command('attendance:close')->hourly()->withoutOverlapping();
 Schedule::command('attendance:summary')->dailyAt('11:00')->timezone('Asia/Kolkata');
+Schedule::command('attendance:not-in')->dailyAt('11:00')->timezone('Asia/Kolkata');
+
+// Morning reminders: follow-ups due, tenders closing, unpaid invoices, pending reports and approvals
+Schedule::command('notify:reminders')->dailyAt('09:30')->timezone('Asia/Kolkata');
 
 // What the proposal AI knows from the company website
 Schedule::command('knowledge:refresh')->weeklyOn(1, '03:30')->withoutOverlapping();

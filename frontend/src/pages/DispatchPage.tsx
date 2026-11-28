@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { softTone } from '../lib/utils'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 type Dispatch = {
   id: number;
@@ -84,6 +85,7 @@ export default function DispatchPage() {
       body: JSON.stringify(form),
     });
     setShowModal(false);
+    showSaved('Saved dispatch');
     fetchDispatches();
   };
 

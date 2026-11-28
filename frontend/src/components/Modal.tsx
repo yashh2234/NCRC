@@ -27,16 +27,18 @@ interface ModalProps {
   footerLeft?: ReactNode
   /** Replace the default footer completely; pass null for no footer. */
   footer?: ReactNode | null
+  /** Must be done: no close button, no Cancel, Escape does nothing (e.g. the daily check in) */
+  locked?: boolean
 }
 
 const SIZES = { sm: 480, md: 640, lg: 900, xl: 1100 }
 
 export function Modal({
   title, subtitle, onClose, children, size = 'md', onSubmit, onSave,
-  saveLabel = 'Save', saving = false, saveDisabled = false, cancelLabel = 'Cancel', footerLeft, footer,
+  saveLabel = 'Save', saving = false, saveDisabled = false, cancelLabel = 'Cancel', footerLeft, footer, locked = false,
 }: ModalProps) {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !locked) onClose() }
     document.addEventListener('keydown', onKey)
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -44,7 +46,7 @@ export function Modal({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = previousOverflow
     }
-  }, [onClose])
+  }, [onClose, locked])
 
   const width = typeof size === 'number' ? size : SIZES[size]
   const hasSave = Boolean(onSubmit || onSave)
@@ -52,7 +54,7 @@ export function Modal({
   const footerContent = footer !== undefined ? footer : hasSave || footerLeft ? (
     <>
       {footerLeft ? <div className="ui-modal__footer-left">{footerLeft}</div> : null}
-      <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>{cancelLabel}</button>
+      {locked ? null : <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>{cancelLabel}</button>}
       {hasSave ? (
         <button type={onSubmit ? 'submit' : 'button'} className="btn btn-primary" onClick={onSubmit ? undefined : onSave} disabled={saving || saveDisabled}>
           {saving ? 'Saving…' : saveLabel}
@@ -68,7 +70,7 @@ export function Modal({
           {subtitle ? <p className="ui-modal__subtitle">{subtitle}</p> : null}
           <h2>{title}</h2>
         </div>
-        <button type="button" className="ui-modal__close" onClick={onClose} title="Close" aria-label="Close"><X size={20} /></button>
+        {locked ? null : <button type="button" className="ui-modal__close" onClick={onClose} title="Close" aria-label="Close"><X size={20} /></button>}
       </div>
       <div className="ui-modal__body">{children}</div>
       {footerContent ? <div className="ui-modal__footer">{footerContent}</div> : null}

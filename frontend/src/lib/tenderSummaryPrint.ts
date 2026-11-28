@@ -5,6 +5,7 @@
  */
 import { esc } from './billPrint'
 import { daysLeft, formatClosing, formatDate, formatTime, isClosed, type SavedTenderSummary, type Tender, type TenderSummary } from './tenders'
+import { addPrintBackBar } from './printBack'
 
 const CSS = `
 @page { size: A4; margin: 0; }
@@ -239,4 +240,5 @@ export function printTenderSummary(tender: Tender, saved: SavedTenderSummary): v
     </script>
   </body></html>`)
   w.document.close()
+  addPrintBackBar(w)
 }

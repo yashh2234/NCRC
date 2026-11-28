@@ -23,7 +23,7 @@ class QuotationController extends Controller
 {
     public function index(): JsonResponse
     {
-        $quotations = Quotation::with(['items', 'approver', 'approvalRequester'])->orderByDesc('date')->orderByDesc('id')->get()
+        $quotations = Quotation::with(['items', 'approver', 'approvalRequester', 'creator'])->orderByDesc('date')->orderByDesc('id')->get()
             ->map(fn (Quotation $q) => $q->toApi());
 
         return response()->json(['data' => $quotations]);
@@ -172,6 +172,7 @@ class QuotationController extends Controller
             'signatory_name' => ['nullable', 'string', 'max:222'],
             'signatory_designation' => ['nullable', 'string', 'max:222'],
             'notes' => ['nullable', 'string', 'max:3000'],
+            'admin_remark' => ['nullable', 'string', 'max:3000'],
             'items' => ['required', 'array', 'min:1', 'max:200'],
             'items.*.kind' => ['nullable', Rule::in(QuotationItem::KINDS)],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
@@ -274,6 +275,15 @@ class QuotationController extends Controller
         }
         foreach (['date', 'valid_until', 'ref_date'] as $key) {
             $data[$key] = $v[$key] ?? null;
+        }
+        // Prepared by: picked from the users; it starts as whoever made the quotation and stays so unless changed
+        $user = $request->user();
+        $data['prepared_by'] = $data['prepared_by'] ?? $quotation?->prepared_by
+            ?? $quotation?->creator?->name ?? ($user?->name ?: null);
+        // Only an approver writes the remark for the users
+        if ($user instanceof User && $user->canApproveQuotations() && array_key_exists('admin_remark', $v)) {
+            $remark = trim((string) $v['admin_remark']);
+            $data['admin_remark'] = $remark === '' ? null : $remark;
         }
         if (array_key_exists('inquiry_id', $v)) {
             $data['inquiry_id'] = $v['inquiry_id'];

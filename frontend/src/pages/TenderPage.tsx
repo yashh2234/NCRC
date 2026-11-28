@@ -11,6 +11,8 @@ import { TenderPdfPicker, TenderSummaryModal, TenderSummaryView } from '../compo
 import { tenderAnalysesApi, useTenderAnalyses, type TenderAnalysisResult } from '../lib/tenderAnalyses'
 import { Select } from '../components/Select'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 type TenderField = keyof TenderInput
 type ColumnKey = TenderField | 'daysLeft' | 'dates' | 'contact'
@@ -201,6 +203,7 @@ export function TenderPage() {
       setEditingId(null)
       setReview(null)
       setShowForm(false)
+      showSaved('Saved tender')
     } catch (e) {
       window.alert((e as Error).message || 'Could not save tender')
     } finally {
@@ -241,6 +244,7 @@ export function TenderPage() {
   ]
 
   const renderCell = (tender: Tender, key: ColumnKey) => {
+    if (key === 'tenderId' && tender.tenderId) return <NoLink title="Open tender" onClick={() => openEditForm(tender)}>{tender.tenderId}</NoLink>
     if (key === 'daysLeft') {
       const days = daysLeft(tender.closingDate)
       const urgency = tenderUrgency(tender)
@@ -388,7 +392,7 @@ export function TenderPage() {
           return (
             <tr key={tender.id} className={urgency ? `tender-row--${urgency}` : undefined}>
               {statusAt === 'start' ? <td><StatusBadge status={tender.submissionStatus} /></td> : null}
-              <td style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{tender.srNo}</td>
+              <td style={{ whiteSpace: 'nowrap' }}><NoLink title="Open tender" onClick={() => openEditForm(tender)}>{tender.srNo}</NoLink></td>
               {tableColumns.map(([key]) => <td key={key} style={cellStyle(key)}>{renderCell(tender, key)}</td>)}
               {statusAt === 'end' ? <td><StatusBadge status={tender.submissionStatus} /></td> : null}
               <td style={{ whiteSpace: 'nowrap' }}><button className="icon-button" type="button" title={tender.hasSummary ? 'Tender summary (AI)' : 'Summarise tender PDF (AI)'} aria-label="Tender summary" onClick={() => setSummaryFor(tender)} style={tender.hasSummary ? { color: '#7c3aed', background: '#f5f3ff', borderColor: '#ddd6fe' } : undefined}><Sparkles size={16} /></button><HistoryButton type="Tender" id={tender.id} title={`Tender ${tender.srNo ?? ''}`} /><button className="icon-button" type="button" title="Edit tender" onClick={() => openEditForm(tender)}><Pencil size={16} /></button><button className="icon-button" type="button" title="Delete tender" onClick={() => void deleteTender(tender)}><Trash2 size={16} /></button></td>

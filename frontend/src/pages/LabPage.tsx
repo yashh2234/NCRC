@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { TestingScreen } from '../components/TestingScreen'
 import { EXCEL_TEMPLATE_OPTIONS } from '../components/ExcelLabReportEditor'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 interface AssignedReport {
   iReportId: number
@@ -101,7 +102,7 @@ export function LabPage() {
         await api.createLabReport(createForm.report_type, data)
       }
       setShowCreate(false)
-      setMessage('Lab report created and placed in Pending status')
+      showSaved('Lab report created · now in Pending')
       await loadAssigned()
     } catch {
       setLocalError('Unable to create lab report')

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\AdminActivity;
+use App\Services\AdminAlert;
 use App\Http\Controllers\Controller;
 use App\Models\Jobs as JobsModel;
 use App\Models\AuditLog;
@@ -251,6 +253,10 @@ class RegistrationController extends Controller
 
             return DB::table('client_registration')->where('iClientId', $nextId)->first();
         });
+        if (! $validated['is_draft']) {
+            AdminAlert::send('activity_registrations', 'New registration'.($validated['uid_no'] ? ' '.$validated['uid_no'] : ''),
+                AdminActivity::line([$validated['agency_name'] ?? '', $validated['name_of_work'] ?? '', 'by '.AdminAlert::who()]));
+        }
 
         UserActivity::query()->create([
             'user_id' => $request->user()->id,

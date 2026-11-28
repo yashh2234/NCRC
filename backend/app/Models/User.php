@@ -92,6 +92,17 @@ class User extends Authenticatable
         return (bool) $this->is_admin || $this->isLegacyAdmin();
     }
 
+    /**
+     * The user can open this page (same rule as canUserAccess in the app): full admins everything, others the pages
+     * ticked for them. The job role is only a label. The dashboard shows only what the user can open.
+     */
+    public function canOpen(string $page): bool
+    {
+        $page = in_array($page, ['credit_notes', 'performa'], true) ? 'billing' : $page;
+
+        return $this->isFullAdmin() || in_array($page, $this->allowed_modules ?? [], true);
+    }
+
     /** Full admins, or users given the "Administration" feature, can manage users. */
     public function canManageUsers(): bool
     {

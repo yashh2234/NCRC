@@ -28,7 +28,7 @@ class Quotation extends Model
         'total_amount', 'discount', 'gst_mode', 'tax_amount', 'transport', 'transport_gst', 'net_amount',
         'payment_terms', 'sections', 'signatory_name', 'signatory_designation',
         'terms_and_conditions', 'status', 'sent_via', 'sent_at',
-        'accepted_at', 'notes', 'created_by', 'updated_by',
+        'accepted_at', 'notes', 'admin_remark', 'created_by', 'updated_by',
     ];
 
     protected $casts = [
@@ -64,6 +64,11 @@ class Quotation extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approval_by');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function approvalRequester(): BelongsTo
@@ -111,6 +116,8 @@ class Quotation extends Model
         $data['approval'] = $this->approval ?? 'approved';
         $data['approval_by_name'] = $this->approver?->name;
         $data['approval_requested_by_name'] = $this->approvalRequester?->name;
+        // Old quotations had "Prepared by" typed by hand, often left blank: then it is whoever made it
+        $data['created_by_name'] = $this->creator?->name;
         $data['approval_at'] = $this->approval_at?->toIso8601String();
         $data['approval_requested_at'] = $this->approval_requested_at?->toIso8601String();
         $data['content'] = $this->content();

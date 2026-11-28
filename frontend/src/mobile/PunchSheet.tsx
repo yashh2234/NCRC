@@ -7,8 +7,10 @@ import { PUNCH_EVENT } from '../components/PunchButton'
 const MAX_SIDE = 640
 
 /** Check in / out from the phone: location and a front-camera photo */
-export function PunchSheet({ status, seconds, onClose }: { status: AttendanceStatus; seconds: number; onClose: () => void }) {
+export function PunchSheet({ status, seconds, locked = false, onClose }: { status: AttendanceStatus; seconds: number; /** The daily check in: cannot be closed */ locked?: boolean; onClose: () => void }) {
   const out = status.checked_in
+  const missed = out ? null : status.missed_out ?? null
+  const [leftAt, setLeftAt] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [camera, setCamera] = useState<'starting' | 'live' | 'failed'>('starting')
@@ -84,7 +86,7 @@ export function PunchSheet({ status, seconds, onClose }: { status: AttendanceSta
 
   // A photo is needed; without a working camera a note says why
   const needsNote = camera === 'failed' && !photo
-  const canSave = !saving && !looking && (photo !== null || (needsNote && note.trim() !== '')) && (out || place !== null || note.trim() !== '')
+  const canSave = !saving && !looking && (photo !== null || (needsNote && note.trim() !== '')) && (out || place !== null || note.trim() !== '') && (!missed || leftAt !== '')
 
   const save = async () => {
     setSaving(true)
@@ -95,6 +97,7 @@ export function PunchSheet({ status, seconds, onClose }: { status: AttendanceSta
         ...(place ?? {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         ...(photo ? { selfie: photo } : {}),
+        ...(missed ? { missed_out: leftAt } : {}),
       })
       window.dispatchEvent(new Event(PUNCH_EVENT))
       if ('vibrate' in navigator) navigator.vibrate(40)
@@ -110,14 +113,19 @@ export function PunchSheet({ status, seconds, onClose }: { status: AttendanceSta
       <div className="m-sheet">
         <div className="m-sheet__head">
           <div>
-            <h2>{out ? 'Check out' : 'Check in'}</h2>
+            <h2>{locked ? 'Check in for today' : out ? 'Check out' : 'Check in'}</h2>
             <p>{dmy(status.date)}{status.spells.length ? ` · ${duration(seconds)} today` : ''}</p>
           </div>
-          <button type="button" className="m-icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
+          {locked ? null : <button type="button" className="m-icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>}
         </div>
 
         <div className="m-sheet__body">
-          {status.forgot_on && !out ? (
+          {missed ? (
+            <label className="m-field m-note m-note--warn" style={{ display: 'grid', gap: 6 }}>
+              <span><TimerReset size={16} style={{ verticalAlign: '-3px' }} /> You did not check out on <strong>{dmy(missed.date)}</strong> (checked in {clock(missed.check_in_at)}). What time did you leave? (needed)</span>
+              <input type="time" required value={leftAt} onChange={(e) => setLeftAt(e.target.value)} />
+            </label>
+          ) : status.forgot_on && !out ? (
             <p className="m-note m-note--warn"><TimerReset size={16} /> <span>You did not check out on {dmy(status.forgot_on)}. Ask for a correction in My Attendance if the time is wrong.</span></p>
           ) : null}
           {status.spells.length ? <p className="m-muted">Today: {status.spells.map((s) => `${clock(s.check_in_at)} – ${s.check_out_at ? clock(s.check_out_at) : 'now'}`).join(', ')}</p> : null}

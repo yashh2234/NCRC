@@ -8,6 +8,7 @@ import {
   DAY_STATUS, addDays, clock, dayCode, dmy, downloadCsv, duration, hrApi, locate, moduleName, monthName, stamp, thisMonth, todayIso, weekday,
   type AttendanceDay, type Correction, type FailedLoginRow, type HrSettings, type LoginRow, type RegisterUser, type TeamUserDay, type UsageUser, type UserDetail,
 } from '../lib/hr'
+import { showSaved } from '../lib/toast'
 
 const TABS = [['today', 'Today'], ['register', 'Monthly register'], ['usage', 'Time in software'], ['work', 'Work done'], ['logins', 'Logins'], ['corrections', 'Corrections'], ['settings', 'Settings']] as const
 type Tab = (typeof TABS)[number][0]
@@ -184,7 +185,7 @@ function Register({ onUser }: { onUser: (id: number) => void }) {
                 {users.map((u) => {
                   const d = u.days[i]
                   const s = DAY_STATUS[d.status]
-                  const title = [`${u.name}, ${dmy(d.date)}: ${s.label}`, d.off_name, d.leave?.name, d.in ? `${clock(d.in)} – ${d.out ? clock(d.out) : 'still in'}` : '', d.auto_closed ? 'no check out' : '', d.corrected ? 'corrected' : '', d.no_location ? 'without location' : ''].filter(Boolean).join(' · ')
+                  const title = [`${u.name}, ${dmy(d.date)}: ${s.label}`, d.off_name, d.leave?.name, d.in ? `${clock(d.in)} – ${d.out ? clock(d.out) : 'still in'}` : '', d.auto_closed ? 'no check out' : '', d.out_entered ? 'check out entered later' : '', d.corrected ? 'corrected' : '', d.no_location ? 'without location' : ''].filter(Boolean).join(' · ')
                   return (
                     <td key={u.user_id} title={title}>
                       <b style={{ color: d.status === 'leave' && d.leave ? d.leave.color : s.color, background: s.background }}>{dayCode(d)}{d.auto_closed ? '*' : ''}</b>
@@ -402,7 +403,7 @@ function Settings() {
     e.preventDefault()
     setSaving(true)
     setError('')
-    try { setForm(await hrApi.saveSettings(form)); setNotice('Saved.') } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
+    try { setForm(await hrApi.saveSettings(form)); showSaved() } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
   }
   const here = () => locate().then((p) => set({ office_lat: Number(p.lat.toFixed(6)), office_lng: Number(p.lng.toFixed(6)) })).catch((e: Error) => setError(e.message))
   const number = (v: string) => (v.trim() === '' ? null : Number(v))
@@ -425,6 +426,9 @@ function Settings() {
         <label>Within (m) <input className="input" style={{ width: 100 }} type="number" min={20} max={10000} value={form.office_radius} onChange={(e) => set({ office_radius: Number(e.target.value) })} /></label>
         <button type="button" className="btn btn-outline" onClick={() => void here()}><MapPin size={15} /> I am at the office now</button>
       </div>
+      <h3>Office time</h3>
+      <div className="hr-bar"><label>Office starts at <input className="input" style={{ width: 130 }} type="time" required value={form.office_start ?? '09:30'} onChange={(e) => set({ office_start: e.target.value })} /></label>
+        <span className="hr-muted">Checking in after this tells the admins “late”.</span></div>
       <h3>Daily summary</h3>
       <label className="checkbox-label"><input type="checkbox" checked={form.daily_summary} onChange={(e) => set({ daily_summary: e.target.checked })} /> At 11:00 am on working days, notify admins who is in, on leave and not in</label>
       <h3 style={{ marginTop: 16 }}>Users without attendance</h3>

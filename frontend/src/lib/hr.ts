@@ -17,6 +17,8 @@ export interface AttendanceDay {
   out: string | null
   seconds: number
   auto_closed: boolean
+  /** The check out time was typed by the user the next day */
+  out_entered?: boolean
   corrected: boolean
   no_location: boolean
   active: number
@@ -33,6 +35,8 @@ export interface Spell {
   in: PunchPlace
   out: PunchPlace | null
   auto_closed: boolean
+  /** The check out time was typed by the user the next day */
+  out_entered?: boolean
   corrected: boolean
 }
 
@@ -44,6 +48,10 @@ export interface AttendanceStatus {
   forgot_on: string | null
   /** false for users who are not in the attendance lists */
   kept: boolean
+  /** A working day and not checked in yet: the check in popup shows and cannot be closed */
+  must_check_in?: boolean
+  /** An earlier day without a check out: its time is typed before checking in */
+  missed_out?: { id: number; date: string; check_in_at: string } | null
 }
 
 export interface Correction {
@@ -146,6 +154,8 @@ export interface HrSettings {
   office_lng: number | null
   office_radius: number
   daily_summary: boolean
+  /** HH:MM; checking in after it is "late" for the admins */
+  office_start: string
 }
 
 const json = (method: string, body?: unknown): RequestInit => ({ method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
@@ -153,7 +163,7 @@ const data = <T>(promise: Promise<{ data: T }>) => promise.then((r) => r.data)
 
 export const hrApi = {
   status: () => data(request<{ data: AttendanceStatus }>('/attendance/status')),
-  punch: (body: { action: 'in' | 'out'; lat?: number; lng?: number; accuracy?: number; note?: string; /** data URL from the phone camera */ selfie?: string }) => data(request<{ data: Spell }>('/attendance/punch', json('POST', body))),
+  punch: (body: { action: 'in' | 'out'; lat?: number; lng?: number; accuracy?: number; note?: string; /** data URL from the phone camera */ selfie?: string; /** HH:MM left on the day without a check out */ missed_out?: string }) => data(request<{ data: Spell }>('/attendance/punch', json('POST', body))),
   month: (month: string) => data(request<{ data: { days: AttendanceDay[]; spells: Spell[]; corrections: Correction[] } }>(`/attendance/month?month=${month}`)),
   requestCorrection: (body: { date: string; check_in: string; check_out: string; reason: string }) => data(request<{ data: Correction }>('/attendance/corrections', json('POST', body))),
   withdrawCorrection: (id: number) => request<{ message: string }>(`/attendance/corrections/${id}`, json('DELETE')),

@@ -127,7 +127,8 @@ class AttendanceBook
                     'in' => $rows->first()?->check_in_at->toIso8601String(),
                     'out' => $rows->isNotEmpty() && $rows->every(fn (Attendance $a) => $a->check_out_at !== null) ? $rows->max('check_out_at')->toIso8601String() : null,
                     'seconds' => $this->worked($rows),
-                    'auto_closed' => $rows->contains('auto_closed', true),
+                    'auto_closed' => $rows->contains(fn (Attendance $r) => $r->auto_closed && ! $r->out_entered),
+                    'out_entered' => $rows->contains('out_entered', true),
                     'corrected' => $rows->contains(fn (Attendance $a) => $a->correction_id !== null),
                     'no_location' => $rows->contains(fn (Attendance $a) => $a->in_lat === null && $a->correction_id === null),
                     'active' => $used?->active_seconds ?? 0,
@@ -154,7 +155,8 @@ class AttendanceBook
             'check_out_at' => $a->check_out_at?->toIso8601String(),
             'in' => $this->place($a, 'in'),
             'out' => $a->check_out_at ? $this->place($a, 'out') : null,
-            'auto_closed' => $a->auto_closed,
+            'auto_closed' => $a->auto_closed && ! $a->out_entered,
+            'out_entered' => (bool) $a->out_entered,
             'corrected' => $a->correction_id !== null,
         ];
     }
@@ -236,6 +238,64 @@ class AttendanceBook
         }
 
         return $open ? $groups : null;
+    }
+
+    /**
+     * The last day before today that ended without a check out and whose time the user has not typed yet
+     * (only the last week: older ones go by a correction).
+     */
+    public function missedCheckOut(int $userId): ?Attendance
+    {
+        $today = WorkCalendar::today();
+        $last = Attendance::query()->where('user_id', $userId)->where('date', '<', $today)->latest('date')->latest('id')->first();
+        if (! $last || ! $last->auto_closed || $last->out_entered || $last->correction_id !== null) {
+            return null;
+        }
+
+        return $last->date->toDateString() >= Carbon::parse($today)->subDays(7)->toDateString() ? $last : null;
+    }
+
+    /** Today is a working day for the user and they have not checked in: the app asks them to */
+    public function mustCheckIn(User $user): bool
+    {
+        $today = WorkCalendar::today();
+        if ($user->isSuperAdmin() || ! $this->people()->contains('id', $user->id)
+            || Attendance::query()->where('user_id', $user->id)->where('date', $today)->exists()) {
+            return false;
+        }
+        $day = $this->days([$user->id], $today, $today)[$user->id][$today] ?? null;
+
+        return $day !== null && $day['off'] === null && in_array($day['status'], ['not_in', 'absent', 'half_leave'], true);
+    }
+
+    /** Minutes after the office start time of the first check in of a working day; null when not late */
+    public function lateBy(Attendance $row): ?int
+    {
+        $date = $row->date->toDateString();
+        $first = Attendance::query()->where('user_id', $row->user_id)->where('date', $date)->orderBy('check_in_at')->value('id');
+        $day = $this->days([$row->user_id], $date, $date)[$row->user_id][$date] ?? null;
+        if ((int) $first !== (int) $row->id || ! $day || $day['off'] !== null) {
+            return null;
+        }
+        $start = Carbon::parse($date.' '.($this->calendar->settings()['office_start'] ?? '09:30'), WorkCalendar::ZONE);
+        $minutes = (int) floor($start->diffInMinutes($row->check_in_at, false));
+
+        return $minutes > 0 ? $minutes : null;
+    }
+
+    /** "at the office", "2.4 km from the office", or the note written instead of the location */
+    public function placeText(Attendance $a, string $side): string
+    {
+        $p = $this->place($a, $side);
+        if ($p['meters'] !== null) {
+            return $p['at_office'] ? 'at the office'
+                : ($p['meters'] >= 1000 ? round($p['meters'] / 1000, 1).' km' : round($p['meters']).' m').' from the office';
+        }
+        if (filled($p['note'])) {
+            return 'note: '.$p['note'];
+        }
+
+        return $p['lat'] !== null ? 'location sent' : 'no location';
     }
 
     public function notify(int $userId, string $title, string $message): void

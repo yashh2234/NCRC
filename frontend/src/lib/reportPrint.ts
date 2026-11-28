@@ -9,6 +9,7 @@ import { layoutBlocks, rowIds } from './labRows'
 import { chartSvg } from './labCharts'
 import qrcode from 'qrcode-generator'
 import { DEFAULT_BEND, DEFAULT_REBEND, STEEL_DIAS, STEEL_GRADES, STEEL_MAX_SAMPLES, STEEL_STANDARD, steelKey, utsRequirementText } from './steel'
+import { addPrintBackBar } from './printBack'
 
 type Rec = Record<string, unknown>
 
@@ -227,6 +228,7 @@ export async function openReportPrint(load: () => Promise<{ report: unknown; det
     win.document.open()
     win.document.write(buildReportHtml(type, report as Rec, details as Rec[]))
     win.document.close()
+    addPrintBackBar(win)
     win.focus()
     win.setTimeout(() => win.print(), 400)
   } catch (err) {

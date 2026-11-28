@@ -11,6 +11,7 @@ import { LabHeaderFields } from '../components/LabHeaderFields'
 import { CUBE_MATERIALS, cubeMaterialPatch, fullUlr } from '../lib/labFormats'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from '../components/ExcelLabReportEditor'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 interface DetailRow {
   set_count?: number
@@ -101,8 +102,9 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
       const wasApproved = report?.status === 'Complete'
       const now: any = await api.reportDetail(type, reportId)
       setReport(now.report)
-      setMessage(wasApproved && now.report.status !== 'Complete' ? 'Report saved. It was changed after approval, so it needs approval again (it is now under Lab Reports).' : 'Report saved successfully')
-      return true
+      const text = wasApproved && now.report.status !== 'Complete' ? 'Report saved · it needs approval again (now under Lab Reports)' : 'Report saved'
+      setMessage(text)
+      return text
     } catch {
       setError('Failed to save changes')
       return false
@@ -316,7 +318,7 @@ export function ReportEditPage({ type, reportId, onBack }: { type: string; repor
             <XCircle size={15} /> Cancel Report
           </button>
         )}
-        <button type="button" className="btn btn-primary" onClick={() => void handleSave(false)}>
+        <button type="button" className="btn btn-primary" onClick={() => void handleSave(false).then((text) => { if (text) { showSaved(text); onBack() } })}>
           <Save size={15} /> Save Changes
         </button>
       </div>

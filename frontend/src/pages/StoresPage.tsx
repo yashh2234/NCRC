@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
+import { showSaved } from '../lib/toast'
 
 interface Store {
     id: number
@@ -35,6 +36,7 @@ export function StoresPage() {
             if (editingId) { await api.updateStore(editingId, { name, active: 1 }) }
             else { await api.createStore({ name }) }
             setView('list'); void load()
+            showSaved('Saved store')
         } catch { setError('Failed to save') }
     }
 

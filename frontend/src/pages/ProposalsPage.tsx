@@ -8,6 +8,8 @@ import {
 } from '../lib/proposals'
 import { openProposalPrint } from '../lib/proposalPrint'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 const BRIEF_PLACEHOLDER = `Example:
 Client: The Secretary, Anukampa Platina, Jaipur (residential society).
@@ -125,7 +127,7 @@ export function ProposalsPage() {
                 <tr><td colSpan={8} className="empty-state">{loading ? 'Loading proposals…' : list.length === 0 ? 'No proposals yet. Click “New proposal” to write the first one.' : 'No proposals match your search.'}</td></tr>
               ) : filtered.map((p) => (
                 <tr key={p.id}>
-                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{p.ref_no || '-'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}><NoLink title="Open proposal" onClick={() => { if (!opening) void openEditor(p.id) }}>{p.ref_no || 'Open'}</NoLink></td>
                   <td style={{ whiteSpace: 'nowrap' }}>{p.proposal_date ? longDate(p.proposal_date) : '-'}</td>
                   <td style={{ minWidth: 260, maxWidth: 380, whiteSpace: 'normal' }}>{p.title}</td>
                   <td style={{ whiteSpace: 'normal', maxWidth: 220 }}>{p.project_name || '-'}</td>
@@ -270,7 +272,8 @@ function ProposalEditor({ id, initial, onClose, onSaved }: { id: number | null; 
       const { data } = id ? await proposalApi.update(id, form) : await proposalApi.create(form)
       setSavedJson(JSON.stringify(form))
       if (!id) onSaved(data.id)
-      setNotice('Saved.')
+      showSaved('Saved proposal')
+      onClose()
       return true
     } catch (e) {
       window.alert((e as Error).message || 'Could not save the proposal')

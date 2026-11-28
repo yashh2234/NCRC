@@ -4,6 +4,7 @@ import { mailApi, mailServers, type MailAccount, type MailSettings } from '../li
 import { Modal } from './Modal'
 import { Req } from './ui'
 import { Select } from './Select'
+import { showSaved } from '../lib/toast'
 
 const initial = (a: MailAccount) => (a.from_name || a.email).charAt(0).toUpperCase()
 
@@ -107,6 +108,7 @@ export function MailAccountDialog({ id, canShare, first, defaultBcc, onClose, on
       // Mailboxes log in with the email address, unless this one was set up with another user name
       const payload = { ...form, email: form.email.trim(), username: id !== null && form.username !== form.email ? form.username : form.email.trim() }
       const { data } = id === null ? await mailApi.addAccount({ ...payload, shared }) : await mailApi.saveAccount(id, payload)
+      showSaved('Saved mailbox')
       onSaved(data.id!)
     } catch (err) {
       setError((err as Error).message)

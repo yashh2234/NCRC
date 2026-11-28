@@ -260,6 +260,7 @@ class TeamController extends Controller
             'office_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:office_lat'],
             'office_radius' => ['required', 'integer', 'between:20,10000'],
             'daily_summary' => ['required', 'boolean'],
+            'office_start' => ['required', 'date_format:H:i'],
         ]);
         foreach (['weekly_off', 'saturdays_off', 'hidden_users'] as $key) {
             $values[$key] = array_values(array_unique(array_map('intval', $values[$key])));

@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { useTracking } from '../lib/useTracking'
 import { dmy, hrApi, monthName, thisMonth, todayIso, weekday, type Holiday, type HolidayYear } from '../lib/hr'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 interface HolidayForm { date: string; name: string; type: 'holiday' | 'optional'; tentative: boolean }
 
@@ -40,7 +41,7 @@ export function HolidaysPage() {
     e.preventDefault()
     if (!edit) return
     setSaving(true)
-    try { await hrApi.saveHoliday(edit.id, edit.form); setEdit(null); await load() } catch (err) { window.alert((err as Error).message) } finally { setSaving(false) }
+    try { await hrApi.saveHoliday(edit.id, edit.form); setEdit(null); showSaved('Saved holiday'); await load() } catch (err) { window.alert((err as Error).message) } finally { setSaving(false) }
   }
 
   const [y, m] = month.split('-').map(Number)

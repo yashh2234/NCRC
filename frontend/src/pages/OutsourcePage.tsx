@@ -6,6 +6,7 @@ import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
 
 type WorkOrderOption = {
   id: number;
@@ -181,6 +182,7 @@ export default function OutsourcePage() {
       await request(url, { method, body: JSON.stringify(form) });
       setShowModal(false);
       fetchAssignments();
+      showSaved();
     } catch (e: any) { alert(e.message || 'Save failed'); }
   };
 

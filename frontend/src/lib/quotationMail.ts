@@ -22,7 +22,7 @@ export async function quotationDraft(id: number, withSign: boolean): Promise<Mai
   const html = [
     line('Dear Sir / Madam,'), gap,
     line(`Please find attached our quotation <b>${esc(q.quotation_no)}</b> dated ${esc(dotDate(q.date))}${about ? ` ${about}` : ''}.`),
-    q.valid_until ? line(`It is valid till ${esc(dotDate(q.valid_until))}.`) : '', gap,
+    gap,
     line('Kindly go through it and let us know if you need anything further.'), gap,
     SIGNATURE,
   ].join('')

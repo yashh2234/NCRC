@@ -38,6 +38,9 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { IS_MAIL_TAB, leaveMailTab, openMailTab } from './lib/mailTab'
 import type { ModuleKey } from './lib/types'
 import { canUserAccess } from './lib/roleConfig'
+import { LoadingScreen } from './components/LoadingScreen'
+import { Toaster } from './components/Toaster'
+import { HomeDashboard } from './components/HomeDashboard'
 import { ClipboardList, FlaskConical, Users, ReceiptText, IndianRupee, ClipboardCheck, FileClock, FileMinus, CalendarCheck, type LucideIcon } from 'lucide-react'
 
 interface NavItem {
@@ -190,6 +193,14 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
     }
   }
 
+  // Pages for the dashboard's quick actions: the menu, plus the pages that sit outside the menu groups
+  const dashModules = useMemo(() => [
+    ...groups.flatMap((g) => g.items),
+    ...([['inquiries', 'Enquiries'], ['proposals', 'Proposals'], ['tenders', 'Tenders']] as const)
+      .filter(([key]) => canUserAccess(user, key)).map(([key, label]) => ({ key, label })),
+    ...(canUseMail ? [{ key: 'mail', label: 'Mail' }] : []),
+  ], [groups, user, canUseMail])
+
   // "View" in the registration table's Bill column opens Billing filtered to that UID
   const [billingUid, setBillingUid] = useState('')
   const canViewBilling = canUserAccess(user, 'billing')
@@ -284,7 +295,9 @@ function Workspace({ activeModule, setActiveModule }: WorkspaceProps) {
       onModuleChange={handleModuleChange}
     >
       <div className="view visible">
-        {activeModule === 'dashboard' ? <div aria-hidden="true" /> : renderPage(activeModule)}
+        {activeModule === 'dashboard' ? (
+          <HomeDashboard modules={dashModules} onOpen={(key) => { if (key === 'mail') { if (canUseMail) openMailTab() } else handleModuleChange(key) }} />
+        ) : renderPage(activeModule)}
       </div>
     </AppShell>
     <TenderAnalysesDock />
@@ -297,7 +310,7 @@ function MailTab() {
   const { user } = useAuth()
   useUsageClock('mail')
   useEffect(() => { document.title = 'Mail · Namotech Software' }, [])
-  if (!user) return <div className="loading-screen"><p>Loading mail...</p></div>
+  if (!user) return <LoadingScreen />
   if (!canUserAccess(user, 'mail')) return <div className="loading-screen"><p>You do not have access to Mail.</p></div>
   return <MailPage onBack={leaveMailTab} />
 }
@@ -306,6 +319,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppInner />
+      <Toaster />
     </AuthProvider>
   )
 }
@@ -315,9 +329,7 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <p>Loading workspace...</p>
-      </div>
+      <LoadingScreen />
     )
   }
 

@@ -4,16 +4,17 @@ import { useAuth } from '../lib/auth'
 import { DataTable } from '../components/DataTable'
 import type { UserFormData, UserRecord } from '../lib/types'
 import { api } from '../lib/api'
-import { FEATURES, JOB_ROLES, defaultFeaturesForRole } from '../lib/roleConfig'
+import { FEATURES, JOB_ROLES } from '../lib/roleConfig'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { DateInput } from '../components/DateInput'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 const emptyUserForm: UserFormData = {
   username: '', email: '', password: '', password_confirmation: '',
   firstname: '', lastname: '', phone: '', gender: '1', is_active: '1',
-  date_of_birth: '', is_admin: false, tracker_role: 'staff', allowed_modules: defaultFeaturesForRole('staff'),
+  date_of_birth: '', is_admin: false, tracker_role: 'staff', allowed_modules: [],
 }
 
 const FEATURE_GROUPS = [...new Set(FEATURES.map((f) => f.group))]
@@ -54,7 +55,7 @@ export function UsersPage() {
       is_admin: Boolean(record.is_admin),
       tracker_role: jobRole,
       // Not configured yet → start from what the user can open today (their role's defaults)
-      allowed_modules: Array.isArray(record.allowed_modules) ? record.allowed_modules.filter((key) => FEATURES.some((f) => f.key === key)) : defaultFeaturesForRole(jobRole),
+      allowed_modules: Array.isArray(record.allowed_modules) ? record.allowed_modules.filter((key) => FEATURES.some((f) => f.key === key)) : [],
     }); clearError(); setLocalError(''); setStatus('Editing user'); setShowForm(true)
   }
 
@@ -71,6 +72,7 @@ export function UsersPage() {
       const payload = { ...form, gender: Number(form.gender), is_active: form.is_active === '1' }
       if (editingId) { await api.updateUser(editingId, payload) } else { await api.createUser(payload) }
       setForm({ ...emptyUserForm }); setEditingId(null); setShowForm(false)
+      showSaved(editingId ? 'User updated' : 'User created')
       await refresh(); setStatus(editingId ? 'User updated' : 'User created')
     } catch (e) { setLocalError(e instanceof Error ? e.message : 'Unable to save user'); setStatus('Needs attention') }
   }
@@ -146,7 +148,7 @@ export function UsersPage() {
                   {JOB_ROLES.map((role) => <option key={role.key} value={role.key}>{role.label}</option>)}
                 </Select>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4, display: 'block' }}>
-                  Sets this person's dashboard and job queue. It does not change which features they can open.
+                  A label shown with their name. It does not change which pages they can open: tick those below.
                 </span>
               </label>
 

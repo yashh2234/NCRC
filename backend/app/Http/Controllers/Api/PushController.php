@@ -17,6 +17,8 @@ class PushController extends Controller
             'public_key' => PushSender::configured() ? (string) config('services.webpush.public_key') : null,
             'prefs' => PushSender::prefs($request->user()),
             'categories' => collect(PushSender::CATEGORIES)->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values(),
+            // One switch each: check ins, new enquiries, reminders… (admins see them all)
+            'kinds' => PushSender::kindsFor($request->user()),
             'devices' => PushSubscription::query()->where('user_id', $request->user()->id)->count(),
         ]);
     }
@@ -58,12 +60,17 @@ class PushController extends Controller
         $values = $request->validate([
             'categories' => ['required', 'array'],
             'categories.*' => ['boolean'],
+            'kinds' => ['nullable', 'array'],
+            'kinds.*' => ['boolean'],
             'quiet_from' => ['nullable', 'date_format:H:i'],
             'quiet_to' => ['nullable', 'date_format:H:i'],
         ]);
         $user = $request->user();
+        $kinds = array_column(PushSender::kindsFor($user), 'key');
         $user->forceFill(['push_prefs' => [
             'categories' => collect($values['categories'])->only($keys)->map(fn ($v) => (bool) $v)->all(),
+            // Kinds the user cannot see keep what they had
+            'kinds' => array_merge(PushSender::prefs($user)['kinds'], collect($values['kinds'] ?? [])->only($kinds)->map(fn ($v) => (bool) $v)->all()),
             'quiet_from' => $values['quiet_from'] ?? null,
             'quiet_to' => $values['quiet_to'] ?? null,
         ]])->save();

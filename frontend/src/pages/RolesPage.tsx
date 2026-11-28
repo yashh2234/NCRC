@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { request } from '../lib/api'
 import type { RoleSummary } from '../lib/types'
 import { Modal } from '../components/Modal'
+import { showSaved } from '../lib/toast'
 
 interface PermissionGroup {
   module: string
@@ -82,6 +83,7 @@ export function RolesPage() {
         await request('/roles', { method: 'POST', body: JSON.stringify({ group_name: name.trim(), permissions: selectedPermissions }) })
       }
       setShowForm(false)
+      showSaved('Group saved')
       await refresh()
       setStatus('Group saved')
     } catch (err) {
@@ -100,6 +102,7 @@ export function RolesPage() {
         method: 'POST',
         body: JSON.stringify({ permissions: selectedPermissions }),
       })
+      showSaved('Group access saved')
       await refresh()
       setStatus('Group access saved')
     } catch (err) {

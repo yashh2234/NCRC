@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowUp, Mail, Plus, Printer, Save, Stamp, Trash2, X } from 'lucide-react'
+import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { COMPANIES, money2 } from '../lib/bills'
 import { openMailWindow, quotationMailUrl } from '../lib/mailTab'
 import { openPrintWindow, printQuotation } from '../lib/quotationPrint'
 import {
-  SECTION_TITLES, UNITS, calcQuotation, companyGst, emptyHeading, emptyQuotationItem, emptySection, itemNumbers, itemUsed, oneMonthAfter, quotationItemAmount, quotationLines, quotationToInput, quotationsApi,
+  SECTION_TITLES, UNITS, calcQuotation, companyGst, emptyQuotationItem, emptySection, itemNumbers, itemUsed, quotationItemAmount, quotationLines, quotationToInput, quotationsApi,
   type ItemPart, type Quotation, type QuotationApproval, type QuotationInput, type QuotationItem, type QuotationSection, type SectionStyle,
 } from '../lib/quotations'
 import { canUserAccess } from '../lib/roleConfig'
+import { showSaved } from '../lib/toast'
 import { Req } from './ui'
 import { Select } from './Select'
 import { ComboInput } from './ComboInput'
@@ -35,7 +37,7 @@ function moved<T>(rows: T[], i: number, by: -1 | 1): T[] {
   return next
 }
 
-type TextKey = 'client_name' | 'client_gstin' | 'contact_person' | 'mobile_no' | 'email' | 'location' | 'ref_no' | 'prepared_by' | 'signatory_name' | 'signatory_designation'
+type TextKey = 'client_name' | 'client_gstin' | 'contact_person' | 'mobile_no' | 'email' | 'location' | 'ref_no' | 'signatory_name' | 'signatory_designation'
 
 interface QuotationEditorProps {
   id: number | null
@@ -43,13 +45,21 @@ interface QuotationEditorProps {
   /** null for a new one */
   approval: QuotationApproval | null
   approvalRemark?: string | null
+  /** Who made it: "Prepared by" when it was left blank */
+  createdByName?: string | null
   /** All quotations, to copy sections from */
   others: Quotation[]
   onClose: (changed: boolean) => void
 }
 
-export function QuotationEditor({ id, initial, approval: initialApproval, approvalRemark, others, onClose }: QuotationEditorProps) {
-  const [form, setForm] = useState<QuotationInput>(() => ({ ...initial, gst_mode: companyGst(initial.company) }))
+export function QuotationEditor({ id, initial, approval: initialApproval, approvalRemark, createdByName, others, onClose }: QuotationEditorProps) {
+  const { user } = useAuth()
+  // Prepared by: picked from the users; it starts as whoever made the quotation
+  const [form, setForm] = useState<QuotationInput>(() => ({ ...initial, gst_mode: companyGst(initial.company), prepared_by: initial.prepared_by || (id ? createdByName ?? '' : user?.name ?? '') }))
+  const [users, setUsers] = useState<string[]>([])
+  useEffect(() => { api.assignableUsers().then(({ data }) => setUsers(data.map((u) => u.name))).catch(() => setUsers([])) }, [])
+  /** The users, and the name already on it even if that user has left */
+  const preparers = [...new Set([form.prepared_by, ...users].filter(Boolean))]
   const [savedId, setSavedId] = useState<number | null>(id)
   const idRef = useRef(id)
   const [saving, setSaving] = useState(false)
@@ -57,10 +67,9 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
   const [dirty, setDirty] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const savedText = useRef('Saved')
   /** Typed by hand: stop replacing with the suggestion */
   const manualNo = useRef(Boolean(id))
-  const manualValid = useRef(Boolean(id))
-  const { user } = useAuth()
   const canMail = canUserAccess(user, 'mail')
   const canApprove = canUserAccess(user, 'quotation_approve')
   const [approval, setApproval] = useState(initialApproval)
@@ -121,12 +130,11 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
       setSavedId(data.id)
       idRef.current = data.id
       manualNo.current = true
-      manualValid.current = true
       setForm(saved)
       setChanged(true)
       setDirty(false)
       setGstChanged(false)
-      setNotice(data.approval === 'pending' ? `Saved quotation ${data.quotation_no}. It waits for approval; after that it can be printed and mailed.` : `Saved quotation ${data.quotation_no}.`)
+      savedText.current = data.approval === 'pending' ? `Saved ${data.quotation_no}. Sent for approval.` : `Saved ${data.quotation_no}`
       return saved
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Could not save the quotation')
@@ -134,6 +142,16 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
     } finally {
       setSaving(false)
     }
+  }
+
+  /** Saved: back to the list, which says so at the top */
+  const done = () => {
+    showSaved(savedText.current)
+    onClose(true)
+  }
+
+  const saveAndClose = async () => {
+    if (await save()) done()
   }
 
   /** The window opens straight from the click (pop-up blockers) and is filled once the quotation is saved */
@@ -146,6 +164,7 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
     if (!w) return
     if (saved) printQuotation(w, saved, withSign)
     else w.close()
+    if (saved && canApprove) done()
   }
 
   /** The mail is written in a tab of its own: opened from the click, filled once the quotation is saved */
@@ -157,6 +176,7 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
     if (!w) return
     if (saved && idRef.current) w.location.href = quotationMailUrl(idRef.current, withSign)
     else w.close()
+    if (saved && canApprove) done()
   }
 
   const copySections = (fromId: string) => {
@@ -198,6 +218,17 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
         </h2>
         <span />
       </div>
+      {canApprove ? (
+        <label style={{ ...lbl, margin: '0 0 12px', padding: '10px 12px', borderRadius: 8, background: '#fefce8', border: '1px solid #fde047', color: '#854d0e' }}>
+          Admin remark
+          <textarea className="input" rows={2} value={form.admin_remark} placeholder="e.g. Check the rates with the site team before sending" onChange={(e) => patch({ admin_remark: e.target.value })} style={{ ...area, background: '#fff' }} />
+        </label>
+      ) : form.admin_remark.trim() ? (
+        <div role="note" style={{ margin: '0 0 12px', padding: '10px 14px', borderRadius: 8, background: '#fefce8', border: '1px solid #facc15', borderLeft: '5px solid #eab308', color: '#713f12', fontSize: '0.9rem' }}>
+          <strong style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Remark from admin</strong>
+          <span style={{ whiteSpace: 'pre-wrap' }}>{form.admin_remark}</span>
+        </div>
+      ) : null}
       {notice ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#f0fdf4', color: '#166534', fontSize: '0.85rem' }}>{notice}</p> : null}
       {error ? <p role="alert" style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: '0.85rem' }}>{error}</p> : null}
 
@@ -214,15 +245,16 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
             <input className="input" value={form.quotation_no} placeholder={isNcs ? 'NCS/2026/1058' : 'NCRC/2026/0001'} onChange={(e) => { manualNo.current = true; patch({ quotation_no: e.target.value }) }} />
           </label>
           <label style={lbl}><span>Date<Req /></span>
-            <input className="input" type="date" value={form.date} onChange={(e) => patch({ date: e.target.value, ...(manualValid.current ? {} : { valid_until: oneMonthAfter(e.target.value) }) })} />
-          </label>
-          <label style={lbl}>Valid Till
-            <input className="input" type="date" value={form.valid_until} onChange={(e) => { manualValid.current = true; patch({ valid_until: e.target.value }) }} />
+            <input className="input" type="date" value={form.date} onChange={(e) => patch({ date: e.target.value })} />
           </label>
           {text('Site / Location', 'location', 'Chauhtan, Barmer (Rajasthan)')}
           {text('Client Ref. / Enquiry No.', 'ref_no')}
           <label style={lbl}>Ref. Dated<input className="input" type="date" value={form.ref_date} onChange={(e) => patch({ ref_date: e.target.value })} /></label>
-          {text('Prepared By', 'prepared_by')}
+          <label style={lbl}>Prepared By
+            <Select className="input" value={form.prepared_by} aria-label="Prepared by" onChange={(e) => patch({ prepared_by: e.target.value })}>
+              {preparers.map((name) => <option key={name} value={name}>{name}</option>)}
+            </Select>
+          </label>
         </div>
       </div>
 
@@ -284,7 +316,7 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
                         <textarea className="input" rows={2} value={part.details} aria-label={`Item ${numbers[i]} text ${p + 2}`} placeholder="Text under the heading (optional)" onChange={(e) => setPart(i, p, { details: e.target.value })} style={area} />
                       </div>
                     ))}
-                    <button type="button" onClick={() => setItem(i, { extra: [...it.extra, { title: '', details: '' }] })} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: 0, border: 0, background: 'none', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}><Plus size={13} /> Add heading in this item</button>
+                    <button type="button" onClick={() => setItem(i, { extra: [...it.extra, { title: '', details: '' }] })} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: 0, border: 0, background: 'none', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}><Plus size={13} /> Add item in this row</button>
                   </td>
                   <td>
                     <Select className="input" value={otherUnit(it) ? OTHER : it.unit} aria-label={`Item ${i + 1} unit`}
@@ -307,9 +339,7 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
           </table>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-          <button type="button" className="ghost-button" onClick={() => addRow(emptyQuotationItem())}><Plus size={14} /> Add item</button>
-          <button type="button" className="ghost-button" onClick={() => addRow(emptyHeading('heading'))}><Plus size={14} /> Add heading</button>
-          <button type="button" className="ghost-button" onClick={() => addRow(emptyHeading('subheading'))}><Plus size={14} /> Add sub-heading</button>
+          <button type="button" className="ghost-button" onClick={() => addRow(emptyQuotationItem())}><Plus size={14} /> Add row</button>
         </div>
         <p style={{ margin: '8px 0 0', fontSize: '0.78rem', color: '#64748b' }}>New rows come at the end; move them with the arrows.</p>
       </div>
@@ -393,18 +423,18 @@ export function QuotationEditor({ id, initial, approval: initialApproval, approv
       </div>
 
       <div style={{ ...card, display: 'grid', gap: 12, borderColor: '#c7d2fe', background: '#fafbff' }}>
-        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void save()} style={{ justifyContent: 'center', width: '100%' }}>
+        <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void saveAndClose()} style={{ justifyContent: 'center', width: '100%' }}>
           <Save size={16} /> {saving ? 'Saving…' : canApprove ? (approval !== null && approval !== 'approved' ? 'Save and approve' : 'Save') : 'Save and send for approval'}
         </button>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <strong style={{ flex: 1, minWidth: 200 }}>{canApprove ? 'Save and print / PDF' : 'Print / PDF'}</strong>
+          <strong style={{ flex: 1, minWidth: 200 }}>Print / PDF</strong>
           {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
           <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndPrint(false)}><Printer size={16} /> {COMPANIES[form.company].seal ? 'Without Sign' : 'Print'}</button>
         </div>
         {locked ? <p style={{ margin: 0, fontSize: '0.8rem', color: '#92400e' }}>{approval === 'approved' ? 'Save the changes first. After approval it can be printed and mailed.' : 'It can be printed and mailed after approval.'}</p> : null}
         {canMail ? (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <strong style={{ flex: 1, minWidth: 200 }}>{canApprove ? 'Save and mail the PDF' : 'Mail the PDF'}</strong>
+            <strong style={{ flex: 1, minWidth: 200 }}>Mail PDF</strong>
             {COMPANIES[form.company].seal ? <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndMail(true)}><Stamp size={16} /> Mail With Sign</button> : null}
             <button type="button" className="btn btn-outline" disabled={saving || locked} onClick={() => void saveAndMail(false)}><Mail size={16} /> {COMPANIES[form.company].seal ? 'Mail Without Sign' : 'Mail'}</button>
           </div>

@@ -7,6 +7,9 @@ import type { PurchaseOrder, PurchaseOrderListItem } from '../lib/types'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { HistoryButton } from '../components/History'
+import { addPrintBackBar } from '../lib/printBack'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 interface POForm {
   date: string
@@ -193,6 +196,7 @@ export function PurchaseOrdersPage() {
       setShowForm(false)
       setEditingId(null)
       setForm(emptyForm)
+      showSaved('Saved purchase order')
       await load()
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : 'Failed to save purchase order')
@@ -221,6 +225,7 @@ export function PurchaseOrdersPage() {
       if (w) {
         w.document.write(res.html)
         w.document.close()
+        addPrintBackBar(w)
       }
     } catch {
       setLocalError('Failed to load print view')
@@ -256,7 +261,7 @@ export function PurchaseOrdersPage() {
               date: <span className="mono">{po.date ?? '-'}</span>,
               agency_name: po.agency_name ?? '-',
               reporting_address: <span className="text-muted">{po.reporting_address ?? '-'}</span>,
-              purchase_order: <span className="uid-cell">{po.purchase_order}</span>,
+              purchase_order: <NoLink title="Open purchase order" onClick={() => beginEdit(po)}>{po.purchase_order}</NoLink>,
               vendor_ref_no: po.vendor_ref_no ?? '-',
               vendor_ref_date: <span className="mono">{po.vendor_ref_date ?? '-'}</span>,
               total_amount: <span className="mono">{money(po.total_amount)}</span>,

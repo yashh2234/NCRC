@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\AdminActivity;
+use App\Services\AdminAlert;
 use App\Services\Timeline;
 use App\Http\Controllers\Controller;
 use App\Models\DailyExpense;
@@ -78,6 +80,8 @@ class ExpenseController extends Controller
             'created_date' => now(),
         ]);
         Timeline::log('DailyExpense', $nextId, 'created', 'Created · '.$validated['category']);
+        AdminAlert::send('activity_expenses', 'New expense · '.$validated['category'],
+            AdminActivity::line([(float) ($validated['total_expenses'] ?? 0) ? '₹'.number_format((float) $validated['total_expenses']) : null, $validated['person_name'] ?? null, 'by '.AdminAlert::who()]));
 
         return response()->json(['message' => 'Expense recorded'], 201);
     }

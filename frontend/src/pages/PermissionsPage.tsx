@@ -3,6 +3,7 @@ import { ShieldCheck, Check, X, Users, Loader, Sparkles } from 'lucide-react'
 import { request } from '../lib/api'
 import type { RoleSummary } from '../lib/types'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 interface PermissionGroup {
   module: string
@@ -81,7 +82,7 @@ export function PermissionsPage() {
         method: 'POST',
         body: JSON.stringify({ permissions: permNames }),
       })
-      setSuccess(`Permissions saved successfully for "${selectedRole.name}"`)
+      showSaved(`Permissions saved for "${selectedRole.name}"`)
       // Refresh roles to update permissions count badge
       const rolesData = await request<{ data: RoleSummary[] }>('/roles')
       setRoles(rolesData.data)

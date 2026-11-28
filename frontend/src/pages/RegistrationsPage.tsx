@@ -11,6 +11,7 @@ import { Timeline } from '../components/Timeline'
 import { UIDDocumentDrawer } from '../components/UIDDocumentDrawer'
 import type { Registration, RegistrationFormData } from '../lib/types'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 function normalizeDate(value: string | null | undefined) {
   if (!value) return ''
@@ -137,6 +138,7 @@ export function RegistrationsPage({ onViewBill, onCreateBill }: { onViewBill?: (
   const handleSaved = async () => {
     setEditingId(null)
     setFormVisible(false)
+    showSaved('Registration saved')
     await refresh()
     setStatus('Registration saved')
   }

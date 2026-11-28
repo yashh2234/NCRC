@@ -4,6 +4,7 @@ import { BASE_URL, getToken } from '../lib/api'
 import { Modal } from './Modal'
 import { Req } from './ui'
 import { REQUEST_STATUS, clock, clock24, dmy, hrApi, mapUrl, placeText, type AttendanceDay, type LeaveRequest, type PunchPlace, type Spell } from '../lib/hr'
+import { showSaved } from '../lib/toast'
 
 export function Pill({ color, background, children }: { color: string; background: string; children: React.ReactNode }) {
   return <span className="hr-pill" style={{ color, background }}>{children}</span>
@@ -60,7 +61,7 @@ export function SpellLine({ spell }: { spell: Spell }) {
   return (
     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', padding: '2px 0' }}>
       <span><strong>{clock(spell.check_in_at)}</strong> <Place place={spell.in} />{spell.in.selfie ? <> <SelfieButton spellId={spell.id} side="in" at={spell.check_in_at} /></> : null}</span>
-      <span>{spell.check_out_at ? <strong>{clock(spell.check_out_at)}</strong> : <em>still in</em>} {spell.auto_closed ? <Pill color="#b45309" background="#fef3c7">no check out</Pill> : spell.out && !spell.corrected ? <Place place={spell.out} /> : null}{spell.out?.selfie && spell.check_out_at ? <> <SelfieButton spellId={spell.id} side="out" at={spell.check_out_at} /></> : null}</span>
+      <span>{spell.check_out_at ? <strong>{clock(spell.check_out_at)}</strong> : <em>still in</em>} {spell.auto_closed ? <Pill color="#b45309" background="#fef3c7">no check out</Pill> : spell.out_entered ? <Pill color="#1d4ed8" background="#dbeafe">entered later</Pill> : spell.out && !spell.corrected ? <Place place={spell.out} /> : null}{spell.out?.selfie && spell.check_out_at ? <> <SelfieButton spellId={spell.id} side="out" at={spell.check_out_at} /></> : null}</span>
       {spell.corrected ? <Pill color="#6d28d9" background="#ede9fe">corrected</Pill> : null}
     </div>
   )
@@ -79,6 +80,7 @@ export function CorrectionModal({ day, onClose, onSaved }: { day: Pick<Attendanc
     setError('')
     try {
       await hrApi.requestCorrection(form)
+      showSaved('Request sent')
       onSaved()
     } catch (err) {
       setError((err as Error).message)

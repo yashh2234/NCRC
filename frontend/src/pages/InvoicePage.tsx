@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { useTracking } from '../lib/useTracking'
 import type { Invoice } from '../lib/types'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 interface FormData {
   date: string
@@ -123,6 +124,7 @@ export function InvoicePage() {
       if (editingId) { await api.updateInvoice(editingId, payload) }
       else { await api.createInvoice(payload) }
       setView('list'); void loadInvoices()
+      showSaved('Saved invoice')
     } catch { setError('Failed to save invoice') }
   }
 

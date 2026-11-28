@@ -8,6 +8,7 @@ import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
 import { ComboInput } from '../components/ComboInput'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
 
 interface ExpenseItem {
   id: number; date: string; date_iso?: string; opening_balance: number; total_income: number; total_expenses: number
@@ -75,7 +76,7 @@ export function ExpensesPage() {
       const payload = { date, category, total_income: totalIncome || '0', total_expenses: totalExpenses || '0', payment_mode: paymentMode, remark, person_name: personName }
       if (editingId) { await request(`/expenses/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) }) }
       else { await request('/expenses', { method: 'POST', body: JSON.stringify(payload) }) }
-      setShowForm(false); resetForm(); await load()
+      setShowForm(false); resetForm(); showSaved('Saved expense'); await load()
     } catch { setLocalError(editingId ? 'Failed to update' : 'Failed to save') }
   }
 

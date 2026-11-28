@@ -16,8 +16,9 @@ import {
 import { useTracking } from '../lib/useTracking'
 import { Select } from '../components/Select'
 import { HistoryButton } from '../components/History'
+import { NoLink } from '../components/NoLink'
 
-type Editing = { id: number | null; form: QuotationInput; approval: QuotationApproval | null; remark?: string | null }
+type Editing = { id: number | null; form: QuotationInput; approval: QuotationApproval | null; remark?: string | null; createdBy?: string | null }
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
@@ -67,7 +68,7 @@ export default function QuotationsPage() {
       (!q || [r.quotation_no, r.client_name, r.subject, r.location, r.mobile_no].some((v) => (v ?? '').toLowerCase().includes(q))))
   }, [list, search, company, status, start, end, onlyWaiting])
   const waiting = list.filter((r) => r.approval !== 'approved').length
-  const openEditor = (r: Quotation) => setEditing({ id: r.id, form: quotationToInput(r), approval: r.approval, remark: r.approval_remark })
+  const openEditor = (r: Quotation) => setEditing({ id: r.id, form: quotationToInput(r), approval: r.approval, remark: r.approval_remark, createdBy: r.created_by_name })
 
   const changeStatus = async (row: Quotation, next: QuotationStatus) => {
     try {
@@ -107,8 +108,8 @@ export default function QuotationsPage() {
   }, [reload])
 
   const exportCsv = () => {
-    const head = ['Date', 'Quotation No', 'Company', 'Client', 'Subject', 'Site / Location', 'Sub Total', 'Discount', 'GST', 'Transport', 'Total', 'Valid Till', 'Status']
-    const rows = filtered.map((r) => [dotDate(r.date), r.quotation_no, COMPANIES[r.company].short, r.client_name, r.subject, r.location, r.total_amount, r.discount, r.tax_amount, r.transport, r.net_amount, dotDate(r.valid_until), r.status])
+    const head = ['Date', 'Quotation No', 'Company', 'Client', 'Subject', 'Site / Location', 'Sub Total', 'Discount', 'GST', 'Transport', 'Total', 'Status']
+    const rows = filtered.map((r) => [dotDate(r.date), r.quotation_no, COMPANIES[r.company].short, r.client_name, r.subject, r.location, r.total_amount, r.discount, r.tax_amount, r.transport, r.net_amount, r.status])
     const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }))
@@ -125,6 +126,7 @@ export default function QuotationsPage() {
         initial={editing.form}
         approval={editing.approval}
         approvalRemark={editing.remark}
+        createdByName={editing.createdBy}
         others={list}
         onClose={(changed) => { setEditing(null); if (changed) reload() }}
       />
@@ -162,16 +164,16 @@ export default function QuotationsPage() {
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table data-table--tight" style={{ minWidth: 1000 }}>
             <thead>
-              <tr><th>Date</th><th>Quotation No</th><th>Company</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Valid Till</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>Date</th><th>Quotation No</th><th>Company</th><th>Client</th><th>Subject</th><th style={{ textAlign: 'right' }}>Total</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="empty-state">{loading ? 'Loading quotations…' : list.length === 0 ? 'No quotations yet. Click “Create Quotation” to make the first one.' : 'No quotations match the filters.'}</td></tr>
+                <tr><td colSpan={8} className="empty-state">{loading ? 'Loading quotations…' : list.length === 0 ? 'No quotations yet. Click “Create Quotation” to make the first one.' : 'No quotations match the filters.'}</td></tr>
               ) : filtered.map((r) => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.date)}</td>
-                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>
-                    {r.quotation_no}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <NoLink title="Open quotation" onClick={() => openEditor(r)}>{r.quotation_no}</NoLink>
                     {r.approval !== 'approved' ? (
                       <div title={r.approval_remark ?? ''} style={{ maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.72rem', fontWeight: 600, color: r.approval === 'returned' ? '#b91c1c' : '#92400e' }}>
                         {r.approval === 'returned' ? `Sent back: ${r.approval_remark ?? ''}` : `Waiting for approval${r.approval_requested_by_name ? ` · ${r.approval_requested_by_name}` : ''}`}
@@ -182,7 +184,6 @@ export default function QuotationsPage() {
                   <td style={{ minWidth: 120, maxWidth: 260, whiteSpace: 'normal' }}>{r.client_name}</td>
                   <td style={{ minWidth: 120, maxWidth: 320, whiteSpace: 'normal' }}>{r.subject || '-'}{r.location ? <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{r.location}</div> : null}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{money2(r.net_amount)}{r.gst_mode === 'extra' ? <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>+ GST</div> : null}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{dotDate(r.valid_until) || '-'}</td>
                   <td>
                     <Select className="input" aria-label={`Status of ${r.quotation_no}`} value={r.status} onChange={(e) => void changeStatus(r, e.target.value as QuotationStatus)}
                       style={{ width: 118, minHeight: 32, padding: '2px 8px', fontSize: '0.8rem', fontWeight: 600, background: '#fff', color: '#0f172a' }}>
@@ -192,7 +193,7 @@ export default function QuotationsPage() {
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {canApprove && r.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(r)}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={r.approval !== 'approved'} onClick={() => print(r)}><Printer size={16} /></button>
-                    {canMail ? <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={r.approval !== 'approved'} onClick={() => mail(r)}><Mail size={16} /></button> : null}
+                    {canMail ? <button className="icon-button" type="button" title={r.approval === 'approved' ? 'Mail PDF' : 'Can be mailed after approval'} disabled={r.approval !== 'approved'} onClick={() => mail(r)}><Mail size={16} /></button> : null}
                     <HistoryButton type="Quotation" id={r.id} title={`Quotation ${r.quotation_no ?? ''} · ${r.client_name ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit" onClick={() => openEditor(r)}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(r)}><Trash2 size={16} /></button>

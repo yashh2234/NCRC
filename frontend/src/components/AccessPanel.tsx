@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Search, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { mailApi, type MailAccessUser } from '../lib/mail'
-import { BOX_FEATURES, canUserAccess, defaultFeaturesForRole, type BoxFeature } from '../lib/roleConfig'
+import { BOX_FEATURES, canUserAccess, type BoxFeature } from '../lib/roleConfig'
 import type { TrackerRole } from '../lib/types'
 
 /** Administration: Mail, Documents and the approvals of every user in one table. */
@@ -27,7 +27,7 @@ export function AccessPanel() {
   const toggle = async (u: MailAccessUser, key: BoxFeature) => {
     setSaving(`${u.id}-${key}`)
     try {
-      const { data } = await mailApi.setAccess(u.id, !has(u, key), defaultFeaturesForRole(u.tracker_role as TrackerRole), key)
+      const { data } = await mailApi.setAccess(u.id, !has(u, key), [], key)
       setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, allowed_modules: data.allowed_modules } : x)))
     } catch (e) {
       window.alert((e as Error).message)

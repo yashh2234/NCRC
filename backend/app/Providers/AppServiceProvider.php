@@ -22,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->ensureLegacyClientRegistrationsView();
+        // Admins are told about new enquiries, work orders, quotations sent… (bell + phone)
+        \App\Services\AdminActivity::register();
     }
 
     private function ensureLegacyClientRegistrationsView(): void

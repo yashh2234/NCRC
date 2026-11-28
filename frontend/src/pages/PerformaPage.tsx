@@ -14,6 +14,8 @@ import { useTracking } from '../lib/useTracking'
 import { UidSearch } from './BillingPage'
 import { Select } from '../components/Select'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 type Editing = { id: number | null; form: BillInput }
 
@@ -132,7 +134,7 @@ export function PerformaPage() {
               ) : filtered.map((p) => (
                 <tr key={p.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(p.invoice_date) || '-'}</td>
-                  <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: '#2563eb' }}>{p.invoice_no}<ApprovalNote approval={p} /></td>
+                  <td style={{ whiteSpace: 'nowrap' }}><NoLink title="Open performa invoice" onClick={() => setEditing({ id: p.id, form: performaToInput(p) })}>{p.invoice_no}</NoLink><ApprovalNote approval={p} /></td>
                   <td style={{ whiteSpace: 'nowrap' }}>{p.uid_no || '-'}</td>
                   <td style={{ minWidth: 200, maxWidth: 320, whiteSpace: 'normal' }}>{p.client_name || '-'}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{inr(p.subtotal)}</td>
@@ -141,7 +143,7 @@ export function PerformaPage() {
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {canApprove && p.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing(p)}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: false })}><Printer size={16} /></button>
-                    {canMail ? <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: true })}><Mail size={16} /></button> : null}
+                    {canMail ? <button className="icon-button" type="button" title={p.approval === 'approved' ? 'Mail PDF' : 'Can be mailed after approval'} disabled={p.approval !== 'approved'} onClick={() => setPrinting({ performa: p, mail: true })}><Mail size={16} /></button> : null}
                     <HistoryButton type="PerformaInvoice" id={p.id} title={`Performa ${p.invoice_no ?? ''} · ${p.client_name ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit" onClick={() => setEditing({ id: p.id, form: performaToInput(p) })}><Pencil size={16} /></button>
                     <button className="icon-button" type="button" title="Delete" onClick={() => void remove(p)}><Trash2 size={16} /></button>
@@ -273,7 +275,8 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
       setChanged(true)
       setDirty(false)
       const waits = data.approval !== 'approved'
-      setNotice(`Saved performa invoice ${data.invoice_no ?? ''}.${waits ? ' It waits for approval; then it can be printed and mailed from the list.' : ''}`)
+      showSaved(`Saved performa invoice ${data.invoice_no ?? ''}${waits ? ' · sent for approval' : ''}`)
+      onClose(true)
       approvedNow.current = !waits
       return saved
     } catch (e) {
@@ -419,7 +422,7 @@ function PerformaEditor({ id, initial, onClose }: { id: number | null; initial: 
           <Save size={16} /> {saving ? 'Saving…' : 'Save'}
         </button>
         {!canApprove ? <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e' }}>New or changed performa invoices wait for approval; after that they can be printed and mailed from the list.</p> : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <strong style={{ flex: 1, minWidth: 200 }}>Save and print / PDF</strong>
+          <strong style={{ flex: 1, minWidth: 200 }}>Print / PDF</strong>
           <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button>
           <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> Without Sign</button>
         </div>}

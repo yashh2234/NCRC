@@ -221,8 +221,8 @@ export function defaultFeaturesForRole(role: TrackerRole): string[] {
 
 /**
  * Can this user open the given module?
- * Full admins see everything. If an admin has saved a feature list for the user, that list decides;
- * otherwise the user keeps the defaults of their job role (the behaviour before per-user access existed).
+ * Full admins see everything; everyone else opens the pages ticked for them (plus the basic pages).
+ * The job role is only a label: it never gives access.
  */
 export function canUserAccess(user: AccessUser | null | undefined, requestedKey: string): boolean {
   if (!user) return false
@@ -230,10 +230,8 @@ export function canUserAccess(user: AccessUser | null | undefined, requestedKey:
   const moduleKey = requestedKey === 'credit_notes' || requestedKey === 'performa' ? 'billing' : requestedKey
   if (moduleKey === 'my_attendance' && user.is_super_admin) return false
   if (ALWAYS_ALLOWED.includes(moduleKey)) return true
-  const role = user.tracker_role ?? 'staff'
-  if (user.is_admin || role === 'admin') return true
-  if (Array.isArray(user.allowed_modules)) return user.allowed_modules.includes(moduleKey)
-  return isModuleAllowed(role, moduleKey)
+  if (user.is_admin) return true
+  return Array.isArray(user.allowed_modules) && user.allowed_modules.includes(moduleKey)
 }
 
 /**

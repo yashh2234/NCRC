@@ -5,6 +5,7 @@
  * shows real page numbers. "Save as PDF" in the print dialog gives the PDF.
  */
 import { feeTotal, formatFee, longDate, rupeesInWords, type ProposalInput } from './proposals'
+import { addPrintBackBar } from './printBack'
 
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string))
 
@@ -233,6 +234,7 @@ export function openProposalPrint(p: ProposalInput, target?: Window | null): voi
     <body><div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button><span>Choose “Save as PDF” as the printer to get a PDF. Paper: A4, margins: none.</span></div>
     <div id="pages"></div><div id="measure"></div></body></html>`)
   w.document.close()
+  addPrintBackBar(w)
 
   const doc = w.document
   const measure = doc.getElementById('measure')!

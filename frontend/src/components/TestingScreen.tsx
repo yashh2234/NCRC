@@ -3,6 +3,7 @@ import { X, Save, FileText } from 'lucide-react'
 import { api } from '../lib/api'
 import { LabHeaderFields } from './LabHeaderFields'
 import { ExcelLabReportEditor, resolveExcelTemplateKey } from './ExcelLabReportEditor'
+import { showSaved } from '../lib/toast'
 
 interface DetailRow {
   set_count?: number
@@ -72,10 +73,9 @@ export function TestingScreen({ reportId, reportType, uid_no, agencyName, onClos
       }
       await api.updateReport(reportType, reportId, { lab_data: { ...labData, _template: templateKey } })
       await api.saveObservations(reportType, reportId, payload as any)
-      setMessage(markComplete ? 'Report generated successfully' : 'Draft saved')
-      if (markComplete) {
-        setTimeout(() => onComplete(), 800)
-      }
+      showSaved(markComplete ? 'Report generated' : 'Draft saved')
+      if (markComplete) onComplete()
+      else onClose()
     } catch {
       setError('Failed to save observations')
     } finally {

@@ -5,6 +5,7 @@ import { DataTable } from '../components/DataTable'
 import { Req } from '../components/ui'
 import { Modal } from '../components/Modal'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 interface ClientRecord {
   id: number
@@ -98,6 +99,7 @@ export function ClientsPage() {
       setShowForm(false)
       setEditingClient(null)
       setFormData(emptyClient)
+      showSaved('Saved client')
       await loadClients()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save client')
@@ -111,6 +113,7 @@ export function ClientsPage() {
       await request(`/clients/${selectedClient.id}/contacts`, { method: 'POST', body: JSON.stringify(contactForm) })
       setShowContactForm(false)
       setContactForm({ name: '', designation: '', phone: '', mobile: '', email: '', is_primary: false })
+      showSaved('Saved contact')
       await loadClientDetail(selectedClient)
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to save contact') }
   }

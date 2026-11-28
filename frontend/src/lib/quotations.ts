@@ -71,16 +71,18 @@ export interface QuotationInput {
   signatory_name: string
   signatory_designation: string
   notes: string
+  /** Written by an admin, shown highlighted at the top for the users; not printed */
+  admin_remark: string
 }
 
 type NullableText = 'valid_until' | 'client_address' | 'client_gstin' | 'contact_person' | 'mobile_no' | 'email' | 'location'
-  | 'ref_no' | 'ref_date' | 'prepared_by' | 'subject' | 'intro' | 'payment_terms' | 'signatory_name' | 'signatory_designation' | 'notes'
+  | 'ref_no' | 'ref_date' | 'prepared_by' | 'subject' | 'intro' | 'payment_terms' | 'signatory_name' | 'signatory_designation' | 'notes' | 'admin_remark'
 
 /** approved · pending = waiting for approval · returned = sent back with a remark */
 export type QuotationApproval = 'approved' | 'pending' | 'returned'
 
 /** What prints, as the server compares it */
-export interface QuotationContent extends Record<'company' | 'quotation_no' | 'date' | 'gst_mode' | 'client_name', string>, Record<Exclude<NullableText, 'notes'>, string | null> {
+export interface QuotationContent extends Record<'company' | 'quotation_no' | 'date' | 'gst_mode' | 'client_name', string>, Record<Exclude<NullableText, 'notes' | 'admin_remark'>, string | null> {
   discount: number
   transport: number
   transport_gst: boolean
@@ -103,6 +105,7 @@ export interface Quotation extends Omit<QuotationInput, NullableText | 'items' |
   approval_by_name: string | null
   approval_at: string | null
   approval_requested_by_name: string | null
+  created_by_name: string | null
   approval_requested_at: string | null
   /** As it was when last approved; null when it never was */
   approved_content: QuotationContent | null
@@ -129,33 +132,11 @@ export const emptyQuotationItem = (): QuotationItem => ({ kind: 'item', descript
 export const emptyHeading = (kind: 'heading' | 'subheading'): QuotationItem => ({ ...emptyQuotationItem(), kind, quantity: '', unit: '' })
 export const emptySection = (): QuotationSection => ({ title: '', style: 'numbers', body: '', half: false })
 
-/** 2026-06-10 + 1 → 2026-07-10 (31 Jan → 28 / 29 Feb) */
-function addMonths(iso: string, months: number): string {
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!m) return ''
-  const [year, month, day] = [Number(m[1]), Number(m[2]) - 1 + months, Number(m[3])]
-  const d = new Date(year, month, Math.min(day, new Date(year, month + 1, 0).getDate()))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-export const oneMonthAfter = (iso: string) => addMonths(iso, 1)
-
-const MONTH_WORDS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve']
-
-/** Validity in words from the two dates: "One Month", "Three Months", else "45 Days"; '' when not set */
-export function validityText(date: string, validUntil: string): string {
-  if (!date || !validUntil || validUntil <= date) return ''
-  const months = MONTH_WORDS.findIndex((_, i) => addMonths(date, i + 1) === validUntil)
-  if (months >= 0) return `${MONTH_WORDS[months]} ${months ? 'Months' : 'Month'}`
-  const days = Math.round((Date.parse(validUntil) - Date.parse(date)) / 86400000)
-  return Number.isFinite(days) ? `${days} ${days === 1 ? 'Day' : 'Days'}` : ''
-}
-
 export function emptyQuotation(company: BillCompany): QuotationInput {
   return {
     company,
     inquiry_id: null,
-    quotation_no: '', date: today(), valid_until: oneMonthAfter(today()),
+    quotation_no: '', date: today(), valid_until: '',
     client_name: '', client_address: '', client_gstin: '', contact_person: '', mobile_no: '', email: '',
     location: '', ref_no: '', ref_date: '', prepared_by: '', subject: '', intro: '',
     items: [emptyQuotationItem()],
@@ -163,7 +144,7 @@ export function emptyQuotation(company: BillCompany): QuotationInput {
     payment_terms: DEFAULT_PAYMENT_TERMS,
     sections: [],
     signatory_name: company === 'ncs' ? 'Omendra Gupta' : '', signatory_designation: company === 'ncs' ? 'Director' : '',
-    notes: '',
+    notes: '', admin_remark: '',
   }
 }
 
@@ -237,7 +218,7 @@ export function quotationToInput(q: Quotation): QuotationInput {
     payment_terms: s(q.payment_terms),
     sections: q.sections.map((sec) => ({ ...sec })),
     signatory_name: s(q.signatory_name), signatory_designation: s(q.signatory_designation),
-    notes: s(q.notes),
+    notes: s(q.notes), admin_remark: s(q.admin_remark),
   }
 }
 

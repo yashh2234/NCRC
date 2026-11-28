@@ -11,6 +11,7 @@ import { useUsageClock } from '../lib/useTracking'
 import { duration, hrApi, type AttendanceStatus } from '../lib/hr'
 import { PUNCH_EVENT } from '../components/PunchButton'
 import { iconMap } from '../components/navIcons'
+import { HomeDashboard } from '../components/HomeDashboard'
 import { MailPage } from '../pages/MailPage'
 import type { MyQueueItem } from '../lib/types'
 import {
@@ -200,7 +201,7 @@ export function MobileApp({ groups, extras, canMail, activeModule, setActiveModu
             ) : tab !== 'home' && tab !== 'more' && !BUILTIN_TABS.some((b) => b.key === tab) && allModules.some((m) => m.key === tab) ? (
               <ModulePage moduleKey={tab}>{renderPage(tab)}</ModulePage>
             ) : tab === 'home' || !['approvals', 'jobs', 'more'].includes(tab) ? (
-              <HomeTab unread={unread} approvalCount={approvalCount} onCountApprovals={setApprovalCount} allModules={allModules} canMail={canMail}
+              <HomeTab onCountApprovals={setApprovalCount} allModules={allModules} canMail={canMail}
                 onOpen={setActiveModule} onTab={setTab} onPunch={() => setPunchOpen(true)} />
             ) : tab === 'approvals' ? (
               <ApprovalsTab onOpen={setActiveModule} onCount={setApprovalCount} />
@@ -222,7 +223,7 @@ export function MobileApp({ groups, extras, canMail, activeModule, setActiveModu
         </>
       )}
 
-      {punchOpen ? <PunchLoader onClose={closePunch} /> : null}
+      {punchOpen ? <PunchLoader onClose={closePunch} /> : <DailyCheckIn />}
     </div>
   )
 }
@@ -298,6 +299,13 @@ function useAttendance() {
   return { status, seconds }
 }
 
+/** A working day and not checked in yet: the check in shows over everything and cannot be closed */
+function DailyCheckIn() {
+  const { status, seconds } = useAttendance()
+  if (!status?.kept || !status.must_check_in || status.checked_in) return null
+  return <PunchSheet status={status} seconds={seconds} locked onClose={() => undefined} />
+}
+
 function PunchLoader({ onClose }: { onClose: () => void }) {
   const { status, seconds } = useAttendance()
   // Not in the attendance lists (e.g. the super admin): nothing to punch
@@ -308,12 +316,8 @@ function PunchLoader({ onClose }: { onClose: () => void }) {
 
 // ─── Home ────────────────────────────────────────────────────────────
 
-/** Quick actions on Home, in this order, for whoever may open them */
-const QUICK = ['leave', 'my_attendance', 'inquiries', 'expenses', 'quotations', 'registrations', 'holidays', 'reports', 'billing', 'tenders']
-
-function HomeTab({ unread, approvalCount, onCountApprovals, allModules, canMail, onOpen, onTab, onPunch }: {
-  unread: number
-  approvalCount: number | null
+/** Home on the phone: greeting, check in, then the user's dashboard */
+function HomeTab({ onCountApprovals, allModules, canMail, onOpen, onTab, onPunch }: {
   onCountApprovals: (n: number) => void
   allModules: NavItem[]
   canMail: boolean
@@ -333,7 +337,6 @@ function HomeTab({ unread, approvalCount, onCountApprovals, allModules, canMail,
     pushApi.config().then((c) => setPushKey(c.public_key)).catch(() => undefined)
   }, [onCountApprovals])
 
-  const quick = QUICK.map((k) => allModules.find((m) => m.key === k)).filter((m): m is NavItem => Boolean(m)).slice(0, 7)
   const hour = Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }))
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
@@ -369,23 +372,8 @@ function HomeTab({ unread, approvalCount, onCountApprovals, allModules, canMail,
         </section>
       ) : null}
 
-      <div className="m-stats">
-        <button type="button" className="m-card m-stat" onClick={() => onTab('approvals')}>
-          <Inbox size={20} /><strong>{approvalCount ?? '–'}</strong><span>Waiting for me</span>
-        </button>
-        <button type="button" className="m-card m-stat" onClick={() => onOpen('m_notifications')}>
-          <Bell size={20} /><strong>{unread}</strong><span>Unread alerts</span>
-        </button>
-      </div>
-
-      <h2 className="m-heading">Quick actions</h2>
-      <div className="m-grid">
-        {quick.map((m) => {
-          const Icon = iconMap[m.key] ?? ClipboardCheck
-          return <button type="button" key={m.key} className="m-tile" onClick={() => onOpen(m.key)}><span><Icon size={22} /></span>{m.label}</button>
-        })}
-        {canMail ? <button type="button" className="m-tile" onClick={() => onOpen('mail')}><span><Mail size={22} /></span>Mail</button> : null}
-      </div>
+      {/* The user's own dashboard: the same cards as on the computer, laid out for the phone */}
+      <HomeDashboard phone modules={[...allModules, ...(canMail ? [{ key: 'mail', label: 'Mail' }] : [])]} onOpen={onOpen} onApprovals={() => onTab('approvals')} />
     </div>
   )
 }

@@ -15,6 +15,8 @@ import {
 import { billPreview, openBillPrint, openPrintTab, type CreditNote } from '../lib/billPrint'
 import { Select } from '../components/Select'
 import { HistoryButton } from '../components/History'
+import { showSaved } from '../lib/toast'
+import { NoLink } from '../components/NoLink'
 
 interface BillingPageProps {
   /** Show only this UID's bills (from the Registrations "Bill" column) */
@@ -243,7 +245,7 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
                 <tr key={b.id} style={b.cancelled ? { background: '#fef2f2' } : undefined}>
                   <td style={{ whiteSpace: 'nowrap' }}>{dotDate(b.invoice_date) || '-'}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 700, color: b.cancelled ? '#94a3b8' : '#2563eb', textDecoration: b.cancelled ? 'line-through' : undefined }}>{b.invoice_no || '-'}</span>
+                    {b.invoice_no ? <NoLink title="Open invoice" strike={b.cancelled} onClick={() => void openEdit(b.id)}>{b.invoice_no}</NoLink> : '-'}
                     {b.cancelled ? <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }} title={b.cancel_reason ?? ''}>Cancelled{b.credit_note_no ? ` · CN ${b.credit_note_no}` : ''}</div> : null}
                     <ApprovalNote approval={b} />
                   </td>
@@ -257,7 +259,7 @@ export function BillingPage({ uidFilter = '', onClearUidFilter, createForUid = '
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {canApprove && b.approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => setReviewing({ bill: b, cn: false })}><ClipboardCheck size={16} /></button> : null}
                     <button className="icon-button" type="button" title={b.approval === 'approved' ? 'Print / PDF' : 'Can be printed after approval'} disabled={b.approval !== 'approved' && !(b.cancelled && b.credit_note_no)} onClick={() => (COMPANIES[b.company].seal ? setPrinting({ bill: b }) : openBillPrint(billToInput(b), false))}><Printer size={16} /></button>
-                    {canMail ? <button className="icon-button" type="button" title={b.approval === 'approved' ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={b.approval !== 'approved' && !(b.cancelled && b.credit_note_no)} onClick={() => mail(b)}><Mail size={16} /></button> : null}
+                    {canMail ? <button className="icon-button" type="button" title={b.approval === 'approved' ? 'Mail PDF' : 'Can be mailed after approval'} disabled={b.approval !== 'approved' && !(b.cancelled && b.credit_note_no)} onClick={() => mail(b)}><Mail size={16} /></button> : null}
                     <HistoryButton type="Bill" id={b.id} title={`Invoice ${b.invoice_no ?? ''} · ${b.client_name ?? ''}`} />
                     <button className="icon-button" type="button" title="Edit / record payment" onClick={() => void openEdit(b.id)}><Pencil size={16} /></button>
                     {b.cancelled ? (
@@ -362,7 +364,7 @@ function CreditNoteTable({ rows, loading, empty, onPrint, onMail, onReview, onMa
             <tr key={b.id}>
               <td style={{ whiteSpace: 'nowrap' }}>{dotDate(b.credit_note_date || b.cancelled_at) || '-'}</td>
               <td style={{ whiteSpace: 'nowrap', fontWeight: 700, color: b.credit_note_no ? '#dc2626' : '#94a3b8' }}>
-                {b.credit_note_no || 'Not made yet'}
+                {b.credit_note_no ? <NoLink title="Open credit note" onClick={() => onEdit(b)}>{b.credit_note_no}</NoLink> : 'Not made yet'}
                 {b.credit_note_no ? <ApprovalNote approval={creditNoteApproval(b)} /> : null}
               </td>
               <td style={{ whiteSpace: 'nowrap' }}>
@@ -377,7 +379,7 @@ function CreditNoteTable({ rows, loading, empty, onPrint, onMail, onReview, onMa
               <td style={{ whiteSpace: 'nowrap' }}>
                 {onReview && b.credit_note_no && b.cn_approval !== 'approved' ? <button className="icon-button" type="button" title="Check and approve" onClick={() => onReview(b)}><ClipboardCheck size={16} /></button> : null}
                 <button className="icon-button" type="button" title={canPrintAny(b) ? 'Print / PDF' : 'Can be printed after approval'} disabled={!canPrintAny(b)} onClick={() => onPrint(b)}><Printer size={16} /></button>
-                {onMail ? <button className="icon-button" type="button" title={canPrintAny(b) ? 'Mail the PDF' : 'Can be mailed after approval'} disabled={!canPrintAny(b)} onClick={() => onMail(b)}><Mail size={16} /></button> : null}
+                {onMail ? <button className="icon-button" type="button" title={canPrintAny(b) ? 'Mail PDF' : 'Can be mailed after approval'} disabled={!canPrintAny(b)} onClick={() => onMail(b)}><Mail size={16} /></button> : null}
                 <HistoryButton type="Bill" id={b.id} title={`Credit note ${b.credit_note_no ?? ''} · ${b.client_name ?? ''}`} />
                 {b.credit_note_no
                   ? <button className="icon-button" type="button" title="Edit credit note" onClick={() => onEdit(b)}><Pencil size={16} /></button>
@@ -415,7 +417,7 @@ function PrintChooser({ bill, cnOnly = false, mail = false, onClose }: { bill: B
     </div>
   )
   // Only the credit note (right after cancelling), or a choice between credit note and the original invoice
-  const title = mail ? (cn ? 'Mail the PDF' : 'Mail Invoice') : cn && cnOnly ? 'Print Credit Note' : cn ? 'Print / PDF' : 'Print Invoice'
+  const title = mail ? (cn ? 'Mail PDF' : 'Mail Invoice') : cn && cnOnly ? 'Print Credit Note' : cn ? 'Print / PDF' : 'Print Invoice'
   return (
     <Modal title={title} subtitle={`${COMPANIES[bill.company].short} · ${bill.client_name ?? ''}`} onClose={onClose} size="sm" footer={null}>
       {cn && cnOnly ? (
@@ -497,7 +499,8 @@ function CancelInvoice({ bill, cnOnly, onClose, onDone }: { bill: Bill; cnOnly: 
   )
 }
 
-const WAITS = ' It waits for approval; then it can be printed and mailed from the list.'
+/** After "Saved …": it still has to be approved */
+const SENT = ' · sent for approval'
 
 // ─── UID search ─────────────────────────────────────────────────────────
 
@@ -567,7 +570,6 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
   const [saving, setSaving] = useState(false)
   const [changed, setChanged] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [uidBusy, setUidBusy] = useState(false)
   /** Invoice no. typed by hand: stop replacing it with the suggestion */
@@ -635,7 +637,8 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
         setForm(creditNoteInput(saved.data))
         setChanged(true)
         setDirty(false)
-        setNotice(`Saved credit note ${saved.data.credit_note_no ?? ''}.${saved.data.cn_approval !== 'approved' ? WAITS : ''}`)
+        showSaved(`Saved credit note ${saved.data.credit_note_no ?? ''}${saved.data.cn_approval !== 'approved' ? SENT : ''}`)
+        onClose(true)
         return saved.data
       }
       const res = savedId ? await billsApi.update(savedId, form) : await billsApi.create(form)
@@ -644,7 +647,8 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
       setForm(billToInput(res.data))
       setChanged(true)
       setDirty(false)
-      setNotice(`Saved invoice ${res.data.invoice_no ?? ''}.${res.data.approval !== 'approved' ? WAITS : ''}`)
+      showSaved(`Saved invoice ${res.data.invoice_no ?? ''}${res.data.approval !== 'approved' ? SENT : ''}`)
+      onClose(true)
       return res.data
     } catch (e) {
       setError(e instanceof Error ? e.message : cn ? 'Could not save the credit note' : 'Could not save the invoice')
@@ -695,7 +699,6 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
         </h2>
         <span />
       </div>
-      {notice ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#f0fdf4', color: '#166534', fontSize: '0.85rem' }}>{notice}</p> : null}
       {error ? <p style={{ margin: '0 0 12px', padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: '0.85rem' }}>{error}</p> : null}
 
       {/* Company + references */}
@@ -857,7 +860,7 @@ function BillEditor({ id, initial, cn, onClose }: { id: number | null; initial: 
           <Save size={16} /> {saving ? 'Saving…' : 'Save'}
         </button>
         {!canApprove ? <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e' }}>New or changed {cn ? 'credit notes' : 'invoices'} wait for approval; after that they can be printed and mailed from the list. Recording a payment needs no approval.</p> : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <strong style={{ flex: 1, minWidth: 200 }}>Save and print / PDF</strong>
+          <strong style={{ flex: 1, minWidth: 200 }}>Print / PDF</strong>
           {co.seal ? <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(true)}><Stamp size={16} /> With Sign</button> : null}
           <button type="button" className="btn btn-outline" disabled={saving} onClick={() => void saveAndPrint(false)}><Printer size={16} /> {co.seal ? 'Without Sign' : 'Print'}</button>
         </div>}

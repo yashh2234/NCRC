@@ -31,7 +31,7 @@ class Timeline
         'Quotation' => ['module' => 'quotations', 'name' => 'Quotation', 'no' => 'quotation_no', 'fields' => [
             'quotation_no' => 'Quotation No.', 'date' => 'Date', 'valid_until' => 'Valid till', 'client_name' => 'Client', 'subject' => 'Subject',
             'discount' => 'Discount', 'transport' => 'Transport', 'net_amount' => 'Total', 'payment_terms' => 'Payment terms', 'status' => 'Status',
-            'sections' => 'Terms / sections', 'approval' => 'Approval',
+            'sections' => 'Terms / sections', 'approval' => 'Approval', 'admin_remark' => 'Admin remark',
         ]],
         'Tender' => ['module' => 'tenders', 'name' => 'Tender', 'no' => 'sr_no', 'fields' => [
             'tender_id' => 'Tender ID', 'title' => 'Title', 'department' => 'Department', 'value' => 'Value', 'bid_value' => 'Bid value',

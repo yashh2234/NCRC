@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { useTracking } from '../lib/useTracking'
 import { dmy, hrApi, num, stamp, todayIso, type LeaveBalance, type LeaveInput, type LeaveRequest, type LeaveType } from '../lib/hr'
 import { Select } from '../components/Select'
+import { showSaved } from '../lib/toast'
 
 type Tab = 'mine' | 'approve' | 'balances' | 'types'
 
@@ -134,7 +135,7 @@ function ApplyModal({ balances, onClose, onSaved }: { balances: LeaveBalance[]; 
     e.preventDefault()
     setSaving(true)
     setError('')
-    try { await hrApi.applyLeave(form); onSaved() } catch (err) { setError((err as Error).message); setSaving(false) }
+    try { await hrApi.applyLeave(form); showSaved('Leave application sent'); onSaved() } catch (err) { setError((err as Error).message); setSaving(false) }
   }
 
   return (
@@ -272,6 +273,7 @@ function TeamBalances({ year, canEdit }: { year: number; canEdit: boolean }) {
       const balances = await hrApi.setQuota({ user_id: edit.user_id, leave_type_id: edit.balance.leave_type_id, year, days: edit.days.trim() === '' ? null : Number(edit.days) })
       setRows((list) => list.map((r) => (r.user_id === edit.user_id ? { ...r, balances } : r)))
       setEdit(null)
+      showSaved()
     } catch (err) { window.alert((err as Error).message) } finally { setSaving(false) }
   }
 
@@ -331,7 +333,7 @@ function Types() {
     e.preventDefault()
     if (!edit) return
     setSaving(true)
-    try { await hrApi.saveLeaveType(edit.id, edit.form); setEdit(null); await load() } catch (err) { window.alert((err as Error).message) } finally { setSaving(false) }
+    try { await hrApi.saveLeaveType(edit.id, edit.form); setEdit(null); showSaved('Saved leave type'); await load() } catch (err) { window.alert((err as Error).message) } finally { setSaving(false) }
   }
 
   return (

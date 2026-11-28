@@ -12,9 +12,9 @@ class Attendance extends Model
 
     protected $table = 'attendances';
 
-    protected $fillable = ['user_id', 'date', 'check_in_at', 'check_out_at', 'in_lat', 'in_lng', 'in_accuracy', 'in_ip', 'in_note', 'out_lat', 'out_lng', 'out_accuracy', 'out_ip', 'out_note', 'auto_closed', 'correction_id', 'in_selfie', 'out_selfie'];
+    protected $fillable = ['user_id', 'date', 'check_in_at', 'check_out_at', 'in_lat', 'in_lng', 'in_accuracy', 'in_ip', 'in_note', 'out_lat', 'out_lng', 'out_accuracy', 'out_ip', 'out_note', 'auto_closed', 'out_entered', 'correction_id', 'in_selfie', 'out_selfie'];
 
-    protected $casts = ['date' => 'date:Y-m-d', 'check_in_at' => 'datetime', 'check_out_at' => 'datetime', 'in_lat' => 'float', 'in_lng' => 'float', 'out_lat' => 'float', 'out_lng' => 'float', 'auto_closed' => 'boolean'];
+    protected $casts = ['date' => 'date:Y-m-d', 'check_in_at' => 'datetime', 'check_out_at' => 'datetime', 'in_lat' => 'float', 'in_lng' => 'float', 'out_lat' => 'float', 'out_lng' => 'float', 'auto_closed' => 'boolean', 'out_entered' => 'boolean'];
 
     public function user(): BelongsTo
     {

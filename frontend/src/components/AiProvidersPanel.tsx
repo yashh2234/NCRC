@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, Bot } from 'lucide-react'
 import { KEY_PAGES, aiProvidersApi, type AiProvider } from '../lib/aiProviders'
 import { formatDateTime } from '../lib/inquiries'
+import { showSaved } from '../lib/toast'
 
 type Row = AiProvider & { api_key: string; remove_key: boolean }
 
@@ -50,7 +51,7 @@ export function AiProvidersPanel() {
       const list = await aiProvidersApi.save(rows.map(({ provider, api_key, remove_key, model, enabled }) => ({ provider, api_key: api_key.trim(), remove_key, model: model.trim(), enabled })))
       setRows(toRows(list))
       setDirty(false)
-      setNotice('Saved.')
+      showSaved()
     } catch (e) {
       setError((e as Error).message)
     } finally {
