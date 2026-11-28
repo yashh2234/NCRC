@@ -1,4 +1,5 @@
-export type TrackerRole = 'admin' | 'registration' | 'lab' | 'report_staff' | 'technical' | 'manager' | 'staff'
+/** Job role: only a label. 'staff' is the inside name for "no job role" */
+export type TrackerRole = 'admin' | 'registration' | 'lab' | 'report_staff' | 'accounts' | 'manager' | 'staff'
 
 export interface User {
   id: number
@@ -84,6 +85,8 @@ export interface RoleSummary {
 
 export interface UserRecord {
   id: number
+  /** User 1: listed only for full admins; always a full admin, active, never deleted */
+  is_super_admin?: boolean
   username: string
   email: string
   firstname: string
@@ -116,7 +119,8 @@ export interface UserFormData {
   gender: string
   is_active?: string
   is_admin: boolean
-  tracker_role: Exclude<TrackerRole, 'admin'>
+  /** '' = no job role */
+  tracker_role: Exclude<TrackerRole, 'admin' | 'staff'> | ''
   allowed_modules: string[]
 }
 

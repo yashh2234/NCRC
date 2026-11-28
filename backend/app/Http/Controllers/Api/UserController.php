@@ -18,7 +18,8 @@ class UserController extends Controller
         $this->authorizeLegacy($request, 'viewUser');
 
         $users = User::query()
-            ->where('id', '!=', 1)
+            // The super admin (user 1) is listed only for full admins
+            ->when(! $request->user()?->isFullAdmin(), fn ($query) => $query->where('id', '!=', 1))
             ->with('groups')
             ->orderBy('firstname')
             ->orderBy('lastname')
@@ -97,6 +98,7 @@ class UserController extends Controller
     public function show(Request $request, User $user): JsonResponse
     {
         $this->authorizeLegacy($request, 'viewUser');
+        $this->guardSuperAdmin($request, $user);
 
         $user->load('groups');
 
@@ -108,8 +110,15 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
         $this->authorizeLegacy($request, 'updateUser');
+        $this->guardSuperAdmin($request, $user);
 
         $validated = $request->validated();
+
+        // The super admin stays a full admin and stays active
+        if ($user->isSuperAdmin()) {
+            abort_if(array_key_exists('is_admin', $validated) && ! $validated['is_admin'], 422, 'The super admin always has full access.');
+            abort_if(array_key_exists('is_active', $validated) && ! $validated['is_active'], 422, 'The super admin cannot be made inactive.');
+        }
 
         // Don't let someone remove their own full-admin access and lock themselves out.
         if (array_key_exists('is_admin', $validated) && ! $validated['is_admin']
@@ -137,7 +146,8 @@ class UserController extends Controller
                 $payload['is_admin'] = (int) $validated['group_id'] === 1;
             }
             if (array_key_exists('tracker_role', $validated)) {
-                $payload['tracker_role'] = $validated['tracker_role'];
+                // The super admin has no job role
+                $payload['tracker_role'] = $user->isSuperAdmin() ? null : $validated['tracker_role'];
             }
             if (array_key_exists('allowed_modules', $validated)) {
                 $payload['allowed_modules'] = $this->normalizeModules($validated['allowed_modules'], $user->fresh()?->allowed_modules ?? []);
@@ -176,6 +186,7 @@ class UserController extends Controller
         $this->authorizeLegacy($request, 'deleteUser');
 
         abort_if((int) $request->user()?->id === (int) $user->id, 422, 'You cannot delete your own account.');
+        abort_if($user->isSuperAdmin(), 422, 'The super admin cannot be deleted.');
 
         DB::transaction(function () use ($user): void {
             $user->tokens()->delete();
@@ -210,6 +221,12 @@ class UserController extends Controller
         return array_values(array_intersect(User::FEATURE_KEYS, $modules));
     }
 
+    /** Only full admins see or change the super admin (user 1) */
+    private function guardSuperAdmin(Request $request, User $user): void
+    {
+        abort_if($user->isSuperAdmin() && ! $request->user()?->isFullAdmin(), 404);
+    }
+
     private function presentUser(User $user): array
     {
         $group = $user->groups->first();
@@ -225,10 +242,11 @@ class UserController extends Controller
             'gender' => (int) $user->gender,
             'date_of_birth' => $user->date_of_birth?->format('Y-m-d'),
             'is_admin' => $user->isFullAdmin(),
+            'is_super_admin' => $user->isSuperAdmin(),
             'name' => $user->name,
             'is_active' => (bool) ($user->is_active ?? true),
             'tracker_role' => $user->tracker_role,
-            'job_role' => $user->getAttributes()['tracker_role'] ?? null,
+            'job_role' => $user->isSuperAdmin() ? null : ($user->getAttributes()['tracker_role'] ?? null),
             'allowed_modules' => $user->allowed_modules,
             'group' => $group ? [
                 'id' => $group->id,

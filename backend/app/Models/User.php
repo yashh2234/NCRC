@@ -48,7 +48,8 @@ class User extends Authenticatable
     public const BOX_KEYS = ['mail', 'documents_site', 'quotation_approve', 'report_approve', 'bill_approve', 'leave_approve'];
 
     /** Job roles that drive the dashboard and the job queues. */
-    public const JOB_ROLES = ['registration', 'lab', 'report_staff', 'technical', 'manager', 'staff'];
+    /** Job roles (only a label). No role = null */
+    public const JOB_ROLES = ['registration', 'lab', 'report_staff', 'accounts', 'manager'];
 
     /** Permissions granted by the "Administration" feature (manage users). */
     private const USER_ADMIN_PERMISSIONS = ['view_users', 'create_users', 'update_users', 'delete_users', 'view_roles'];
@@ -159,13 +160,13 @@ class User extends Authenticatable
         if (str_contains($groupName, 'lab')) {
             return 'lab';
         }
-        if (str_contains($groupName, 'report staff') || str_contains($groupName, 'report')) {
+        if (str_contains($groupName, 'report') || str_contains($groupName, 'technical')) {
             return 'report_staff';
         }
-        if (str_contains($groupName, 'technical')) {
-            return 'technical';
+        if (str_contains($groupName, 'account')) {
+            return 'accounts';
         }
-        if (str_contains($groupName, 'hr') || str_contains($groupName, 'account') || str_contains($groupName, 'manager')) {
+        if (str_contains($groupName, 'hr') || str_contains($groupName, 'manager')) {
             return 'manager';
         }
 

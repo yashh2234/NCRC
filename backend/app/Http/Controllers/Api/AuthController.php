@@ -209,7 +209,7 @@ class AuthController extends Controller
             $trackerRole = $jobRole;
         } else {
             $roleMap = [
-                'technical'    => 'technical',
+                'technical'    => 'report_staff',
                 'report staff' => 'report_staff',
                 'lab employee' => 'lab',
                 'lab'          => 'lab',
@@ -217,7 +217,7 @@ class AuthController extends Controller
                 'registration' => 'registration',
                 'hr group'     => 'manager',
                 'manager'      => 'manager',
-                'accounts'     => 'manager',
+                'accounts'     => 'accounts',
             ];
             foreach ($groups as $group) {
                 $name = strtolower(trim($group->group_name));

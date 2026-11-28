@@ -209,7 +209,7 @@ export function MobileApp({ groups, extras, canMail, activeModule, setActiveModu
               <JobsTab onOpen={setActiveModule} />
             ) : (
               <MoreTab groups={groups} extras={extras} canMail={canMail} onOpen={setActiveModule} onUseDesktop={onUseDesktop}
-                userName={user?.name ?? ''} roleLabel={getRoleConfig(user?.tracker_role ?? 'staff').label} onLogout={() => void logout()} />
+                userName={user?.name ?? ''} roleLabel={user?.is_super_admin ? 'Super admin' : getRoleConfig(user?.tracker_role ?? 'staff').label} onLogout={() => void logout()} />
             )}
           </main>
           <nav className="m-tabbar keep-cols" aria-label="Main" style={{ gridTemplateColumns: `repeat(${shownTabs.length + 2}, 1fr)` }}>

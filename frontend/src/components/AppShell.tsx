@@ -449,7 +449,7 @@ export function AppShell({ groups, showInquiries, showProposals, showTenders, sh
               className="topbar-user"
               onClick={() => void logout()}
               type="button"
-              title={`${getRoleConfig(user?.tracker_role ?? 'staff').label} · Log out`}
+              title={[user?.is_super_admin ? 'Super admin' : getRoleConfig(user?.tracker_role ?? 'staff').label, 'Log out'].filter(Boolean).join(' · ')}
               aria-label={`Log out ${user?.name ?? ''}`}
             >
               <span className="topbar-user__name">{user?.name || 'User'}</span>

@@ -69,7 +69,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
   },
 
   lab: {
-    label: 'Lab / Field',
+    label: 'Lab',
     color: '#059669',
     bgColor: '#ecfdf5',
     description: 'Stages 2 (Field/Site Work) & 3 (Lab Testing) — Field work, sample collection, lab testing',
@@ -83,7 +83,7 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
   },
 
   report_staff: {
-    label: 'Report Staff',
+    label: 'Report',
     color: '#d97706',
     bgColor: '#fffbeb',
     description: 'Stage 4 (Report Drafting) — Report drafting & finalization',
@@ -96,19 +96,18 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     ownedStages: ['4. Report Drafting'],
   },
 
-  technical: {
-    label: 'Technical',
-    color: '#4f46e5',
-    bgColor: '#eef2ff',
-    description: 'Stage 5 (Report Review) — Technical review & approval',
+  accounts: {
+    label: 'Accounts',
+    color: '#0f766e',
+    bgColor: '#f0fdfa',
+    description: 'Invoices, payments, expenses and purchase orders',
     allowedModules: [
-      'dashboard', 'tenders', 'jobs', 'reports', 'final_reports', 'work_orders', 'ulr_add', 'ulr_register', 'ulr_links',
-      'lab', 'analytics', 'help_guide',
+      'dashboard', 'billing', 'expenses', 'purchase_orders', 'due_reports', 'clients', 'help_guide',
     ],
     dashboardWidgets: [
-      'welcome', 'my_queue', 'my_tasks', 'job_metrics', 'attention_needed',
+      'welcome', 'my_tasks', 'financial_snapshot', 'payment_followups',
     ],
-    ownedStages: ['5. Report Review'],
+    ownedStages: ['7. Payment Pending'],
   },
 
   manager: {
@@ -129,8 +128,9 @@ const ROLE_CONFIGS: Record<TrackerRole, RoleConfig> = {
     ownedStages: ['7. Payment Pending'],
   },
 
+  // No job role set
   staff: {
-    label: 'Staff',
+    label: '',
     color: '#6b7280',
     bgColor: '#f3f4f6',
     description: 'General staff — basic access',
@@ -198,13 +198,12 @@ const FEATURE_KEYS = new Set(FEATURES.map((f) => f.key))
 const ALWAYS_ALLOWED = ['dashboard', 'help_guide', 'my_attendance', 'leave', 'holidays']
 
 /** Job roles selectable per user (admin is the separate "Full admin access" switch). */
-export const JOB_ROLES: Array<{ key: Exclude<TrackerRole, 'admin'>; label: string }> = [
+export const JOB_ROLES: Array<{ key: Exclude<TrackerRole, 'admin' | 'staff'>; label: string }> = [
   { key: 'registration', label: 'Registration' },
-  { key: 'lab', label: 'Lab / Field' },
-  { key: 'report_staff', label: 'Report Staff' },
-  { key: 'technical', label: 'Technical' },
+  { key: 'lab', label: 'Lab' },
+  { key: 'report_staff', label: 'Report' },
+  { key: 'accounts', label: 'Accounts' },
   { key: 'manager', label: 'Manager' },
-  { key: 'staff', label: 'Staff' },
 ]
 
 interface AccessUser {
@@ -271,7 +270,6 @@ export function getUserDefaultRoleTab(role?: TrackerRole): string {
     case 'registration': return 'registration'
     case 'lab': return 'lab'
     case 'report_staff': return 'report_staff'
-    case 'technical': return 'technical'
     case 'manager': return 'manager'
     case 'admin': return 'all'
     default: return 'all'

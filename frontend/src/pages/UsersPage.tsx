@@ -14,15 +14,15 @@ import { showSaved } from '../lib/toast'
 const emptyUserForm: UserFormData = {
   username: '', email: '', password: '', password_confirmation: '',
   firstname: '', lastname: '', phone: '', gender: '1', is_active: '1',
-  date_of_birth: '', is_admin: false, tracker_role: 'staff', allowed_modules: [],
+  date_of_birth: '', is_admin: false, tracker_role: '', allowed_modules: [],
 }
 
 const FEATURE_GROUPS = [...new Set(FEATURES.map((f) => f.group))]
 
 function jobRoleOf(record: UserRecord): UserFormData['tracker_role'] {
-  if (record.job_role) return record.job_role
-  const derived = record.tracker_role
-  return derived && derived !== 'admin' ? derived : 'staff'
+  // The role set in the form, else the one from their old group; never "admin" or "staff" (= no job role)
+  const role = record.job_role || record.tracker_role
+  return JOB_ROLES.find((r) => r.key === role)?.key ?? ''
 }
 
 function accessSummary(record: UserRecord): string {
@@ -36,6 +36,7 @@ export function UsersPage() {
   const { users: userRecords, refresh, setStatus, error, clearError } = useAuth()
   const [form, setForm] = useState<UserFormData>(emptyUserForm)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const editingSuper = Boolean(userRecords.find((u) => u.id === editingId)?.is_super_admin)
   const [localError, setLocalError] = useState('')
   const [showForm, setShowForm] = useState(false)
 
@@ -69,7 +70,7 @@ export function UsersPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setLocalError(''); setStatus(editingId ? 'Updating user' : 'Creating user')
     try {
-      const payload = { ...form, gender: Number(form.gender), is_active: form.is_active === '1' }
+      const payload = { ...form, gender: Number(form.gender), is_active: form.is_active === '1', tracker_role: editingSuper ? null : form.tracker_role || null }
       if (editingId) { await api.updateUser(editingId, payload) } else { await api.createUser(payload) }
       setForm({ ...emptyUserForm }); setEditingId(null); setShowForm(false)
       showSaved(editingId ? 'User updated' : 'User created')
@@ -114,16 +115,18 @@ export function UsersPage() {
             username: record.username, email: record.email,
             group: (
               <span className="badge" style={{ background: '#f1f5f9', color: '#0f172a', fontWeight: 600 }}>
-                {JOB_ROLES.find((r) => r.key === jobRoleOf(record))?.label ?? 'Staff'}
+                {JOB_ROLES.find((r) => r.key === jobRoleOf(record))?.label ?? '—'}
               </span>
             ),
-            access: record.is_admin
+            access: record.is_super_admin
+              ? <span className="badge" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 700 }}>Super admin</span>
+              : record.is_admin
               ? <span className="badge" style={{ background: '#ede9fe', color: '#6d28d9', fontWeight: 700 }}>Full access</span>
               : <span style={{ fontSize: '0.8rem', color: '#475569' }}>{accessSummary(record)}</span>,
             is_active: record.is_active !== false ? <span className="badge badge-success">Active</span> : <span className="badge badge-danger">Inactive</span>,
             actions: <div className="row-actions-inline">
               <button className="icon-btn" onClick={() => beginEdit(record)} type="button" title="Edit"><UserCog size={15} /></button>
-              <button className="icon-btn" onClick={() => void handleDelete(record)} type="button" title="Delete"><Trash2 size={15} /></button>
+              {record.is_super_admin ? null : <button className="icon-btn" onClick={() => void handleDelete(record)} type="button" title="Delete"><Trash2 size={15} /></button>}
             </div>,
           }))}
         />
@@ -142,19 +145,20 @@ export function UsersPage() {
                 </label>
                 <label className="form-field"><span>Date of birth</span><DateInput value={form.date_of_birth} onChange={(date_of_birth) => setForm((c) => ({ ...c, date_of_birth }))} /></label>
               </div>
-              <label className="form-field" style={{ marginTop: 12 }}>
+              {editingSuper ? null : <label className="form-field" style={{ marginTop: 12 }}>
                 <span>Job role</span>
                 <Select value={form.tracker_role} onChange={(e) => setForm((c) => ({ ...c, tracker_role: e.target.value as UserFormData['tracker_role'] }))}>
+                  <option value="">No job role</option>
                   {JOB_ROLES.map((role) => <option key={role.key} value={role.key}>{role.label}</option>)}
                 </Select>
                 <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 4, display: 'block' }}>
                   A label shown with their name. It does not change which pages they can open: tick those below.
                 </span>
-              </label>
+              </label>}
 
               <div style={{ marginTop: 16, border: '1px solid var(--color-border, #e2e8f0)', borderRadius: 10, padding: 14 }}>
                 <label className="checkbox-label" style={{ fontWeight: 700 }}>
-                  <input type="checkbox" checked={form.is_admin} onChange={(e) => setForm((c) => ({ ...c, is_admin: e.target.checked }))} />
+                  <input type="checkbox" checked={form.is_admin} disabled={editingSuper} title={editingSuper ? 'The super admin always has full access' : undefined} onChange={(e) => setForm((c) => ({ ...c, is_admin: e.target.checked }))} />
                   Full admin access (all features)
                 </label>
 
@@ -187,7 +191,7 @@ export function UsersPage() {
                 )}
               </div>
               <label className="checkbox-label" style={{ marginTop: 12 }}>
-                <input type="checkbox" checked={form.is_active === '1'} onChange={(e) => setForm((c) => ({ ...c, is_active: e.target.checked ? '1' : '0' }))} />
+                <input type="checkbox" checked={form.is_active === '1'} disabled={editingSuper} title={editingSuper ? 'The super admin is always active' : undefined} onChange={(e) => setForm((c) => ({ ...c, is_active: e.target.checked ? '1' : '0' }))} />
                 Active
               </label>
               <div className="form-grid-2" style={{ marginTop: 12 }}>
